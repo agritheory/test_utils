@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "test-utils"
+version = "0.1.0"
+description = "AgriTheory Test Utilities and Fixtures"
+authors = ["Tyler Matteson <tyler@agritheory.com>"]
+readme = "README.md"
+packages = [{include = "test_utils"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
