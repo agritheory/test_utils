@@ -19,3 +19,8 @@ Structured data for testing
 - Replace data
 - Import new data
 - Configure instance
+
+
+## How to use this package
+- Install in Python
+- Install in Node
