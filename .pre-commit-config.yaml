@@ -28,8 +28,8 @@ repos:
     hooks:
       - id: validate_javascript_dependencies
         always_run: true
-        name: .github/validate_javascript_dependencies.py
-        entry: python3 .github/validate_javascript_dependencies.py
+        name: pre-commit/validate_javascript_dependencies.py
+        entry: python3 pre-commit/validate_javascript_dependencies.py
         language: system
         types: [python]
 
@@ -37,8 +37,8 @@ repos:
     hooks:
       - id: validate_python_dependencies
         always_run: true
-        name: .github/validate_python_dependencies.py
-        entry: python3 .github/validate_python_dependencies.py
+        name: pre-commit/validate_python_dependencies.py
+        entry: python3 pre-commit/validate_python_dependencies.py
         language: system
         types: [python]
 
