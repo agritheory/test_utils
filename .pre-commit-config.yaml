@@ -42,6 +42,15 @@ repos:
         language: system
         types: [python]
 
+  - repo: local
+    hooks:
+      - id: validate_customizations
+        always_run: true
+        name: pre-commit/validate_customizations.py
+        entry: python3 pre-commit/validate_customizations.py
+        language: system
+        types: [python]
+
 ci:
   autoupdate_schedule: weekly
   skip: []
