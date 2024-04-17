@@ -12,6 +12,10 @@ def get_files(app):
 		return files
 
 	for root, _, filenames in os.walk(app_dir):
+		# exclude directories node_modules, dist
+		if "node_modules" in root or "dist" in root:
+			continue
+
 		for filename in filenames:
 			if filename.endswith((".js", ".ts", ".py", ".md")):
 				if os.path.getsize(os.path.join(root, filename)) > 0:
