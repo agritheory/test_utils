@@ -22,16 +22,26 @@ def get_files(app):
 					files.append(os.path.join(root, filename))
 	return files
 
-def validate_copyright(files):
+def validate_copyright(app, files):
 	year = datetime.datetime.now().year
+	app_dir = pathlib.Path(__file__).resolve().parent.parent.parent / app / app
+
+	app_publisher = ""
+	hooks_file = app_dir / "hooks.py"
+	if hooks_file.is_file():
+		with open(hooks_file, "r") as file:
+			for line in file:
+				if "app_publisher" in line:
+					app_publisher = line.split("=")[1].strip().replace('"', "")
+					break
 
 	initial_js_string = "// Copyright (c) "
 	initial_py_string = "# Copyright (c) "
 	initial_md_string = "<!-- Copyright (c) "
 
-	copyright_js_string = f"// Copyright (c) {year}, AgriTheory and contributors\n// For license information, please see license.txt\n\n"
-	copyright_py_string = f"# Copyright (c) {year}, AgriTheory and contributors\n# For license information, please see license.txt\n\n"
-	copyright_md_string = f"<!-- Copyright (c) {year}, AgriTheory and contributors\nFor license information, please see license.txt-->\n\n"
+	copyright_js_string = f"// Copyright (c) {year}, {app_publisher} and contributors\n// For license information, please see license.txt\n\n"
+	copyright_py_string = f"# Copyright (c) {year}, {app_publisher} and contributors\n# For license information, please see license.txt\n\n"
+	copyright_md_string = f"<!-- Copyright (c) {year}, {app_publisher} and contributors\nFor license information, please see license.txt-->\n\n"
 
 	for file in files:
 		if file.endswith(".js") or file.endswith(".ts"):
@@ -61,4 +71,5 @@ def validate_and_write_file(file, initial_string, copyright_string):
 if __name__ == "__main__":
 	if sys.argv[1]:
 		files = get_files(sys.argv[1])
-		validate_copyright(files)
+		if files:
+			validate_copyright(sys.argv[1], files)
