@@ -51,6 +51,16 @@ repos:
         language: system
         types: [python]
 
+  - repo: local
+    hooks:
+      - id: validate_copyright
+        always_run: true
+        name: pre-commit/validate_copyright.py
+        # give app_name in entry python3 pre-commit/validate_copyright.py {app_name}
+        entry: python3 pre-commit/validate_copyright.py {app_name}
+        language: system
+        types: [python]
+
 ci:
   autoupdate_schedule: weekly
   skip: []
