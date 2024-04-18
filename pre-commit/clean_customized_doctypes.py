@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import pathlib
@@ -5,6 +6,8 @@ import sys
 import tempfile
 
 from validate_customizations import scrub
+
+DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 
 def get_customized_doctypes(app):
 	customized_doctypes = {}
@@ -38,6 +41,8 @@ def validate_and_clean_customized_doctypes(customized_doctypes):
 							for item_key, item_value in list(item.items()):
 								if item_value is None and item_key not in ["default", "value"]:
 									del item[item_key]
+								if item_key == "modified":
+									item["modified"] = datetime.datetime.now().strftime(DATETIME_FORMAT)
 
 					elif value is None and key not in ["default", "value"]:
 						del file_contents[key]
