@@ -4,10 +4,7 @@ import pathlib
 import sys
 import tempfile
 
-
-def scrub(txt: str) -> str:
-	"""Returns sluggified string. e.g. `Sales Order` becomes `sales_order`."""
-	return txt.replace(" ", "_").replace("-", "_").lower()
+from validate_customizations import scrub
 
 def get_customized_doctypes(app):
 	customized_doctypes = {}
