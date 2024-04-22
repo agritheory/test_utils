@@ -61,6 +61,16 @@ repos:
         language: system
         types: [python]
 
+  - repo: local
+    hooks:
+      - id: clean_customized_doctypes
+        always_run: true
+        # give app_name in entry python3 pre-commit/clean_customized_doctypes.py {app_name}
+        name: pre-commit/clean_customized_doctypes.py
+        entry: python3 pre-commit/clean_customized_doctypes.py {app_name}
+        language: system
+        types: [python]
+
 ci:
   autoupdate_schedule: weekly
   skip: []
