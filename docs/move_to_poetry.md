@@ -15,16 +15,16 @@ The following is a guide on converting the pyproject.toml file of the Beam app t
 
 #### To add dependency
 ```
-$ poetry add --group dev {python-package}
+$ poetry add {python-package}
 Eg.
-$ poetry add --group dev pytest-cov
+$ poetry add pytest-cov
 ```
 
 #### To add dev dependency
 ```
-$ poetry add {python-package}
+$ poetry add --group dev {python-package}
 Eg.
-$ poetry add pytest-cov
+$ poetry add --group dev pytest-cov
 ```
 
 #### To remove dependency
