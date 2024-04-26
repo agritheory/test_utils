@@ -7,7 +7,7 @@ try:
 	from frappe.cache_manager import clear_global_cache
 	from frappe.modules.import_file import calculate_hash
 except Exception as e:
-	raise(e)
+	raise (e)
 
 
 def load_customizations():
@@ -18,9 +18,13 @@ def load_customizations():
 			continue
 
 		print(f"Loading {app} customizations")
-		customizations_directory = Path().cwd().parent / "apps" / app / app / app / "custom"
+		customizations_directory = (
+			Path().cwd().parent / "apps" / app / app / app / "custom"
+		)
 
-		add_column(doctype="DocType", column_name="customization_hash", fieldtype="Text")
+		add_column(
+			doctype="DocType", column_name="customization_hash", fieldtype="Text"
+		)
 		clear_global_cache()
 
 		files = list(customizations_directory.glob("**/*.json"))
@@ -65,17 +69,26 @@ def load_customizations():
 				property_setter.flags.ignore_permissions = True
 				property_setter.insert()
 
-def add_customization_hash(doctype, app,file):
+
+def add_customization_hash(doctype, file):
 	calculated_hash = calculate_hash(file)
 	stored_hash = frappe.db.get_value("DocType", doctype, "customization_hash")
 
 	if not stored_hash:
-		frappe.db.set_value("DocType", doctype, "customization_hash", calculated_hash, update_modified=False)
+		frappe.db.set_value(
+			"DocType",
+			doctype,
+			"customization_hash",
+			calculated_hash,
+			update_modified=False,
+		)
 		stored_hash = calculated_hash
 
 	if calculated_hash in stored_hash:
 		return False
 
 	stored_hash += f" {calculated_hash}"
-	frappe.db.set_value("DocType", doctype, "customization_hash", stored_hash, update_modified=False)
+	frappe.db.set_value(
+		"DocType", doctype, "customization_hash", stored_hash, update_modified=False
+	)
 	return True
