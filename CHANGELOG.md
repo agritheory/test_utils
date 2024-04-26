@@ -2,6 +2,19 @@
 
 
 
+## v0.2.0 (2024-04-26)
+
+### Feature
+
+* feat: added release.yaml to github workflows ([`57f868f`](https://github.com/agritheory/test_utils/commit/57f868f1246328115a667776e4834e7803665177))
+
+### Unknown
+
+* Merge pull request #27 from MyuddinKhatri/add-release.yaml
+
+feat: added release.yaml to github workflows ([`d7b51db`](https://github.com/agritheory/test_utils/commit/d7b51db932ce98fb441d8a18cdf9bea77a310a21))
+
+
 ## v0.1.0 (2024-04-25)
 
 ### Documentation
