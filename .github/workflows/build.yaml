@@ -1,6 +1,6 @@
 name: build_wheel
 
-on: merge
+on: pull_request
 
 jobs:
   checkout:
