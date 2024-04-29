@@ -1,9 +1,9 @@
-name: test
+name: build_wheel
 
-on: pull_request
+on: merge
 
 jobs:
-  linting:
+  checkout:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,13 +14,13 @@ jobs:
           key: ${{ runner.os }}-pip
           restore-keys: ${{ runner.os }}-pip
 
-  test:
-    needs: linting
+  build_wheel:
+    needs: checkout
     strategy:
       fail-fast: true
       matrix:
         os: [ "ubuntu-latest", "macos-latest" ]
-        python-version: [ "3.8"] # build with only minimum support version for now
+        python-version: [ "3.8"] # build with only minimum supported version for now
 
     runs-on: ${{ matrix.os }}
     steps:
