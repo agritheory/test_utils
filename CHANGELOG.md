@@ -2,6 +2,41 @@
 
 
 
+## v0.2.1 (2024-05-01)
+
+### Ci
+
+* ci: build project wheel (#29)
+
+* ci: build project wheel
+
+* chore: better naming for GHA steps
+
+* fix: event name ([`60182d6`](https://github.com/agritheory/test_utils/commit/60182d679272af0f33e82869b2735fd0cf91d81c))
+
+### Fix
+
+* fix: package name ([`2921c57`](https://github.com/agritheory/test_utils/commit/2921c572549b92e5a03a6bff00acdcede5336768))
+
+### Unknown
+
+* Restructure (#30)
+
+* wip: restructure
+
+* feat: added customize.py
+
+* format: formate customize.py with black
+
+* fix: compute hash for concatenated data for standard and custom json
+
+* wip: restruacture
+
+---------
+
+Co-authored-by: Myuddin khatri &lt;khatrimayu111@gmail.com&gt; ([`75c5367`](https://github.com/agritheory/test_utils/commit/75c5367235eaf648197caceb362915b289ed917f))
+
+
 ## v0.2.0 (2024-04-26)
 
 ### Feature
