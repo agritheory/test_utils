@@ -9,7 +9,7 @@ from validate_customizations import scrub
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 
-def get_customized_doctypes(app):
+def get_customized_doctypes_to_clean(app):
 	customized_doctypes = {}
 
 	app_dir = pathlib.Path(__file__).resolve().parent.parent.parent / app
@@ -52,5 +52,5 @@ def validate_and_clean_customized_doctypes(customized_doctypes):
 
 if __name__ == "__main__":
 	if sys.argv[1]:
-		customized_doctypes = get_customized_doctypes(sys.argv[1])
+		customized_doctypes = get_customized_doctypes_to_clean(sys.argv[1])
 		validate_and_clean_customized_doctypes(customized_doctypes)
