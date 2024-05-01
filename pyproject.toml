@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "test-utils"
+name = "test_utils"
 version = "0.2.0"
 description = "AgriTheory Test Utilities and Fixtures"
 authors = ["AgriTheory <support@agritheory.dev>"]
