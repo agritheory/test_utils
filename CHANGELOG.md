@@ -2,6 +2,13 @@
 
 
 
+## v0.2.2 (2024-05-04)
+
+### Fix
+
+* fix: sync hrms customization if hrms in installed apps (#33) ([`5fec2bd`](https://github.com/agritheory/test_utils/commit/5fec2bd0722206018dc094dd409e62ffdae97442))
+
+
 ## v0.2.1 (2024-05-01)
 
 ### Ci
