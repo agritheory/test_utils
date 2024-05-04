@@ -1,6 +1,9 @@
+import ast
 import json
 from pathlib import Path
+import sys
 import tempfile
+import types
 
 try:
 	import frappe
@@ -8,6 +11,7 @@ try:
 	from frappe.cache_manager import clear_global_cache
 	from frappe.modules.import_file import calculate_hash
 	from frappe.modules import get_doctype_module
+	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 except Exception as e:
 	raise (e)
 
@@ -71,6 +75,25 @@ def load_customizations():
 					)
 					property_setter.flags.ignore_permissions = True
 					property_setter.insert()
+
+	if "hrms" in apps:
+		sync_hrms_customizations()
+
+
+def sync_hrms_customizations():
+	app_dir = Path().cwd().parent / "apps"
+	p = ast.parse((app_dir / "hrms" / "hrms" / "setup.py").read_text())
+	for node in p.body[:]:
+		if not isinstance(node, ast.FunctionDef) or node.name != "get_custom_fields":
+			p.body.remove(node)
+	module = types.ModuleType("hrms")
+	code = compile(p, "setup.py", "exec")
+	sys.modules["hrms"] = module
+	exec(code, module.__dict__)
+	import hrms
+
+	hrms_custom_fields = hrms.get_custom_fields()
+	create_custom_fields(hrms_custom_fields, ignore_validate=True)
 
 
 def add_customization_hash(doctype, file):
