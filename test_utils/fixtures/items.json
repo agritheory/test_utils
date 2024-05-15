@@ -1,0 +1,230 @@
+[
+	{
+		"item_code": "Ambrosia Pie",
+		"item_group": "Baked Goods",
+		"uom": "Nos",
+		"item_price": 10.00,
+		"default_warehouse": "Baked Goods - APC",
+		"description": "<div><p>Ambrosia Pie is the marquee product of Ambrosia Pie Company. A filling of heavenly cloudberries pair perfectly with the tart hairless rambutan, finished with drizzles of tayberry nectar. It's a feast fit for Mt Olympus!</p></div>"
+	},
+	{
+		"item_code": "Double Plum Pie",
+		"uom": "Nos",
+		"item_group": "Baked Goods",
+		"default_warehouse": "Baked Goods - APC",
+		"item_price": 9.00,
+		"description": "<div><p>Double the fun and double the flavor with our Double Plum Pie! We combine damson and cocoplums in a daring tropical-meets-temperate filling. Forbidden fruit never tasted this good.</p></div>"
+	},
+	{
+		"item_code": "Gooseberry Pie",
+		"uom": "Nos",
+		"item_group": "Baked Goods",
+		"item_price": 12.00,
+		"default_warehouse": "Baked Goods - APC",
+		"description": "<div><p>Our delicious take on the traditional gooseberry pie that tastes like the holidays. This classic pie is best shared with the ones you love.</p></div>"
+	},
+	{
+		"item_code": "Kaduka Key Lime Pie",
+		"item_group": "Baked Goods",
+		"uom": "Nos",
+		"item_price": 9.00,
+		"default_warehouse": "Baked Goods - APC",
+		"description": "<div><p>Take your tastebuds on an adventure with this whimsical twist on the classic Key Lime pie. Made with kaduka limes and the exotic limequat, this seasonal pie is sure to satisfy even the most weary culinary explorer. Grab it when you can - it's only available April through September.</p></div>"
+	},
+	{
+		"item_code": "Ambrosia Pie Filling",
+		"uom": "Cup",
+		"item_group": "Sub Assemblies",
+		"default_warehouse": "Refrigerator - APC",
+		"description": "Ambrosia Pie Filling"
+	},
+	{
+		"item_code": "Double Plum Pie Filling",
+		"uom": "Cup",
+		"item_group": "Sub Assemblies",
+		"default_warehouse": "Refrigerator - APC",
+		"description": "Double Plum Pie Filling"
+	},
+	{
+		"item_code": "Gooseberry Pie Filling",
+		"uom": "Cup",
+		"description": "Gooseberry Pie Filling",
+		"item_group": "Sub Assemblies",
+		"default_warehouse": "Refrigerator - APC"
+	},
+	{
+		"item_code": "Kaduka Key Lime Pie Filling",
+		"item_group": "Sub Assemblies",
+		"default_warehouse": "Refrigerator - APC",
+		"uom": "Cup",
+		"description": "Kaduka Key Lime Pie Filling"
+	},
+	{
+		"item_code": "Pie Crust",
+		"uom": "Nos",
+		"description": "Pie Crust",
+		"item_group": "Sub Assemblies",
+		"default_warehouse": "Refrigerator - APC"
+	},
+	{
+		"item_code": "Cloudberry",
+		"uom": "Pound",
+		"description": "Our Own Cloudberry",
+		"item_group": "Ingredients",
+		"item_price": 10.00,
+		"default_warehouse": "Refrigerator - APC",
+		"supplier": "Chelsea Fruit Co"
+	},
+	{
+		"item_code": "Cocoplum",
+		"uom": "Pound",
+		"description": "Cocoplum",
+		"item_group": "Ingredients",
+		"item_price": 5.57,
+		"default_warehouse": "Refrigerator - APC",
+		"supplier": "Chelsea Fruit Co"
+	},
+	{
+		"item_code": "Damson Plum",
+		"uom": "Pound",
+		"description": "Damson Plum",
+		"item_group": "Ingredients",
+		"item_price": 13.30,
+		"default_warehouse": "Refrigerator - APC",
+		"supplier": "Chelsea Fruit Co"
+	},
+	{
+		"item_code": "Gooseberry",
+		"uom": "Pound",
+		"description": "Gooseberry",
+		"item_group": "Ingredients",
+		"item_price": 14.84,
+		"default_warehouse": "Refrigerator - APC",
+		"supplier": "Chelsea Fruit Co"
+	},
+	{
+		"item_code": "Hairless Rambutan",
+		"uom": "Pound",
+		"description": "Hairless Rambutan",
+		"item_price": 7.64,
+		"item_group": "Ingredients",
+		"default_warehouse": "Storeroom - APC",
+		"supplier": "Chelsea Fruit Co"
+	},
+	{
+		"item_code": "Kaduka Lime",
+		"uom": "Pound",
+		"description": "Kaduka Lime",
+		"item_group": "Ingredients",
+		"item_price": 13.38,
+		"default_warehouse": "Storeroom - APC",
+		"supplier": "Chelsea Fruit Co"
+	},
+	{
+		"item_code": "Limequat",
+		"uom": "Pound",
+		"description": "Limequat",
+		"item_group": "Ingredients",
+		"item_price": 11.04,
+		"default_warehouse": "Refrigerator - APC",
+		"supplier": "Chelsea Fruit Co"
+	},
+	{
+		"item_code": "Tayberry",
+		"uom": "Pound",
+		"description": "Tayberry - Box",
+		"item_group": "Ingredients",
+		"item_price": 12.79,
+		"default_warehouse": "Refrigerator - APC",
+		"supplier": "Chelsea Fruit Co"
+	},
+	{
+		"item_code": "Butter",
+		"uom": "Pound",
+		"description": "Butter",
+		"item_group": "Ingredients",
+		"item_price": 4.5,
+		"default_warehouse": "Refrigerator - APC",
+		"supplier": "Freedom Provisions"
+	},
+	{
+		"item_code": "Cornstarch",
+		"uom": "Pound",
+		"description": "Cornstarch",
+		"item_group": "Ingredients",
+		"item_price": 0.52,
+		"default_warehouse": "Storeroom - APC",
+		"supplier": "Freedom Provisions"
+	},
+	{
+		"item_code": "Ice Water",
+		"uom": "Cup",
+		"item_price": 0.01,
+		"description": "Ice Water - necessary for pie crusts",
+		"item_group": "Ingredients",
+		"default_warehouse": "Refrigerator - APC"
+	},
+	{
+		"item_code": "Flour",
+		"uom": "Pound",
+		"description": "Flour",
+		"item_group": "Ingredients",
+		"item_price": 0.66,
+		"default_warehouse": "Storeroom - APC",
+		"supplier": "Freedom Provisions"
+	},
+	{
+		"item_code": "Pie Box",
+		"uom": "Nos",
+		"description": "Pie Box",
+		"item_group": "Bakery Supplies",
+		"item_price": 0.4,
+		"default_warehouse": "Storeroom - APC",
+		"supplier": "Unity Bakery Supply"
+	},
+	{
+		"item_code": "Pie Tin",
+		"uom": "Nos",
+		"description": "Pie Tin",
+		"item_price": 0.18,
+		"item_group": "Bakery Supplies",
+		"default_warehouse": "Storeroom - APC",
+		"supplier": "Unity Bakery Supply"
+	},
+	{
+		"item_code": "Parchment Paper",
+		"uom": "Nos",
+		"description": "Parchment Paper",
+		"item_group": "Bakery Supplies",
+		"item_price": 0.02,
+		"default_warehouse": "Storeroom - APC",
+		"supplier": "Unity Bakery Supply"
+	},
+	{
+		"item_code": "Salt",
+		"uom": "Pound",
+		"description": "Salt",
+		"item_group": "Ingredients",
+		"item_price": 0.36,
+		"default_warehouse": "Storeroom - APC",
+		"supplier": "Freedom Provisions"
+	},
+	{
+		"item_code": "Sugar",
+		"uom": "Pound",
+		"description": "Sugar",
+		"item_group": "Ingredients",
+		"item_price": 0.60,
+		"default_warehouse": "Storeroom - APC",
+		"supplier": "Freedom Provisions"
+	},
+	{
+		"item_code": "Water",
+		"uom": "Cup",
+		"item_price": 0.00,
+		"description": "Water",
+		"item_group": "Ingredients",
+		"default_warehouse": "Kitchen - APC",
+		"supplier": "Freedom Provisions"
+	}
+]
