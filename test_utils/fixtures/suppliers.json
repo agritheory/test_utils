@@ -1,0 +1,194 @@
+[
+	{
+		"supplier_name": "Freedom Provisions",
+		"payment_terms": null,
+		"supplier_group": "Bakery",
+		"supplier_default_mode_of_payment": null,
+		"address": {
+			"address_line1": "16 Margrave",
+			"city": "Carlisle",
+			"state": "NH",
+			"country": "United States",
+			"pincode": "57173"
+		}
+	},
+	{
+		"supplier_name": "Unity Bakery Supply",
+		"payment_terms": null,
+		"supplier_group": "Bakery",
+		"supplier_default_mode_of_payment": null,
+		"address": {
+			"address_line1": "34 Pinar St",
+			"city": "Unity",
+			"state": "RI",
+			"country": "United States",
+			"pincode": "34291"
+		}
+	},
+	{
+		"supplier_name": "Chelsea Fruit Co",
+		"payment_terms": null,
+		"supplier_group": "Bakery",
+		"supplier_default_mode_of_payment": null,
+		"address": {
+			"address_line1": "67C Sweeny Street",
+			"city": "Chelsea",
+			"state": "MA",
+			"country": "United States",
+			"pincode": "89077"
+		}
+	},
+	{
+		"supplier_name": "Credible Contract Baking",
+		"payment_terms": null,
+		"subcontracting_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"parent": "Credible Contract Baking",
+				"parentfield": "subcontracting_defaults",
+				"parenttype": "Supplier",
+				"return_warehouse": "Baked Goods - APC",
+				"wip_warehouse": "Credible Contract Baking - APC"
+			}
+		],
+		"supplier_default_mode_of_payment": null,
+		"supplier_group": "Bakery",
+		"address": {
+			"address_line1": "4 Crumb Circle",
+			"city": "Belmont",
+			"state": "MA",
+			"country": "United States",
+			"pincode": "89074"
+		}
+	},
+	{
+		"supplier_name": "Southern Fruit Supply",
+		"payment_terms": null,
+		"supplier_group": "Bakery",
+		"supplier_default_mode_of_payment": null,
+		"address": {
+			"address_line1": "10001 Pineapple Way",
+			"city": "Largo",
+			"state": "TX",
+			"country": "United States",
+			"pincode": "89574"
+		}
+	},
+	{
+		"supplier_name": "Exceptional Grid",
+		"payment_terms": "Net 14",
+		"supplier_default_mode_of_payment": "ACH/EFT",
+		"supplier_group": "Services",
+		"address": {
+			"address_line1": "2 Cosmo Point",
+			"city": "Summerville",
+			"state": "MA",
+			"country": "United States",
+			"pincode": "34791"
+		}
+	},
+	{
+		"supplier_name": "Liu & Loewen Accountants LLP",
+		"payment_terms": "Net 30",
+		"supplier_group": "Services",
+		"supplier_default_mode_of_payment": null,
+		"address": {
+			"address_line1": "138 Wanda Square",
+			"city": "Chino",
+			"state": "ME",
+			"country": "United States",
+			"pincode": "90953"
+		}
+	},
+	{
+		"supplier_name": "Mare Digitalis",
+		"payment_terms": "Due on Receipt",
+		"supplier_default_mode_of_payment": "Credit Card",
+		"supplier_group": "Services",
+		"address": {
+			"address_line1": "1000 Toll Plaza Tunnel Alley",
+			"city": "Joplin",
+			"state": "CT",
+			"country": "United States",
+			"pincode": "51485"
+		}
+	},
+	{
+		"supplier_name": "AgriTheory",
+		"payment_terms": "Net 14",
+		"supplier_default_mode_of_payment": "Check",
+		"supplier_group": "Services",
+		"address": {
+			"address_line1": "1293 Bannan Road",
+			"city": "New Brighton",
+			"state": "NH",
+			"country": "United States",
+			"pincode": "55932"
+		}
+	},
+	{
+		"supplier_name": "HIJ Telecom, Inc",
+		"payment_terms": "Net 30",
+		"supplier_default_mode_of_payment": "Check",
+		"supplier_group": "Services",
+		"address": {
+			"address_line1": "955 Winding Highway",
+			"city": "Glassboro",
+			"state": "NY",
+			"country": "United States",
+			"pincode": "28026"
+		}
+	},
+	{
+		"supplier_name": "Sphere Cellular",
+		"payment_terms": "Net 30",
+		"supplier_default_mode_of_payment": "ACH/EFT",
+		"supplier_group": "Services",
+		"address": {
+			"address_line1": "1198 Carpenter Road",
+			"city": "Rolla",
+			"state": "VT",
+			"country": "United States",
+			"pincode": "94286"
+		}
+	},
+	{
+		"supplier_name": "Cooperative Ag Finance",
+		"payment_terms": "Net 30",
+		"supplier_default_mode_of_payment": "Bank Draft",
+		"supplier_group": "Services",
+		"address": {
+			"address_line1": "629 Loyola Landing",
+			"city": "Warner Robins",
+			"state": "CT",
+			"country": "United States",
+			"pincode": "28989"
+		}
+	},
+	{
+		"supplier_name": "Tireless Equipment Rental, Inc",
+		"payment_terms": "18 Month Rental Agreement",
+		"supplier_default_mode_of_payment": "Check",
+		"supplier_group": "Services",
+		"address": {
+			"address_line1": "385 Crespi Road",
+			"city": "Garfield",
+			"state": "VT",
+			"country": "United States",
+			"pincode": "28327"
+		}
+	},
+	{
+		"supplier_name": "Local Tax Authority",
+		"payment_terms": "Due on Receipt",
+		"supplier_group": "Services",
+		"supplier_default_mode_of_payment": null,
+		"address": {
+			"address_line1": "18 Spooner Stravenue",
+			"city": "Danbury",
+			"state": "RI",
+			"country": "United States",
+			"pincode": "07165"
+		}
+	}
+]
