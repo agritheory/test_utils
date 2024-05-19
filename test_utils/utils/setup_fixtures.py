@@ -66,7 +66,7 @@ def create_item_groups():
 	for item_group in item_groups:
 		if frappe.db.exists("Item Group", item_group.get("item_group_name")):
 			continue
-		item_group = frappe.new_doc("Item Group")
-		item_group.item_group_name = item_group.get("item_group_name")
-		item_group.parent_item_group = item_group.get("parent_item_group")
-		item_group.save()
+		ig = frappe.new_doc("Item Group")
+		ig.item_group_name = item_group.get("item_group_name")
+		ig.parent_item_group = item_group.get("parent_item_group")
+		ig.save()
