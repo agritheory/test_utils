@@ -36,7 +36,7 @@ def create_suppliers(settings):
 			)
 		elif supplier.get("supplier_name") == "Tireless Equipment Rental, Inc":
 			biz.number_of_invoices_per_check_voucher = 1
-		biz.default_price_list = "Bakery Buying"
+		biz.default_price_list = "Standard Buying"
 		biz.save()
 
 		existing_address = frappe.get_value("Address", {"address_line1": supplier.get("address")["address_line1"]})
