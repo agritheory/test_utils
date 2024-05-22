@@ -306,5 +306,230 @@
 		"item_group": "Ingredients",
 		"default_warehouse": "Kitchen - APC",
 		"supplier": "Freedom Provisions"
+	},
+	{
+		"description": "Electricity",
+		"grant_commission": 0,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Electricity",
+		"item_defaults": [
+			{
+				"company": "Chelsea Fruit Co",
+				"default_supplier": "Exceptional Grid",
+				"default_warehouse": ""
+			}
+		],
+		"item_group": "Services",
+		"item_name": "Electricity",
+		"maintain_stock": 0,
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"supplier": "Exceptional Grid"
+			}
+		]
+	},
+	{
+		"description": "Accounting Services",
+		"grant_commission": 0,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Accounting Services",
+		"item_defaults": [
+			{
+				"company": "Chelsea Fruit Co",
+				"default_supplier": "Liu & Loewen Accountants LLP",
+				"default_warehouse": ""
+			}
+		],
+		"item_group": "Services",
+		"item_name": "Accounting Services",
+		"maintain_stock": 0,
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"supplier": "Liu & Loewen Accountants LLP"
+			}
+		]
+	},
+	{
+		"description": "Cloud Services",
+		"grant_commission": 0,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Cloud Services",
+		"item_defaults": [
+			{
+				"company": "Chelsea Fruit Co",
+				"default_supplier": "Mare Digitalis",
+				"default_warehouse": ""
+			}
+		],
+		"item_group": "Services",
+		"item_name": "Cloud Services",
+		"maintain_stock": 0,
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"supplier": "Mare Digitalis"
+			}
+		]
+	},
+	{
+		"description": "ERPNext Consulting",
+		"grant_commission": 0,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "ERPNext Consulting",
+		"item_defaults": [
+			{
+				"company": "Chelsea Fruit Co",
+				"default_supplier": "AgriTheory",
+				"default_warehouse": ""
+			}
+		],
+		"item_group": "Services",
+		"item_name": "ERPNext Consulting",
+		"maintain_stock": 0,
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"supplier": "AgriTheory"
+			}
+		]
+	},
+	{
+		"description": "Internet Services",
+		"grant_commission": 0,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Internet Services",
+		"item_defaults": [
+			{
+				"company": "Chelsea Fruit Co",
+				"default_supplier": "HIJ Telecom, Inc",
+				"default_warehouse": ""
+			}
+		],
+		"item_group": "Services",
+		"item_name": "Internet Services",
+		"maintain_stock": 0,
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"supplier": "HIJ Telecom, Inc"
+			}
+		]
+	},
+	{
+		"description": "Phone Services",
+		"grant_commission": 0,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Phone Services",
+		"item_defaults": [
+			{
+				"company": "Chelsea Fruit Co",
+				"default_supplier": "Sphere Cellular",
+				"default_warehouse": ""
+			}
+		],
+		"item_group": "Services",
+		"item_name": "Phone Services",
+		"maintain_stock": 0,
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"supplier": "Sphere Cellular"
+			}
+		]
+	},
+	{
+		"description": "Financial Services",
+		"grant_commission": 0,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Financial Services",
+		"item_defaults": [
+			{
+				"company": "Chelsea Fruit Co",
+				"default_supplier": "Cooperative Ag Finance",
+				"default_warehouse": ""
+			}
+		],
+		"item_group": "Services",
+		"item_name": "Financial Services",
+		"maintain_stock": 0,
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"supplier": "Cooperative Ag Finance"
+			}
+		]
+	},
+	{
+		"description": "Equipment Rental",
+		"grant_commission": 0,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Equipment Rental",
+		"item_defaults": [
+			{
+				"company": "Chelsea Fruit Co",
+				"default_supplier": "Tireless Equipment Rental, Inc",
+				"default_warehouse": ""
+			}
+		],
+		"item_group": "Services",
+		"item_name": "Equipment Rental",
+		"maintain_stock": 0,
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"supplier": "Tireless Equipment Rental, Inc"
+			}
+		]
+	},
+	{
+		"description": "Payroll Taxes",
+		"grant_commission": 0,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Payroll Taxes",
+		"item_defaults": [
+			{
+				"company": "Chelsea Fruit Co",
+				"default_supplier": "Local Tax Authority",
+				"default_warehouse": ""
+			}
+		],
+		"item_group": "Services",
+		"item_name": "Payroll Taxes",
+		"maintain_stock": 0,
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"supplier": "Local Tax Authority"
+			}
+		]
 	}
 ]
