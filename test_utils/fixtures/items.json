@@ -1,311 +1,1250 @@
 [
 	{
-		"item_code": "Ambrosia Pie",
-		"item_group": "Baked Goods",
-		"uom": "Nos",
-		"item_price": 10.00,
-		"default_warehouse": "Baked Goods - APC",
-		"description": "<div><p>Ambrosia Pie is the marquee product of Ambrosia Pie Company. A filling of heavenly cloudberries pair perfectly with the tart hairless rambutan, finished with drizzles of tayberry nectar. It's a feast fit for Mt Olympus!</p></div>"
-	},
-	{
-		"item_code": "Double Plum Pie",
-		"uom": "Nos",
-		"item_group": "Baked Goods",
-		"default_warehouse": "Baked Goods - APC",
-		"item_price": 9.00,
-		"description": "<div><p>Double the fun and double the flavor with our Double Plum Pie! We combine damson and cocoplums in a daring tropical-meets-temperate filling. Forbidden fruit never tasted this good.</p></div>"
-	},
-	{
-		"item_code": "Gooseberry Pie",
-		"uom": "Nos",
-		"item_group": "Baked Goods",
-		"item_price": 12.00,
-		"default_warehouse": "Baked Goods - APC",
-		"description": "<div><p>Our delicious take on the traditional gooseberry pie that tastes like the holidays. This classic pie is best shared with the ones you love.</p></div>"
-	},
-	{
-		"item_code": "Kaduka Key Lime Pie",
-		"item_group": "Baked Goods",
-		"uom": "Nos",
-		"item_price": 9.00,
-		"default_warehouse": "Baked Goods - APC",
-		"description": "<div><p>Take your tastebuds on an adventure with this whimsical twist on the classic Key Lime pie. Made with kaduka limes and the exotic limequat, this seasonal pie is sure to satisfy even the most weary culinary explorer. Grab it when you can - it's only available April through September.</p></div>"
-	},
-	{
-		"item_code": "Tower of Bay-bel",
-		"uom": "Nos",
-		"item_group": "Baked Goods",
-		"item_price": 20.00,
-		"default_warehouse": "Refrigerated Display - APC",
-		"description": "<div><p>Reach for the stars with this epic all-things-bayberry dessert that stacks a Bayberry Pocket on top of our Bayberry Pie.</p></div>"
-	},
-	{
-		"item_code": "Pocketful of Bay",
-		"uom": "Nos",
-		"item_group": "Baked Goods",
-		"item_price": 12.00,
-		"default_warehouse": "Refrigerated Display - APC",
-		"description": "<div><p>Try this delightful combination of a Bayberry Pocket and two additional Bayberry Poppers.</p></div>"
-	},
-	{
-		"item_code": "Bayberry Pie",
-		"uom": "Nos",
-		"item_group": "Sub Assemblies",
-		"item_price": 11.00,
-		"default_warehouse": "Refrigerated Display - APC",
-		"description": "<div><p>This pie features the sweet and scrumptious bayberry and is sure to be a crowd-pleaser.</p></div>"
-	},
-	{
-		"item_code": "Bayberry Pocket",
-		"uom": "Nos",
-		"item_group": "Sub Assemblies",
-		"item_price": 8.00,
-		"default_warehouse": "Refrigerated Display - APC",
-		"description": "<div><p>Need a little more than one popper? The Bayberry Pocket is a tasty dough pocket stuffed with several Bayberry Poppers.</p></div>"
-	},
-	{
-		"item_code": "Bayberry Popper",
-		"uom": "Nos",
-		"item_group": "Sub Assemblies",
-		"item_price": 3.00,
-		"default_warehouse": "Refrigerated Display - APC",
-		"description": "<div><p>Part cookie, part tart, these bite-sized treats will bring a little sweetness to your day.</p></div>"
-	},
-	{
-		"item_code": "Ambrosia Pie Filling",
-		"uom": "Cup",
-		"item_group": "Sub Assemblies",
-		"default_warehouse": "Refrigerator - APC",
-		"description": "Ambrosia Pie Filling"
-	},
-	{
-		"item_code": "Double Plum Pie Filling",
-		"uom": "Cup",
-		"item_group": "Sub Assemblies",
-		"default_warehouse": "Refrigerator - APC",
-		"description": "Double Plum Pie Filling"
-	},
-	{
-		"item_code": "Gooseberry Pie Filling",
-		"uom": "Cup",
-		"description": "Gooseberry Pie Filling",
-		"item_group": "Sub Assemblies",
-		"default_warehouse": "Refrigerator - APC"
-	},
-	{
-		"item_code": "Bayberry Pie Filling",
-		"uom": "Cup",
-		"description": "Bayberry Pie Filling",
-		"item_group": "Sub Assemblies",
-		"default_warehouse": "Refrigerator - APC"
-	},
-	{
-		"item_code": "Kaduka Key Lime Pie Filling",
-		"item_group": "Sub Assemblies",
-		"default_warehouse": "Refrigerator - APC",
-		"uom": "Cup",
-		"description": "Kaduka Key Lime Pie Filling"
-	},
-	{
-		"item_code": "Pie Crust",
-		"uom": "Nos",
-		"description": "Pie Crust",
-		"item_group": "Sub Assemblies",
-		"default_warehouse": "Refrigerator - APC"
-	},
-	{
-		"item_code": "Pie Crust Service per Hour",
-		"uom": "Hour",
-		"description": "Subcontracted pie crust manufacturing service. Item price is per hour.",
-		"item_group": "Sub Assemblies",
-		"default_warehouse": "Credible Contract Baking - APC",
-		"is_sub_contracted_item": 1,
-		"is_stock_item": 0,
-		"item_price": 40.00,
-		"default_supplier": "Credible Contract Baking",
-		"supplier": "Credible Contract Baking"
-	},
-	{
-		"item_code": "Pie Crust Service per Crust",
-		"uom": "Nos",
-		"description": "Subcontracted pie crust manufacturing service. Item price is per crust.",
-		"item_group": "Sub Assemblies",
-		"default_warehouse": "Credible Contract Baking - APC",
-		"is_sub_contracted_item": 1,
-		"is_stock_item": 0,
-		"item_price": 2.00,
-		"default_supplier": "Credible Contract Baking",
-		"supplier": "Credible Contract Baking"
-	},
-	{
-		"item_code": "Cloudberry",
-		"uom": "Pound",
-		"description": "Our Own Cloudberry",
-		"item_group": "Ingredients",
-		"item_price": 10.00,
-		"default_warehouse": "Refrigerator - APC",
-		"supplier": "Chelsea Fruit Co"
-	},
-	{
-		"item_code": "Cocoplum",
-		"uom": "Pound",
-		"description": "Cocoplum",
-		"item_group": "Ingredients",
-		"item_price": 5.57,
-		"default_warehouse": "Refrigerator - APC",
-		"supplier": "Chelsea Fruit Co"
-	},
-	{
-		"item_code": "Damson Plum",
-		"uom": "Pound",
-		"description": "Damson Plum",
-		"item_group": "Ingredients",
-		"item_price": 13.30,
-		"default_warehouse": "Refrigerator - APC",
-		"supplier": "Chelsea Fruit Co"
-	},
-	{
-		"item_code": "Gooseberry",
-		"uom": "Pound",
-		"description": "Gooseberry",
-		"item_group": "Ingredients",
-		"item_price": 14.84,
-		"default_warehouse": "Refrigerator - APC",
-		"supplier": "Chelsea Fruit Co"
-	},
-	{
-		"item_code": "Hairless Rambutan",
-		"uom": "Pound",
-		"description": "Hairless Rambutan",
-		"item_price": 7.64,
-		"item_group": "Ingredients",
-		"default_warehouse": "Storeroom - APC",
-		"supplier": "Chelsea Fruit Co"
-	},
-	{
-		"item_code": "Kaduka Lime",
-		"uom": "Pound",
-		"description": "Kaduka Lime",
-		"item_group": "Ingredients",
-		"item_price": 13.38,
-		"default_warehouse": "Storeroom - APC",
-		"supplier": "Chelsea Fruit Co"
-	},
-	{
-		"item_code": "Limequat",
-		"uom": "Pound",
-		"description": "Limequat",
-		"item_group": "Ingredients",
-		"item_price": 11.04,
-		"default_warehouse": "Refrigerator - APC",
-		"supplier": "Chelsea Fruit Co"
-	},
-	{
-		"item_code": "Tayberry",
-		"uom": "Pound",
-		"description": "Tayberry - Box",
-		"item_group": "Ingredients",
-		"item_price": 12.79,
-		"default_warehouse": "Refrigerator - APC",
-		"supplier": "Chelsea Fruit Co"
-	},
-	{
-		"item_code": "Bayberry",
-		"uom": "Pound",
-		"description": "Bayberry",
-		"item_group": "Ingredients",
-		"item_price": 0.45,
-		"default_warehouse": "Refrigerator - APC",
-		"supplier": ["Chelsea Fruit Co", "Southern Fruit Supply"]
-	},
-	{
-		"item_code": "Butter",
-		"uom": "Pound",
-		"description": "Butter",
-		"item_group": "Ingredients",
-		"item_price": 4.5,
-		"default_warehouse": "Refrigerator - APC",
-		"supplier": "Freedom Provisions"
-	},
-	{
-		"item_code": "Cornstarch",
-		"uom": "Pound",
-		"description": "Cornstarch",
-		"item_group": "Ingredients",
-		"item_price": 0.52,
-		"default_warehouse": "Storeroom - APC",
-		"supplier": "Freedom Provisions"
-	},
-	{
-		"item_code": "Ice Water",
-		"uom": "Cup",
-		"item_price": 0.01,
+		"default_material_request_type": "Purchase",
 		"description": "Ice Water - necessary for pie crusts",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Ice Water",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
 		"item_group": "Ingredients",
-		"default_warehouse": "Refrigerator - APC"
+		"item_name": "Ice Water",
+		"name": "Ice Water",
+		"stock_uom": "Cup",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Cup"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
 	},
 	{
-		"item_code": "Flour",
-		"uom": "Pound",
-		"description": "Flour",
-		"item_group": "Ingredients",
-		"item_price": 0.66,
-		"default_warehouse": "Storeroom - APC",
-		"supplier": "Freedom Provisions"
-	},
-	{
-		"item_code": "Pie Box",
-		"uom": "Nos",
-		"description": "Pie Box",
-		"item_group": "Bakery Supplies",
-		"item_price": 0.4,
-		"default_warehouse": "Storeroom - APC",
-		"supplier": "Unity Bakery Supply"
-	},
-	{
-		"item_code": "Pie Tin",
-		"uom": "Nos",
-		"description": "Pie Tin",
-		"item_price": 0.18,
-		"item_group": "Bakery Supplies",
-		"default_warehouse": "Storeroom - APC",
-		"supplier": "Unity Bakery Supply"
-	},
-	{
-		"item_code": "Parchment Paper",
-		"uom": "Nos",
-		"description": "Parchment Paper",
-		"item_group": "Bakery Supplies",
-		"item_price": 0.02,
-		"default_warehouse": "Storeroom - APC",
-		"supplier": "Unity Bakery Supply"
-	},
-	{
-		"item_code": "Salt",
-		"uom": "Pound",
-		"description": "Salt",
-		"item_group": "Ingredients",
-		"item_price": 0.36,
-		"default_warehouse": "Storeroom - APC",
-		"supplier": "Freedom Provisions"
-	},
-	{
-		"item_code": "Sugar",
-		"uom": "Pound",
-		"description": "Sugar",
-		"item_group": "Ingredients",
-		"item_price": 0.60,
-		"default_warehouse": "Storeroom - APC",
-		"supplier": "Freedom Provisions"
-	},
-	{
-		"item_code": "Water",
-		"uom": "Cup",
-		"item_price": 0.00,
+		"default_material_request_type": "Purchase",
 		"description": "Water",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Water",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Kitchen - APC"
+			}
+		],
 		"item_group": "Ingredients",
-		"default_warehouse": "Kitchen - APC",
-		"supplier": "Freedom Provisions"
+		"item_name": "Water",
+		"name": "Water",
+		"stock_uom": "Cup",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Cup"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Cocoplum",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Cocoplum",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Cocoplum",
+		"name": "Cocoplum",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Chelsea Fruit Co"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Southern Fruit Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Damson Plum",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Damson Plum",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Damson Plum",
+		"name": "Damson Plum",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Chelsea Fruit Co"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Southern Fruit Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Gooseberry",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Gooseberry",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Gooseberry",
+		"name": "Gooseberry",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Chelsea Fruit Co"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Southern Fruit Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Hairless Rambutan",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Hairless Rambutan",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Hairless Rambutan",
+		"name": "Hairless Rambutan",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Chelsea Fruit Co"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Southern Fruit Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Kaduka Lime",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Kaduka Lime",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Kaduka Lime",
+		"name": "Kaduka Lime",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Chelsea Fruit Co"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Southern Fruit Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Limequat",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Limequat",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Limequat",
+		"name": "Limequat",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Chelsea Fruit Co"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Southern Fruit Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Tayberry",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Tayberry",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Tayberry",
+		"name": "Tayberry",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Chelsea Fruit Co"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Southern Fruit Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Bayberry",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Bayberry",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Bayberry",
+		"name": "Bayberry",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Chelsea Fruit Co"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Southern Fruit Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Butter",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Butter",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Butter",
+		"name": "Butter",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Freedom Provisions"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Chelsea Fruit Co"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Cornstarch",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Cornstarch",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Cornstarch",
+		"name": "Cornstarch",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Freedom Provisions"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Flour",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Flour",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Flour",
+		"name": "Flour",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Freedom Provisions"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Pie Box",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Pie Box",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null
+			}
+		],
+		"item_group": "Bakery Supplies",
+		"item_name": "Pie Box",
+		"name": "Pie Box",
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Freedom Provisions"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Unity Bakery Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Pie Tin",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Pie Tin",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null
+			}
+		],
+		"item_group": "Bakery Supplies",
+		"item_name": "Pie Tin",
+		"name": "Pie Tin",
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Freedom Provisions"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Unity Bakery Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Parchment Paper",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Parchment Paper",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null
+			}
+		],
+		"item_group": "Bakery Supplies",
+		"item_name": "Parchment Paper",
+		"name": "Parchment Paper",
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Freedom Provisions"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Unity Bakery Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Salt",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Salt",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Salt",
+		"name": "Salt",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Freedom Provisions"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Sugar",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Sugar",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Sugar",
+		"name": "Sugar",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Freedom Provisions"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "<div><p>Ambrosia Pie is the marquee product of Ambrosia Pie Company. A filling of heavenly cloudberries pair perfectly with the tart hairless rambutan, finished with drizzles of tayberry nectar. It's a feast fit for Mt Olympus!</p></div>",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 1,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Ambrosia Pie",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerated Display - APC"
+			}
+		],
+		"item_group": "Baked Goods",
+		"item_name": "Ambrosia Pie",
+		"name": "Ambrosia Pie",
+		"stock_uom": "Nos",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "<div><p>Double the fun and double the flavor with our Double Plum Pie! We combine damson and cocoplums in a daring tropical-meets-temperate filling. Forbidden fruit never tasted this good.</p></div>",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 1,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Double Plum Pie",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerated Display - APC"
+			}
+		],
+		"item_group": "Baked Goods",
+		"item_name": "Double Plum Pie",
+		"name": "Double Plum Pie",
+		"stock_uom": "Nos",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "<div><p>Our delicious take on the traditional gooseberry pie that tastes like the holidays. This classic pie is best shared with the ones you love.</p></div>",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 1,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Gooseberry Pie",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerated Display - APC"
+			}
+		],
+		"item_group": "Baked Goods",
+		"item_name": "Gooseberry Pie",
+		"name": "Gooseberry Pie",
+		"stock_uom": "Nos",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "<div><p>Take your tastebuds on an adventure with this whimsical twist on the classic Key Lime pie. Made with kaduka limes and the exotic limequat, this seasonal pie is sure to satisfy even the most weary culinary explorer. Grab it when you can - it's only available April through September.</p></div>",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 1,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Kaduka Key Lime Pie",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerated Display - APC"
+			}
+		],
+		"item_group": "Baked Goods",
+		"item_name": "Kaduka Key Lime Pie",
+		"name": "Kaduka Key Lime Pie",
+		"stock_uom": "Nos",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "<div><p>Reach for the stars with this epic all-things-bayberry dessert that stacks a Bayberry Pocket on top of our Bayberry Pie.</p></div>",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 1,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Tower of Bay-bel",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerated Display - APC"
+			}
+		],
+		"item_group": "Baked Goods",
+		"item_name": "Tower of Bay-bel",
+		"name": "Tower of Bay-bel",
+		"stock_uom": "Nos",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "<div><p>Try this delightful combination of a Bayberry Pocket and two additional Bayberry Poppers.</p></div>",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 1,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Pocketful of Bay",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerated Display - APC"
+			}
+		],
+		"item_group": "Baked Goods",
+		"item_name": "Pocketful of Bay",
+		"name": "Pocketful of Bay",
+		"stock_uom": "Nos",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "<div><p>This pie features the sweet and scrumptious bayberry and is sure to be a crowd-pleaser.</p></div>",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Bayberry Pie",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerated Display - APC"
+			}
+		],
+		"item_group": "Sub Assemblies",
+		"item_name": "Bayberry Pie",
+		"name": "Bayberry Pie",
+		"stock_uom": "Nos",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "<div><p>Need a little more than one popper? The Bayberry Pocket is a tasty dough pocket stuffed with several Bayberry Poppers.</p></div>",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Bayberry Pocket",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerated Display - APC"
+			}
+		],
+		"item_group": "Sub Assemblies",
+		"item_name": "Bayberry Pocket",
+		"name": "Bayberry Pocket",
+		"stock_uom": "Nos",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "<div><p>Part cookie, part tart, these bite-sized treats will bring a little sweetness to your day.</p></div>",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Bayberry Popper",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerated Display - APC"
+			}
+		],
+		"item_group": "Sub Assemblies",
+		"item_name": "Bayberry Popper",
+		"name": "Bayberry Popper",
+		"stock_uom": "Nos",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "Ambrosia Pie Filling",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Ambrosia Pie Filling",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Sub Assemblies",
+		"item_name": "Ambrosia Pie Filling",
+		"name": "Ambrosia Pie Filling",
+		"stock_uom": "Cup",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Cup"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "Double Plum Pie Filling",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Double Plum Pie Filling",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Sub Assemblies",
+		"item_name": "Double Plum Pie Filling",
+		"name": "Double Plum Pie Filling",
+		"stock_uom": "Cup",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Cup"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "Gooseberry Pie Filling",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Gooseberry Pie Filling",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Sub Assemblies",
+		"item_name": "Gooseberry Pie Filling",
+		"name": "Gooseberry Pie Filling",
+		"stock_uom": "Cup",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Cup"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "Bayberry Pie Filling",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Bayberry Pie Filling",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Sub Assemblies",
+		"item_name": "Bayberry Pie Filling",
+		"name": "Bayberry Pie Filling",
+		"stock_uom": "Cup",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Cup"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Manufacture",
+		"description": "Kaduka Key Lime Pie Filling",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 0,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Kaduka Key Lime Pie Filling",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Sub Assemblies",
+		"item_name": "Kaduka Key Lime Pie Filling",
+		"name": "Kaduka Key Lime Pie Filling",
+		"stock_uom": "Cup",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Cup"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Pie Crust",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 1,
+		"item_code": "Pie Crust",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": "",
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Sub Assemblies",
+		"item_name": "Pie Crust",
+		"name": "Pie Crust",
+		"stock_uom": "Nos",
+		"supplier_items": [],
+		"uoms": [
+			{
+				"conversion_factor": 20,
+				"uom": "Hour"
+			},
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 3.0196
+	},
+	{
+		"is_stock_item": 0,
+		"is_sub_contracted_item": 1,
+		"item_code": "Pie Crust Service per Crust",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": "Credible Contract Baking",
+				"default_warehouse": "Credible Contract Baking - APC"
+			}
+		],
+		"item_group": "Sub Assemblies",
+		"item_name": "Pie Crust Service per Crust",
+		"name": "Pie Crust Service per Crust",
+		"stock_uom": "Nos",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Credible Contract Baking"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Nos"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"is_stock_item": 0,
+		"is_sub_contracted_item": 1,
+		"item_code": "Pie Crust Service per Hour",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": "Credible Contract Baking",
+				"default_warehouse": "Credible Contract Baking - APC"
+			}
+		],
+		"item_group": "Sub Assemblies",
+		"item_name": "Pie Crust Service per Hour",
+		"name": "Pie Crust Service per Hour",
+		"stock_uom": "Hour",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Credible Contract Baking"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Hour"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
+	},
+	{
+		"default_material_request_type": "Purchase",
+		"description": "Cloudberry",
+		"grant_commission": 1,
+		"include_item_in_manufacturing": 1,
+		"is_purchase_item": 1,
+		"is_sales_item": 0,
+		"is_stock_item": 1,
+		"is_sub_contracted_item": 0,
+		"item_code": "Cloudberry",
+		"item_defaults": [
+			{
+				"company": "Ambrosia Pie Company",
+				"default_supplier": null,
+				"default_warehouse": "Refrigerator - APC"
+			}
+		],
+		"item_group": "Ingredients",
+		"item_name": "Cloudberry",
+		"name": "Cloudberry",
+		"stock_uom": "Pound",
+		"supplier_items": [
+			{
+				"requires_rfq": 0,
+				"supplier": "Chelsea Fruit Co"
+			},
+			{
+				"requires_rfq": 0,
+				"supplier": "Southern Fruit Supply"
+			}
+		],
+		"uoms": [
+			{
+				"conversion_factor": 1,
+				"uom": "Pound"
+			}
+		],
+		"valuation_method": "Moving Average",
+		"valuation_rate": 0
 	},
 	{
 		"description": "Electricity",
