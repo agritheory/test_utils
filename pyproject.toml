@@ -8,6 +8,9 @@ packages = [
 	{include = "test_utils"}
 ]
 
+[tool.poetry.scripts]
+validate_copyright = "test_utils.pre_commit.validate_copyright:main"
+
 [tool.poetry.dependencies]
 python = "^3.8"
 
