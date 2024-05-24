@@ -12,7 +12,7 @@ def get_fixtures_data_from_file(filename):
 		with open(app_dir / filename) as f:
 			return json.load(f)
 
-def create_items():
+def create_items(settings, shortlist=None):
 	items = get_fixtures_data_from_file(filename="items.json")
 	for item in items:
 		if frappe.db.exists("Item", item.get("item_code")):
@@ -21,7 +21,7 @@ def create_items():
 		i.update(item)
 		i.save()
 
-def create_item_groups():
+def create_item_groups(settings, shortlist=None):
 	item_groups = get_fixtures_data_from_file(filename="item_groups.json")
 
 	for item_group in item_groups:
