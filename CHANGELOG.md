@@ -2,6 +2,39 @@
 
 
 
+## v0.3.0 (2024-05-29)
+
+### Feature
+
+* feat: update validate_copyright to work as pre-commit hook (#41)
+
+* feat: update validate_copyright to work as pre-commit hook
+
+* docs: add docs for pre-commit config ([`16be96d`](https://github.com/agritheory/test_utils/commit/16be96d102e32659b4452a261187204792e4bad2))
+
+* feat(fixtures): fixtures data for items (#36)
+
+* feat(fixtures): fixtures data for items
+
+* feat(fixtures): fixtures data for items_groups
+
+* fix: update item fixtures from inventory_tools
+
+* feat: added builder functions to create item and item group
+
+* fix: change create_item_group variable
+
+* feat(fixtures): fixtures data for items from check_run
+
+* fix: move all data to json
+
+* fix: update builder function to directly update dict
+
+* fix: add shortlist api
+
+* fix: add only_create api and change function ([`fabb59d`](https://github.com/agritheory/test_utils/commit/fabb59de188a96dc00a2d910f837e8af73d5f2a9))
+
+
 ## v0.2.2 (2024-05-04)
 
 ### Fix
