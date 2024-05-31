@@ -1,0 +1,22 @@
+[
+	{
+		"item_group_name": "Baked Goods",
+		"parent_item_group": "All Item Groups"
+	},
+	{
+		"item_group_name": "Bakery Supplies",
+		"parent_item_group": "All Item Groups"
+	},
+	{
+		"item_group_name": "Ingredients",
+		"parent_item_group": "All Item Groups"
+	},
+	{
+		"item_group_name": "Bakery Equipment",
+		"parent_item_group": "All Item Groups"
+	},
+	{
+		"item_group_name": "Sub Assemblies",
+		"parent_item_group": "All Item Groups"
+	}
+]

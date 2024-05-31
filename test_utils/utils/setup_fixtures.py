@@ -6,70 +6,107 @@ try:
 except Exception as e:
 	raise (e)
 
+
 def get_fixtures_data_from_file(filename):
 	app_dir = pathlib.Path(__file__).resolve().parent.parent / "fixtures"
 	if pathlib.Path.exists(app_dir / filename):
 		with open(app_dir / filename) as f:
 			return json.load(f)
 
-def create_suppliers(settings):
+
+def create_suppliers(settings, only_create=None):
 	suppliers = get_fixtures_data_from_file("suppliers.json")
+	addresses = get_fixtures_data_from_file("addresses.json")
 
 	for supplier in suppliers:
+		if only_create and supplier.get("supplier_name") not in only_create:
+			continue
+
+		if frappe.db.exists("Supplier", supplier.get("supplier_name")):
+			continue
+
 		biz = frappe.new_doc("Supplier")
-		biz.supplier_name = supplier.get("supplier_name")
-		biz.supplier_group = "Bakery"
-		biz.country = "United States"
-		biz.supplier_default_mode_of_payment = supplier.get("supplier_default_mode_of_payment")
-		if biz.supplier_default_mode_of_payment == "ACH/EFT":
-			biz.bank = "Local Bank"
-			biz.bank_account = "123456789"
-		biz.currency = "USD"
-		if biz.supplier_name == "Credible Contract Baking":
-			biz.append(
-				"subcontracting_defaults",
-				{
-					"company": settings.company,
-					"wip_warehouse": "Credible Contract Baking - APC",
-					"return_warehouse": "Baked Goods - APC",
-				},
-			)
-		elif supplier.get("supplier_name") == "Tireless Equipment Rental, Inc":
-			biz.number_of_invoices_per_check_voucher = 1
-		biz.default_price_list = "Standard Buying"
+		biz.update(supplier)
 		biz.save()
 
-		existing_address = frappe.get_value("Address", {"address_line1": supplier.get("address")["address_line1"]})
+	for address in addresses:
+		existing_address = frappe.get_value(
+			"Address", {"address_line1": address.get("address_line1")}
+		)
 		if not existing_address:
 			addr = frappe.new_doc("Address")
-			addr.address_title = f"{supplier.get('supplier_name')} - {supplier.get('address')['city']}"
-			addr.address_type = "Billing"
-			addr.address_line1 = supplier.get("address")["address_line1"]
-			addr.city = supplier.get("address")["city"]
-			addr.state = supplier.get("address")["state"]
-			addr.country = supplier.get("address")["country"]
-			addr.pincode = supplier.get("address")["pincode"]
-		else:
-			addr = frappe.get_doc("Address", existing_address)
-		addr.append("links", {"link_doctype": "Supplier", "link_name": supplier.get("supplier_name")})
-		addr.save()
+			addr.update(address)
+			addr.save()
 
-	addr = frappe.new_doc("Address")
-	addr.address_type = "Billing"
-	addr.address_title = "HIJ Telecom - Burlingame"
-	addr.address_line1 = "167 Auto Terrace"
-	addr.city = "Burlingame"
-	addr.state = "ME"
-	addr.country = "United States"
-	addr.pincode = "79749"
-	addr.append("links", {"link_doctype": "Supplier", "link_name": "HIJ Telecom, Inc"})
-	addr.save()
 
-def create_supplier_groups():
+def create_payment_terms_template(settings, only_create=None):
+	payment_terms_templates = get_fixtures_data_from_file(
+		"payment_terms_templates.json"
+	)
+
+	for payment_terms_template in payment_terms_templates:
+		if only_create and payment_terms_template.get("template_name") not in only_create:
+			continue
+
+		if frappe.db.exists(
+			"Payment Terms Template", payment_terms_template.get("template_name")
+		):
+			continue
+
+		for payment_term in payment_terms_template.get("terms"):
+			pt = frappe.new_doc("Payment Term")
+			pt.payment_term_name = payment_term.get("payment_term")
+			pt.update(payment_term)
+			pt.save()
+
+		ptt = frappe.new_doc("Payment Terms Temmplate")
+		ptt.update(payment_terms_template)
+		ptt.save()
+
+
+def create_supplier_groups(settings, only_create=None):
 	supplier_groups = get_fixtures_data_from_file("supplier_groups.json")
 	for supplier_group in supplier_groups:
-		if not frappe.db.exists("Supplier Group", supplier_group.get("supplier_group_name")):
-			bsg = frappe.new_doc("Supplier Group")
-			bsg.supplier_group_name = supplier_group.get("supplier_group_name")
-			bsg.parent_supplier_group = supplier_group.get("parent_supplier_group")
-			bsg.save()
+
+		if only_create and supplier_group.get("supplier_group_name") not in only_create:
+			continue
+
+		if frappe.db.exists(
+			"Supplier Group", supplier_group.get("supplier_group_name")
+		):
+			continue
+
+		bsg = frappe.new_doc("Supplier Group")
+		bsg.update(supplier_group)
+		bsg.save()
+
+
+def create_items(settings, only_create=None):
+	items = get_fixtures_data_from_file(filename="items.json")
+	for item in items:
+
+		if only_create and item.get("item_code") not in only_create:
+			continue
+
+		if frappe.db.exists("Item", item.get("item_code")):
+			continue
+
+		i = frappe.new_doc("Item")
+		i.update(item)
+		i.save()
+
+
+def create_item_groups(settings, only_create=None):
+	item_groups = get_fixtures_data_from_file(filename="item_groups.json")
+
+	for item_group in item_groups:
+
+		if only_create and item_group.get("item_group_name") not in only_create:
+			continue
+
+		if frappe.db.exists("Item Group", item_group.get("item_group_name")):
+			continue
+
+		ig = frappe.new_doc("Item Group")
+		ig.update(item_group)
+		ig.save()
