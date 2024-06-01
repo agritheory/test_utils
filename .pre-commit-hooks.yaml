@@ -1,0 +1,6 @@
+- id: validate_copyright
+  name: validate_copyright
+  description: "Validate Copyright"
+  entry: validate_copyright
+  files: '\.(js|ts|py|md)$'
+  language: python

@@ -1,39 +1,19 @@
+
+import argparse
 import os
-import pathlib
 import datetime
 import tempfile
-import sys
-
-def get_files(app):
-	files = []
-
-	app_dir = pathlib.Path(__file__).resolve().parent.parent.parent / app
-	if not app_dir.is_dir():
-		return files
-
-	for root, _, filenames in os.walk(app_dir):
-		# exclude directories node_modules, dist
-		if "node_modules" in root or "dist" in root:
-			continue
-
-		for filename in filenames:
-			if filename.endswith((".js", ".ts", ".py", ".md")):
-				if os.path.getsize(os.path.join(root, filename)) > 0:
-					files.append(os.path.join(root, filename))
-	return files
+from typing import Sequence
 
 def validate_copyright(app, files):
 	year = datetime.datetime.now().year
-	app_dir = pathlib.Path(__file__).resolve().parent.parent.parent / app / app
-
 	app_publisher = ""
-	hooks_file = app_dir / "hooks.py"
-	if hooks_file.is_file():
-		with open(hooks_file, "r") as file:
-			for line in file:
-				if "app_publisher" in line:
-					app_publisher = line.split("=")[1].strip().replace('"', "")
-					break
+
+	hooks_file = f"{app}/hooks.py"
+	with open(hooks_file, "r") as file:
+		for line in file:
+			if "app_publisher" in line:
+				app_publisher = line.split("=")[1].strip().replace('"', "")
 
 	initial_js_string = "// Copyright (c) "
 	initial_py_string = "# Copyright (c) "
@@ -68,8 +48,13 @@ def validate_and_write_file(file, initial_string, copyright_string):
 			# Replace the original file with the temp file
 			os.replace(temp_file_path, file)
 
-if __name__ == "__main__":
-	if sys.argv[1]:
-		files = get_files(sys.argv[1])
-		if files:
-			validate_copyright(sys.argv[1], files)
+def main(argv: Sequence[str] = None):
+	parser = argparse.ArgumentParser()
+	parser.add_argument('filenames', nargs='*')
+	parser.add_argument('--app', action='append', help='An argument for the hook')
+	args = parser.parse_args(argv)
+
+	app = args.app[0]
+	files = args.filenames
+	if files:
+		validate_copyright(app, files)

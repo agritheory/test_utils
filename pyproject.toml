@@ -1,12 +1,15 @@
 [tool.poetry]
 name = "test_utils"
-version = "0.2.2"
+version = "0.3.0"
 description = "AgriTheory Test Utilities and Fixtures"
 authors = ["AgriTheory <support@agritheory.dev>"]
 readme = "README.md"
 packages = [
 	{include = "test_utils"}
 ]
+
+[tool.poetry.scripts]
+validate_copyright = "test_utils.pre_commit.validate_copyright:main"
 
 [tool.poetry.dependencies]
 python = "^3.8"
