@@ -9,3 +9,4 @@
   description: "Clean customized doctypes"
   entry: clean_customized_doctypes
   language: python
+  require_serial: true

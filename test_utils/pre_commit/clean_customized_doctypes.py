@@ -1,4 +1,5 @@
 import argparse
+import copy
 import datetime
 import json
 import os
@@ -34,11 +35,13 @@ def get_customized_doctypes_to_clean(app):
 
 
 def validate_and_clean_customized_doctypes(customized_doctypes):
+	modified_files = []
 	for doctype, customize_files in customized_doctypes.items():
 		for customize_file in customize_files:
 			temp_file_path = tempfile.mktemp()
 			with open(customize_file, "r") as f, open(temp_file_path, "w") as temp_file:
 				file_contents = json.load(f)
+				original_content = copy.deepcopy(file_contents)
 				for key, value in list(file_contents.items()):
 					if isinstance(value, list):
 						for item in value:
@@ -56,8 +59,14 @@ def validate_and_clean_customized_doctypes(customized_doctypes):
 					elif value is None and key not in ["default", "value"]:
 						del file_contents[key]
 
-				temp_file.write(json.dumps(file_contents, indent="\t", sort_keys=True))
-				os.replace(temp_file_path, customize_file)
+				if file_contents != original_content:
+					temp_file.write(json.dumps(file_contents, indent="\t", sort_keys=True))
+					os.replace(temp_file_path, customize_file)
+					modified_files.append(customize_file)
+				else:
+					os.remove(temp_file_path)
+
+	return modified_files
 
 
 def main(argv: Sequence[str] = None):
@@ -69,4 +78,6 @@ def main(argv: Sequence[str] = None):
 	app = args.app[0]
 	if app:
 		customized_doctypes = get_customized_doctypes_to_clean(app)
-		validate_and_clean_customized_doctypes(customized_doctypes)
+		modified_files = validate_and_clean_customized_doctypes(customized_doctypes)
+		for modified_file in modified_files:
+			print(f"File modified: {modified_file}")
