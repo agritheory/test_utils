@@ -4,3 +4,8 @@
   entry: validate_copyright
   files: '\.(js|ts|py|md)$'
   language: python
+- id: clean_customized_doctypes
+  name: clean_customized_doctypes
+  description: "Clean customized doctypes"
+  entry: clean_customized_doctypes
+  language: python
