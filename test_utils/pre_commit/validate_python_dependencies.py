@@ -1,10 +1,12 @@
 
+import argparse
 import pathlib
 import sys
 import toml
+from typing import Sequence
 
 def get_dependencies(app):
-	apps_dir = pathlib.Path(__file__).resolve().parent.parent.parent
+	apps_dir = pathlib.Path().resolve().parent
 	if pathlib.Path.exists(apps_dir / app / "pyproject.toml"):
 		with open(apps_dir / app / "pyproject.toml") as f:
 			return toml.load(f)
@@ -37,7 +39,7 @@ def get_versions(app):
 	return dependency_objects
 
 def get_mismatched_versions():
-	apps_order = pathlib.Path(__file__).resolve().parent.parent.parent.parent / "sites" / "apps.txt"
+	apps_order = pathlib.Path().resolve().parent.parent / "sites" / "apps.txt"
 	apps_order = apps_order.read_text().split("\n")
 	exceptions = []
 	app_packages = {app: get_versions(app) for app in apps_order}
@@ -57,14 +59,16 @@ def get_mismatched_versions():
 	return exceptions
 
 
-if __name__ == "__main__":
-	exceptions = get_mismatched_versions()
+def main(argv: Sequence[str] = None):
+	parser = argparse.ArgumentParser()
+	parser.add_argument("filenames", nargs="*")
+	args = parser.parse_args(argv)
 
+	exceptions = get_mismatched_versions()
 	if exceptions:
 		for exception in exceptions:
 			for package, apps in exception.items():
 				print(f"\nVersion mismatch for {package} in:")
 				for app, version in apps.items():
 					print(f"{app}: {version}")
-
-		sys.exit(1) if all(exceptions) else sys.exit(0)
+		sys.exit(1)
