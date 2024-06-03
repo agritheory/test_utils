@@ -9,6 +9,7 @@ packages = [
 ]
 
 [tool.poetry.scripts]
+clean_customized_doctypes = "test_utils.pre_commit.clean_customized_doctypes:main"
 validate_copyright = "test_utils.pre_commit.validate_copyright:main"
 validate_javascript_dependencies = "test_utils.pre_commit.validate_javascript_dependencies:main"
 validate_python_dependencies = "test_utils.pre_commit.validate_python_dependencies:main"

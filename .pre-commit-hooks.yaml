@@ -6,6 +6,13 @@
   language: python
   require_serial: true
 
+- id: clean_customized_doctypes
+  name: clean_customized_doctypes
+  description: "Clean customized doctypes"
+  entry: clean_customized_doctypes
+  language: python
+  require_serial: true
+
 - id: validate_javascript_dependencies
   name: validate_javascript_dependencies
   description: "Examine package.json across the installed apps on the site to detect any version mismatches"
