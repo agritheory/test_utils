@@ -23,7 +23,7 @@ Remove unused keys in customizations.
 
 ```
   - repo: https://github.com/agritheory/test_utils/
-    rev: {rev}
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.3.0
     hooks:
       - id: clean_customized_doctypes
         args: ["--app", "{app_name}"]

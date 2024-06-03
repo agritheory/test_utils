@@ -13,7 +13,7 @@ validate_copyright = "test_utils.pre_commit.validate_copyright:main"
 clean_customized_doctypes = "test_utils.pre_commit.clean_customized_doctypes:main"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = ">=3.10,<3.13"
 
 [build-system]
 requires = ["poetry-core"]
