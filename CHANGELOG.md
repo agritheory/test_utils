@@ -66,7 +66,7 @@
 
 * feat: added customize.py
 
-* format: formate customize.py with black
+* format: format customize.py with black
 
 * fix: compute hash for concatenated data for standard and custom json
 

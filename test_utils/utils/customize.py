@@ -112,7 +112,7 @@ def add_customization_hash(doctype, file):
 	with tempfile.NamedTemporaryFile(delete=False) as temp_file:
 		temp_file.write(concatenated_data)
 
-	# calucate the hash of the concatenated data for standard and custom json
+	# calculate the hash of the concatenated data for standard and custom json
 	temp_file_hash = calculate_hash(temp_file.name)
 
 	stored_hash = frappe.db.get_value("DocType", doctype, "customization_hash")
