@@ -2,6 +2,28 @@
 
 
 
+## v0.5.0 (2024-06-03)
+
+### Feature
+
+* feat: update validate_javascript_dependencies to work as pre-commit hook (#43) ([`49d7eed`](https://github.com/agritheory/test_utils/commit/49d7eed55daf3e67a716d21c0872e541d62040f7))
+
+
+## v0.4.0 (2024-06-03)
+
+### Ci
+
+* ci: update workflows ([`31e5071`](https://github.com/agritheory/test_utils/commit/31e50712217f45c6652567cf2ddfdfd0e2659ac5))
+
+### Feature
+
+* feat: update validate_python_dependencies to work as pre-commit hook (#45) ([`55cf2b1`](https://github.com/agritheory/test_utils/commit/55cf2b12bcbdfe97ab6d76c6a9ddd2cac4e35ae9))
+
+### Unknown
+
+* Merge pull request #44 from agritheory/fix-ci ([`93a4f7f`](https://github.com/agritheory/test_utils/commit/93a4f7f5ddd9bcb65bb6c79f7c2b4b6d3a571e9f))
+
+
 ## v0.3.0 (2024-05-29)
 
 ### Feature
@@ -66,7 +88,7 @@
 
 * feat: added customize.py
 
-* format: format customize.py with black
+* format: formate customize.py with black
 
 * fix: compute hash for concatenated data for standard and custom json
 
