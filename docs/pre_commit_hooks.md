@@ -23,7 +23,7 @@ Examine package.json across the installed apps on the site to detect any version
 
 ```
   - repo: https://github.com/agritheory/test_utils/
-    rev: {rev}
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.3.0
     hooks:
       - id: validate_javascript_dependencies
 ```
