@@ -4,7 +4,7 @@ Add this to your .pre-commit-config.yaml
 
 ### Hooks available
 
-### Validate Copyright - `validate_copyright` 
+### Validate Copyright - `validate_copyright`
 
 Check all *.js, *.ts, *.py, and *.md files and add copyright in these files if copyright doesn't exist.
 
@@ -17,7 +17,7 @@ Check all *.js, *.ts, *.py, and *.md files and add copyright in these files if c
         args: ["--app", "{app_name}"]
 ```
 
-### Validate python dependencies - `validate_python_dependencies` 
+### Validate python dependencies - `validate_python_dependencies`
 
 Examine pyproject.toml across the installed apps on the site to detect any version mismatches
 
@@ -25,10 +25,10 @@ Examine pyproject.toml across the installed apps on the site to detect any versi
   - repo: https://github.com/agritheory/test_utils/
     rev: {rev} // The revision or tag to clone. Example: rev: v0.3.0
     hooks:
-      - id: 
+      - id:
 ```
 
-### Validate javascript dependencies - `validate_javascript_dependencies` 
+### Validate javascript dependencies - `validate_javascript_dependencies`
 
 Examine package.json across the installed apps on the site to detect any version mismatches
 
@@ -36,6 +36,5 @@ Examine package.json across the installed apps on the site to detect any version
   - repo: https://github.com/agritheory/test_utils/
     rev: {rev} // The revision or tag to clone. Example: rev: v0.3.0
     hooks:
-      - id: 
+      - id:
 ```
-
