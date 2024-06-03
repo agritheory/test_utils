@@ -10,6 +10,7 @@ packages = [
 
 [tool.poetry.scripts]
 validate_copyright = "test_utils.pre_commit.validate_copyright:main"
+validate_javascript_dependencies = "test_utils.pre_commit.validate_javascript_dependencies:main"
 validate_python_dependencies = "test_utils.pre_commit.validate_python_dependencies:main"
 
 [tool.poetry.dependencies]
