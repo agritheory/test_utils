@@ -50,3 +50,14 @@ Examine pyproject.toml across the installed apps on the site to detect any versi
     hooks:
       - id: validate_python_dependencies
 ```
+
+### Validate customizations - `validate_customizations`
+
+Validate Customizations
+
+```
+  - repo: https://github.com/agritheory/test_utils/
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.5.0
+    hooks:
+      - id: validate_customizations
+```
