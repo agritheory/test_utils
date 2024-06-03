@@ -20,7 +20,7 @@ def get_customized_doctypes_to_clean(app):
 	for module in modules:
 		if not (app_dir / app / scrub(module) / "custom").exists():
 			continue
-	
+
 		for custom_file in list((app_dir / app / scrub(module) / "custom").glob("**/*.json")):
 			if custom_file.stem in customized_doctypes:
 				customized_doctypes[custom_file.stem].append(custom_file.resolve())
