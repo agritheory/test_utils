@@ -60,4 +60,5 @@ Validate Customizations
     rev: {rev} // The revision or tag to clone. Example: rev: v0.5.0
     hooks:
       - id: validate_customizations
+        args: ["--set-module", "True"]
 ```
