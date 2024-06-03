@@ -2,6 +2,13 @@
 
 
 
+## v0.6.0 (2024-06-03)
+
+### Feature
+
+* feat: update clean_customized_doctypes to work as pre-commit hook (#42) ([`cbd1628`](https://github.com/agritheory/test_utils/commit/cbd1628c1277f9a13f888037e5aaa47dd592f1d8))
+
+
 ## v0.5.0 (2024-06-03)
 
 ### Feature
