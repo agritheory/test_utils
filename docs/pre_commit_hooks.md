@@ -10,11 +10,22 @@ Check all *.js, *.ts, *.py, and *.md files and add copyright in these files if c
 
 ```
   - repo: https://github.com/agritheory/test_utils/
-    rev: {rev}
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.3.0
     hooks:
       - id: validate_copyright
         files: '\.(js|ts|py|md)$'
         args: ["--app", "{app_name}"]
+```
+
+### Validate python dependencies - `validate_python_dependencies` 
+
+Examine pyproject.toml across the installed apps on the site to detect any version mismatches
+
+```
+  - repo: https://github.com/agritheory/test_utils/
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.3.0
+    hooks:
+      - id: 
 ```
 
 ### Validate javascript dependencies - `validate_javascript_dependencies` 
@@ -25,5 +36,6 @@ Examine package.json across the installed apps on the site to detect any version
   - repo: https://github.com/agritheory/test_utils/
     rev: {rev} // The revision or tag to clone. Example: rev: v0.3.0
     hooks:
-      - id: validate_javascript_dependencies
+      - id: 
 ```
+

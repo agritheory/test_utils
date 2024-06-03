@@ -8,5 +8,9 @@
   name: validate_javascript_dependencies
   description: "Examine package.json across the installed apps on the site to detect any version mismatches"
   entry: validate_javascript_dependencies
+- id: validate_python_dependencies
+  name: validate_python_dependencies
+  description: "Examine pyptoject.toml across the installed apps on the site to detect any version mismatches"
+  entry: validate_python_dependencies
   language: python
   require_serial: true
