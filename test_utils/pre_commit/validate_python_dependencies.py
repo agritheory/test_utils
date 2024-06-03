@@ -16,7 +16,11 @@ def get_versions(app):
 	if not pyproject_toml:
 		return {}
 
-	dependencies = pyproject_toml.get("project").get("dependencies", [])
+	if pyproject_toml.get("build-system", {}).get("build-backend") == "flit_core.buildapi":
+		dependencies = pyproject_toml.get("project", {}).get("dependencies", [])
+	elif pyproject_toml.get("build-system", {}).get("build-backend") == "poetry.core.masonry.api":
+		dependencies =pyproject_toml.get("tool", {}).get("poetry", {}).get("dependencies", [])
+
 	dependency_objects = {}
 	for dep in dependencies:
 		if '==' in dep:
