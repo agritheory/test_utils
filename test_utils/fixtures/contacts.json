@@ -101,10 +101,10 @@
 	},
 	{
 		"address": "Phoenix Fruit, Ltd - Braintree-Shipping",
-		"email_id": "brenton@pheonix.fruit",
+		"email_id": "brenton@phoenix.fruit",
 		"email_ids": [
 			{
-				"email_id": "brenton@pheonix.fruit",
+				"email_id": "brenton@phoenix.fruit",
 				"is_primary": 1
 			}
 		],
@@ -117,7 +117,7 @@
 				"link_name": "Phoenix Fruit, Ltd"
 			}
 		],
-		"user": "brenton@pheonix.fruit"
+		"user": "brenton@phoenix.fruit"
 	},
 	{
 		"address": "Hydra Produce Co - Montreal-Shipping",

@@ -80,12 +80,12 @@
 		"username": "leif@grusgoodies.com"
 	},
 	{
-		"email": "brenton@pheonix.fruit",
+		"email": "brenton@phoenix.fruit",
 		"enabled": 1,
 		"first_name": "Brenton",
 		"full_name": "Brenton Kennedy",
 		"last_name": "Kennedy",
-		"name": "brenton@pheonix.fruit",
+		"name": "brenton@phoenix.fruit",
 		"roles": [
 			{
 				"role": "Customer"
@@ -93,7 +93,7 @@
 		],
 		"time_zone": "America/New_York",
 		"user_type": "Website User",
-		"username": "brenton@pheonix.fruit"
+		"username": "brenton@phoenix.fruit"
 	},
 	{
 		"email": "marcell@hydraproduce.ca",
