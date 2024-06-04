@@ -1,8 +1,10 @@
+import argparse
 import ast
 import json
 import pathlib
 import sys
 import types
+from typing import Sequence
 
 
 def scrub(txt: str) -> str:
@@ -16,8 +18,8 @@ def unscrub(txt: str) -> str:
 
 
 def get_customized_doctypes():
-	apps_dir = pathlib.Path(__file__).resolve().parent.parent.parent
-	apps_order = pathlib.Path(__file__).resolve().parent.parent.parent.parent / "sites" / "apps.txt"
+	apps_dir = pathlib.Path().resolve().parent
+	apps_order = pathlib.Path().resolve().parent.parent / "sites" / "apps.txt"
 	apps_order = apps_order.read_text().split("\n")
 	customized_doctypes = {}
 	for _app_dir in apps_order:
@@ -28,7 +30,9 @@ def get_customized_doctypes():
 		for module in modules:
 			if not (app_dir / _app_dir / scrub(module) / "custom").exists():
 				continue
-			for custom_file in list((app_dir / _app_dir / scrub(module) / "custom").glob("**/*.json")):
+			for custom_file in list(
+				(app_dir / _app_dir / scrub(module) / "custom").glob("**/*.json")
+			):
 				if custom_file.stem in customized_doctypes:
 					customized_doctypes[custom_file.stem].append(custom_file.resolve())
 				else:
@@ -36,7 +40,10 @@ def get_customized_doctypes():
 		if app_dir.stem == "hrms":
 			p = ast.parse((app_dir / "hrms" / "setup.py").read_text())
 			for node in p.body[:]:
-				if not isinstance(node, ast.FunctionDef) or node.name != "get_custom_fields":
+				if (
+					not isinstance(node, ast.FunctionDef)
+					or node.name != "get_custom_fields"
+				):
 					p.body.remove(node)
 			module = types.ModuleType("hrms")
 			code = compile(p, "setup.py", "exec")
@@ -47,7 +54,9 @@ def get_customized_doctypes():
 			hrms_custom_fields = hrms.get_custom_fields()
 			for doctype, fields in hrms_custom_fields.items():
 				if doctype in customized_doctypes:
-					customized_doctypes[scrub(doctype)].append({"custom_fields": fields})
+					customized_doctypes[scrub(doctype)].append(
+						{"custom_fields": fields}
+					)
 				else:
 					customized_doctypes[scrub(doctype)] = [{"custom_fields": fields}]
 
@@ -56,7 +65,7 @@ def get_customized_doctypes():
 
 def validate_module(customized_doctypes, set_module=False):
 	exceptions = []
-	app_dir = pathlib.Path(__file__).resolve().parent.parent
+	app_dir = pathlib.Path().resolve()
 	this_app = app_dir.stem
 	if not pathlib.Path.exists(app_dir / this_app / "modules.txt"):
 		modules = []
@@ -107,14 +116,16 @@ def validate_module(customized_doctypes, set_module=False):
 
 def validate_no_custom_perms(customized_doctypes):
 	exceptions = []
-	this_app = pathlib.Path(__file__).resolve().parent.parent.stem
+	this_app = pathlib.Path().resolve().stem
 	for doctype, customize_files in customized_doctypes.items():
 		for customize_file in customize_files:
 			if not this_app in str(customize_file):
 				continue
 			file_contents = json.loads(customize_file.read_text())
 			if file_contents.get("custom_perms"):
-				exceptions.append(f"Customization for {doctype} in {this_app} contains custom permissions")
+				exceptions.append(
+					f"Customization for {doctype} in {this_app} contains custom permissions"
+				)
 	return exceptions
 
 
@@ -122,7 +133,7 @@ def validate_duplicate_customizations(customized_doctypes):
 	exceptions = []
 	common_fields = {}
 	common_property_setters = {}
-	app_dir = pathlib.Path(__file__).resolve().parent.parent
+	app_dir = pathlib.Path().resolve()
 	this_app = app_dir.stem
 	for doctype, customize_files in customized_doctypes.items():
 		if len(customize_files) == 1:
@@ -139,7 +150,9 @@ def validate_duplicate_customizations(customized_doctypes):
 				app = customize_file.parent.parent.parent.parent.stem
 				file_contents = json.loads(customize_file.read_text())
 			if file_contents.get("custom_fields"):
-				fields = [cf.get("fieldname") for cf in file_contents.get("custom_fields")]
+				fields = [
+					cf.get("fieldname") for cf in file_contents.get("custom_fields")
+				]
 				common_fields[doctype][module] = fields
 			if file_contents.get("property_setters"):
 				ps = [ps.get("name") for ps in file_contents.get("property_setters")]
@@ -172,7 +185,7 @@ def validate_duplicate_customizations(customized_doctypes):
 
 def validate_system_generated(customized_doctypes):
 	exceptions = []
-	this_app = pathlib.Path(__file__).resolve().parent.parent.stem
+	this_app = pathlib.Path().resolve().stem
 	for doctype, customize_files in customized_doctypes.items():
 		for customize_file in customize_files:
 			# checking if customize_file is a dict, as for hrms it returns a dict of custom_fields
@@ -184,20 +197,24 @@ def validate_system_generated(customized_doctypes):
 			if file_contents.get("custom_fields"):
 				for cf in file_contents.get("custom_fields"):
 					if cf.get("is_system_generated"):
-						exceptions.append(f"{cf.get('dt')} Custom Field {cf.get('fieldname')} is system generated")
+						exceptions.append(
+							f"{cf.get('dt')} Custom Field {cf.get('fieldname')} is system generated"
+						)
 
 			if file_contents.get("property_setters"):
 				for ps in file_contents.get("property_setters"):
 					if ps.get("is_system_generated"):
-						exceptions.append(f"Property Setter {ps.get('name')} is system generated")
+						exceptions.append(
+							f"Property Setter {ps.get('name')} is system generated"
+						)
 
 	return exceptions
 
 
 def validate_customizations_on_own_doctypes(customized_doctypes):
 	exceptions = []
-	app_dir = pathlib.Path(__file__).resolve().parent.parent
-	this_app = pathlib.Path(__file__).resolve().parent.parent.stem
+	app_dir = pathlib.Path().resolve()
+	this_app = pathlib.Path().resolve().stem
 	if not pathlib.Path.exists(app_dir / this_app / "modules.txt"):
 		modules = []
 	else:
@@ -239,20 +256,21 @@ def validate_customizations(set_module):
 	exceptions += validate_system_generated(customized_doctypes)
 	exceptions += validate_customizations_on_own_doctypes(customized_doctypes)
 	exceptions += validate_duplicate_customizations(customized_doctypes)
-
 	return exceptions
 
 
-if __name__ == "__main__":
-	exceptions = []
+def main(argv: Sequence[str] = None):
+	parser = argparse.ArgumentParser()
+	parser.add_argument("filenames", nargs="*")
+	parser.add_argument("--set-module", action="append", help="Set module")
+	args = parser.parse_args(argv)
+
 	set_module = False
-	for arg in sys.argv:
-		if arg == "--set-module":
-			set_module = True
-		exceptions.append(validate_customizations(set_module))
+	if args.set_module and args.set_module[0]:
+		set_module = True
 
+	exceptions = validate_customizations(set_module)
+	for exception in exceptions:
+		print(exception)
 	if exceptions:
-		for exception in exceptions:
-			[print(e) for e in exception]  # TODO: colorize
-
-	sys.exit(1) if all(exceptions) else sys.exit(0)
+		sys.exit(1)
