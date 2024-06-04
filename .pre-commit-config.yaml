@@ -20,56 +20,11 @@ repos:
       - id: debug-statements
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.6
+    rev: v2.3.0
     hooks:
       - id: codespell
-
-  - repo: local
-    hooks:
-      - id: validate_javascript_dependencies
-        always_run: true
-        name: pre-commit/validate_javascript_dependencies.py
-        entry: python3 pre-commit/validate_javascript_dependencies.py
-        language: system
-        types: [python]
-
-  - repo: local
-    hooks:
-      - id: validate_python_dependencies
-        always_run: true
-        name: pre-commit/validate_python_dependencies.py
-        entry: python3 pre-commit/validate_python_dependencies.py
-        language: system
-        types: [python]
-
-  - repo: local
-    hooks:
-      - id: validate_customizations
-        always_run: true
-        name: pre-commit/validate_customizations.py
-        entry: python3 pre-commit/validate_customizations.py
-        language: system
-        types: [python]
-
-  - repo: local
-    hooks:
-      - id: validate_copyright
-        always_run: true
-        name: pre-commit/validate_copyright.py
-        # give app_name in entry python3 pre-commit/validate_copyright.py {app_name}
-        entry: python3 pre-commit/validate_copyright.py {app_name}
-        language: system
-        types: [python]
-
-  - repo: local
-    hooks:
-      - id: clean_customized_doctypes
-        always_run: true
-        # give app_name in entry python3 pre-commit/clean_customized_doctypes.py {app_name}
-        name: pre-commit/clean_customized_doctypes.py
-        entry: python3 pre-commit/clean_customized_doctypes.py {app_name}
-        language: system
-        types: [python]
+        additional_dependencies:
+          - tomli
 
 ci:
   autoupdate_schedule: weekly

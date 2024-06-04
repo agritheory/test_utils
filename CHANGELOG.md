@@ -2,6 +2,91 @@
 
 
 
+## v0.9.0 (2024-06-04)
+
+### Feature
+
+* feat(fixtures): fixtures data for customers (#39)
+
+* feat(fixtures): fixtures data for customers
+
+* fix: update create_customers and fixtures
+
+* chore: spelling for phoenix
+
+---------
+
+Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`335501f`](https://github.com/agritheory/test_utils/commit/335501f61b01c29445b2c4e9ede2234e54e77b04))
+
+
+## v0.8.0 (2024-06-04)
+
+### Feature
+
+* feat(fixtures): fixtures data for suppliers (#38)
+
+* feat(fixtures): fixtures data for supplier
+
+* feat: added supplier groups fixtures and builder functions
+
+* fix: change default price list to standard buying
+
+* fix: create address while creating suppliers
+
+---------
+
+Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`01cacc5`](https://github.com/agritheory/test_utils/commit/01cacc52a50d481cc5ef9b7e330855264d77a1d8))
+
+### Fix
+
+* fix: progress bar for load_customizations (#48) ([`cd5fe25`](https://github.com/agritheory/test_utils/commit/cd5fe25339c7abdd34e3dde9775f807f68d3c298))
+
+
+## v0.7.1 (2024-06-04)
+
+### Fix
+
+* fix: ignore spelling issues in commit messages (#47)
+
+Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`934c926`](https://github.com/agritheory/test_utils/commit/934c9262d8981113cb7e545d3d5d19f7a3fc1d78))
+
+
+## v0.7.0 (2024-06-04)
+
+### Feature
+
+* feat: update validate_customizations to work as pre-commit hook (#46) ([`13f70dc`](https://github.com/agritheory/test_utils/commit/13f70dc8f46df89cfa75c58780bf36dc2fd27ef1))
+
+
+## v0.6.0 (2024-06-03)
+
+### Feature
+
+* feat: update clean_customized_doctypes to work as pre-commit hook (#42) ([`cbd1628`](https://github.com/agritheory/test_utils/commit/cbd1628c1277f9a13f888037e5aaa47dd592f1d8))
+
+
+## v0.5.0 (2024-06-03)
+
+### Feature
+
+* feat: update validate_javascript_dependencies to work as pre-commit hook (#43) ([`49d7eed`](https://github.com/agritheory/test_utils/commit/49d7eed55daf3e67a716d21c0872e541d62040f7))
+
+
+## v0.4.0 (2024-06-03)
+
+### Ci
+
+* ci: update workflows ([`31e5071`](https://github.com/agritheory/test_utils/commit/31e50712217f45c6652567cf2ddfdfd0e2659ac5))
+
+### Feature
+
+* feat: update validate_python_dependencies to work as pre-commit hook (#45) ([`55cf2b1`](https://github.com/agritheory/test_utils/commit/55cf2b12bcbdfe97ab6d76c6a9ddd2cac4e35ae9))
+
+### Unknown
+
+* Merge pull request #44 from agritheory/fix-ci ([`93a4f7f`](https://github.com/agritheory/test_utils/commit/93a4f7f5ddd9bcb65bb6c79f7c2b4b6d3a571e9f))
+
+
 ## v0.3.0 (2024-05-29)
 
 ### Feature
