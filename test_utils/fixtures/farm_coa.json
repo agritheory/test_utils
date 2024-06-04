@@ -1,0 +1,2362 @@
+[
+	{
+		"account_title": "Assets",
+		"account_number": "1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 0,
+		"parent": null
+	},
+	{
+		"account_title": "Property, Plant And Equipment",
+		"account_number": "1.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 0
+	},
+	{
+		"account_title": "Land And Buildings",
+		"account_number": "1.1.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 1
+	},
+	{
+		"account_title": "Machinery And Equipment",
+		"account_number": "1.1.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 1
+	},
+	{
+		"account_title": "Vehicles",
+		"account_number": "1.1.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 1
+	},
+	{
+		"account_title": "Fixtures And Fittings",
+		"account_number": "1.1.4",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 1
+	},
+	{
+		"account_title": "Exploration And Evaluation Assets",
+		"account_number": "1.1.5",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 1
+	},
+	{
+		"account_title": "Additional Property, Plant And Equipment",
+		"account_number": "1.1.6",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 1
+	},
+	{
+		"account_title": "Construction In Progress",
+		"account_number": "1.1.7",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 1
+	},
+	{
+		"account_title": "Investment Property",
+		"account_number": "1.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 0
+	},
+	{
+		"account_title": "Investment Property Under Construction Or Development",
+		"account_number": "1.2.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 9
+	},
+	{
+		"account_title": "Investment Property Completed",
+		"account_number": "1.2.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 9
+	},
+	{
+		"account_title": "Intangible Assets",
+		"account_number": "1.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 0
+	},
+	{
+		"account_title": "Intangible Assets Other Than Goodwill",
+		"account_number": "1.3.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 12
+	},
+	{
+		"account_title": "Goodwill",
+		"account_number": "1.3.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 12
+	},
+	{
+		"account_title": "Financial Assets",
+		"account_number": "1.4",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 0
+	},
+	{
+		"account_title": "Group Companies (Intercompany Investments)",
+		"account_number": "1.4.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 15
+	},
+	{
+		"account_title": "Investments And Financial Instruments",
+		"account_number": "1.4.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 15
+	},
+	{
+		"account_title": "Derivative Financial Assets",
+		"account_number": "1.4.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 15
+	},
+	{
+		"account_title": "Other Financial Assets",
+		"account_number": "1.4.4",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 15
+	},
+	{
+		"account_title": "Allowance For Credit Losses (Aggregate)",
+		"account_number": "1.4.5",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 15
+	},
+	{
+		"account_title": "Financial Assets Classified By Designation",
+		"account_number": "1.4.6",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 15
+	},
+	{
+		"account_title": "Biological Assets",
+		"account_number": "1.5",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 0
+	},
+	{
+		"account_title": "Biological Assets At Cost",
+		"account_number": "1.5.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 22
+	},
+	{
+		"account_title": "Biological Assets At Fair Value",
+		"account_number": "1.5.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 22
+	},
+	{
+		"account_title": "Accrued And Other Assets",
+		"account_number": "1.6",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 0
+	},
+	{
+		"account_title": "Prepayments And Other Current Assets",
+		"account_number": "1.6.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 25
+	},
+	{
+		"account_title": "Tax Related Receivables",
+		"account_number": "1.6.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 25
+	},
+	{
+		"account_title": "Service Providers",
+		"account_number": "1.6.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 25
+	},
+	{
+		"account_title": "Construction Contract Asset",
+		"account_number": "1.6.4",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 25
+	},
+	{
+		"account_title": "Set Up Costs",
+		"account_number": "1.6.5",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 25
+	},
+	{
+		"account_title": "Restricted Assets",
+		"account_number": "1.6.6",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 25
+	},
+	{
+		"account_title": "Current Investments Not Classified As Cash Equivalents",
+		"account_number": "1.6.7",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 25
+	},
+	{
+		"account_title": "Additional, Other And Miscellaneous Assets",
+		"account_number": "1.6.8",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 25
+	},
+	{
+		"account_title": "Inventories",
+		"account_number": "1.7",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 0
+	},
+	{
+		"account_title": "Raw Materials and Production Supplies",
+		"account_number": "1.7.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Merchandise",
+		"account_number": "1.7.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Food and Beverage",
+		"account_number": "1.7.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Agricultural Produce",
+		"account_number": "1.7.4",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Work In Progress",
+		"account_number": "1.7.5",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Materials and Supplies To Be Consumed In Production Process Or Rendering Services",
+		"account_number": "1.7.6",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Finished Goods",
+		"account_number": "1.7.7",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Packaging And Storage Materials",
+		"account_number": "1.7.8",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Spare Parts",
+		"account_number": "1.7.9",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Fuel",
+		"account_number": "1.7.10",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Property Intended For Sale In Ordinary Course Of Business",
+		"account_number": "1.7.11",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Inventories In Transit",
+		"account_number": "1.7.12",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Other Inventories",
+		"account_number": "1.7.13",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Inventories Pledged As Security For Liabilities",
+		"account_number": "1.7.14",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Inventories At Fair Value Less Costs To Sell",
+		"account_number": "1.7.15",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Acquisition In Progress",
+		"account_number": "1.7.16",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Additional Inventory Items",
+		"account_number": "1.7.17",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 34
+	},
+	{
+		"account_title": "Receivables",
+		"account_number": "1.8",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 0
+	},
+	{
+		"account_title": "Trade Receivables",
+		"account_number": "1.8.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 52
+	},
+	{
+		"account_title": "Contract Assets",
+		"account_number": "1.8.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 52
+	},
+	{
+		"account_title": "Other Receivables",
+		"account_number": "1.8.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 52
+	},
+	{
+		"account_title": "Adjustments",
+		"account_number": "1.8.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 52
+	},
+	{
+		"account_title": "Cash And Cash Equivalents",
+		"account_number": "1.9",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 0
+	},
+	{
+		"account_title": "Cash",
+		"account_number": "1.9.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 57
+	},
+	{
+		"account_title": "Cash Equivalents",
+		"account_number": "1.9.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 57
+	},
+	{
+		"account_title": "Short-Term Investments",
+		"account_number": "1.9.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 57
+	},
+	{
+		"account_title": "Other Cash And Cash Equivalents",
+		"account_number": "1.9.4",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 57
+	},
+	{
+		"account_title": "Equity",
+		"account_number": "2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 0,
+		"parent": null
+	},
+	{
+		"account_title": "Issued Capital",
+		"account_number": "2.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 62
+	},
+	{
+		"account_title": "Ordinary Shares",
+		"account_number": "2.1.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 63
+	},
+	{
+		"account_title": "Preferred Shares",
+		"account_number": "2.1.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 63
+	},
+	{
+		"account_title": "Par Value Per Share",
+		"account_number": "2.1.3",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 63
+	},
+	{
+		"account_title": "Share Premium",
+		"account_number": "2.1.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 63
+	},
+	{
+		"account_title": "Additional Paid In Capital",
+		"account_number": "2.1.5",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 63
+	},
+	{
+		"account_title": "Retained Earnings",
+		"account_number": "2.2",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 1,
+		"parent": 62
+	},
+	{
+		"account_title": "Current Year's Retained Profit (Loss)",
+		"account_number": "2.2.1",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 69
+	},
+	{
+		"account_title": "Prior Years' Retained Profit (Loss)",
+		"account_number": "2.2.2",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 69
+	},
+	{
+		"account_title": "Other Reserves (Accumulated Other Comprehensive Income)",
+		"account_number": "2.3",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 1,
+		"parent": 62
+	},
+	{
+		"account_title": "Revaluation Surplus",
+		"account_number": "2.3.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Exchange Differences On Translation",
+		"account_number": "2.3.2",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Cash Flow Hedges",
+		"account_number": "2.3.3",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Gains And Losses On Hedging Instruments That Hedge Investments In Equity Instruments",
+		"account_number": "2.3.4",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Change In Value Of Time Value Of Options",
+		"account_number": "2.3.5",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Change In Value Of Forward Elements Of Forward Contracts",
+		"account_number": "2.3.6",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Change In Value Of Foreign Currency Basis Spreads",
+		"account_number": "2.3.7",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Gains And Losses On Financial Assets Measured At Fair Value Through Other Comprehensive Income",
+		"account_number": "2.3.8",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Gains And Losses On Remeasuring Available-For-Sale Financial Assets",
+		"account_number": "2.3.9",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Share-Based Payments",
+		"account_number": "2.3.10",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Remeasurements Of Defined Benefit Plans",
+		"account_number": "2.3.11",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Amount Recognised In Other Comprehensive Income And Accumulated In Equity Relating To Non-Current Assets Or Disposal Groups Held For Sale",
+		"account_number": "2.3.12",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Gains And Losses From Investments In Equity Instruments",
+		"account_number": "2.3.13",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Change In Fair Value Of Financial Liability Attributable To Change In Credit Risk Of Liability",
+		"account_number": "2.3.14",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve For Catastrophe",
+		"account_number": "2.3.15",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve For Equalisation",
+		"account_number": "2.3.16",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Discretionary Participation Features",
+		"account_number": "2.3.17",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Reserve Of Equity Component Of Convertible Instruments",
+		"account_number": "2.3.18",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Capital Redemption Reserve",
+		"account_number": "2.3.19",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Merger Reserve",
+		"account_number": "2.3.20",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Statutory Reserve",
+		"account_number": "2.3.21",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 72
+	},
+	{
+		"account_title": "Other Equity",
+		"account_number": "2.4",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 1,
+		"parent": 62
+	},
+	{
+		"account_title": "Other Equity Interest",
+		"account_number": "2.4.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 94
+	},
+	{
+		"account_title": "Capital Reserve",
+		"account_number": "2.4.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 94
+	},
+	{
+		"account_title": "Receivable For Shares (Share Subscribed But Unissued)",
+		"account_number": "2.4.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 94
+	},
+	{
+		"account_title": "Treasury Shares",
+		"account_number": "2.4.4",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 94
+	},
+	{
+		"account_title": "Controlling Interest",
+		"account_number": "2.4.5",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 94
+	},
+	{
+		"account_title": "Non-Controlling Interest",
+		"account_number": "2.4.6",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 94
+	},
+	{
+		"account_title": "Liabilities",
+		"account_number": "3",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 0,
+		"parent": null
+	},
+	{
+		"account_title": "Borrowings",
+		"account_number": "3.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 101
+	},
+	{
+		"account_title": "Borrowings (By Type)",
+		"account_number": "3.1.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 102
+	},
+	{
+		"account_title": "Financial Liabilities (By Designation)",
+		"account_number": "3.1.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 102
+	},
+	{
+		"account_title": "Provisions",
+		"account_number": "3.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 101
+	},
+	{
+		"account_title": "Employee Benefits",
+		"account_number": "3.2.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 105
+	},
+	{
+		"account_title": "Warranties",
+		"account_number": "3.2.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 105
+	},
+	{
+		"account_title": "Refunds",
+		"account_number": "3.2.3",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 105
+	},
+	{
+		"account_title": "Decommissioning, Restoration And Rehabilitation",
+		"account_number": "3.2.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 105
+	},
+	{
+		"account_title": "Restructuring",
+		"account_number": "3.2.5",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 105
+	},
+	{
+		"account_title": "Onerous Contracts",
+		"account_number": "3.2.6",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 105
+	},
+	{
+		"account_title": "Legal Proceedings",
+		"account_number": "3.2.7",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 105
+	},
+	{
+		"account_title": "Business Combinations",
+		"account_number": "3.2.8",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 105
+	},
+	{
+		"account_title": "Liabilities Included In Disposal Groups",
+		"account_number": "3.2.9",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 105
+	},
+	{
+		"account_title": "Other Provisions",
+		"account_number": "3.2.10",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 105
+	},
+	{
+		"account_title": "Miscellaneous Other Provisions",
+		"account_number": "3.2.11",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 105
+	},
+	{
+		"account_title": "Trade And Other Payables",
+		"account_number": "3.3",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 101
+	},
+	{
+		"account_title": "Trade Payables",
+		"account_number": "3.3.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 117
+	},
+	{
+		"account_title": "Contract Liabilities",
+		"account_number": "3.3.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 117
+	},
+	{
+		"account_title": "Related Party Payables",
+		"account_number": "3.3.3",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 117
+	},
+	{
+		"account_title": "Retention Payables",
+		"account_number": "3.3.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 117
+	},
+	{
+		"account_title": "Adjustments",
+		"account_number": "3.3.5",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 117
+	},
+	{
+		"account_title": "Accrued, Deferred And Other Liabilities",
+		"account_number": "3.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 101
+	},
+	{
+		"account_title": "Accrued Liabilities",
+		"account_number": "3.4.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 123
+	},
+	{
+		"account_title": "Accrued Expenses And Other Liabilities",
+		"account_number": "3.4.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 123
+	},
+	{
+		"account_title": "Dividend Payables",
+		"account_number": "3.4.3",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 123
+	},
+	{
+		"account_title": "Interest Payable",
+		"account_number": "3.4.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 123
+	},
+	{
+		"account_title": "Deferred Income, Unearned Revenue",
+		"account_number": "3.4.5",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 123
+	},
+	{
+		"account_title": "Advances",
+		"account_number": "3.4.6",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 123
+	},
+	{
+		"account_title": "Construction Contract Liability",
+		"account_number": "3.4.7",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 123
+	},
+	{
+		"account_title": "Other Payables",
+		"account_number": "3.4.8",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 123
+	},
+	{
+		"account_title": "Tax Liabilities",
+		"account_number": "3.5",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 101
+	},
+	{
+		"account_title": "Current Tax Liabilities",
+		"account_number": "3.5.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 132
+	},
+	{
+		"account_title": "Deferred Tax Liabilities",
+		"account_number": "3.5.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 132
+	},
+	{
+		"account_title": "Other And Miscellaneous Liabilities",
+		"account_number": "3.6",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 101
+	},
+	{
+		"account_title": "Finance Leases",
+		"account_number": "3.6.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 135
+	},
+	{
+		"account_title": "Deposits",
+		"account_number": "3.6.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 135
+	},
+	{
+		"account_title": "Derivative Financial Liabilities",
+		"account_number": "3.6.3",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 135
+	},
+	{
+		"account_title": "Government Grant Obligations",
+		"account_number": "3.6.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 135
+	},
+	{
+		"account_title": "Liabilities Due To Central Banks",
+		"account_number": "3.6.5",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 135
+	},
+	{
+		"account_title": "Subordinated Liabilities",
+		"account_number": "3.6.6",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 135
+	},
+	{
+		"account_title": "Other Liabilities",
+		"account_number": "3.6.7",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 135
+	},
+	{
+		"account_title": "Revenue",
+		"account_number": "4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 0,
+		"parent": null
+	},
+	{
+		"account_title": "Goods",
+		"account_number": "4.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 143
+	},
+	{
+		"account_title": "Products",
+		"account_number": "4.1.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 144
+	},
+	{
+		"account_title": "Merchandise",
+		"account_number": "4.1.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 144
+	},
+	{
+		"account_title": "Adjustments",
+		"account_number": "4.1.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 144
+	},
+	{
+		"account_title": "Specifically Itemized Goods Revenues",
+		"account_number": "4.1.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 144
+	},
+	{
+		"account_title": "Services",
+		"account_number": "4.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 143
+	},
+	{
+		"account_title": "Specifically Itemized Service Revenues",
+		"account_number": "4.2.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 149
+	},
+	{
+		"account_title": "Revenue From Contracts With Customers",
+		"account_number": "4.3",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 143
+	},
+	{
+		"account_title": "Revenue From Construction Contracts",
+		"account_number": "4.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 143
+	},
+	{
+		"account_title": "Franchise Fee Income",
+		"account_number": "4.5",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 143
+	},
+	{
+		"account_title": "Barter Sales",
+		"account_number": "4.6",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 143
+	},
+	{
+		"account_title": "Goods",
+		"account_number": "4.6.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 154
+	},
+	{
+		"account_title": "Services",
+		"account_number": "4.6.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 154
+	},
+	{
+		"account_title": "Construction Contracts",
+		"account_number": "4.6.3",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 154
+	},
+	{
+		"account_title": "Royalties",
+		"account_number": "4.6.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 154
+	},
+	{
+		"account_title": "Interest",
+		"account_number": "4.6.5",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 154
+	},
+	{
+		"account_title": "Dividends",
+		"account_number": "4.6.6",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 154
+	},
+	{
+		"account_title": "Other Exchange Revenue",
+		"account_number": "4.6.7",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 154
+	},
+	{
+		"account_title": "Dividends Classified As Operating Expense",
+		"account_number": "4.7",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 143
+	},
+	{
+		"account_title": "By Nature Non-Revenue Income",
+		"account_number": "4.8",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 1,
+		"parent": 143
+	},
+	{
+		"account_title": "Changes In Inventories",
+		"account_number": "4.8.1",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 163
+	},
+	{
+		"account_title": "Work Performed By Entity And Capitalised",
+		"account_number": "4.8.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 163
+	},
+	{
+		"account_title": "Operating Expenses",
+		"account_number": "5",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 0,
+		"parent": null
+	},
+	{
+		"account_title": "Expenses Classified By Nature",
+		"account_number": "5.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 166
+	},
+	{
+		"account_title": "Raw Materials And Consumables",
+		"account_number": "5.1.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 167
+	},
+	{
+		"account_title": "Merchandise",
+		"account_number": "5.1.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 167
+	},
+	{
+		"account_title": "Employee Benefits",
+		"account_number": "5.1.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 167
+	},
+	{
+		"account_title": "Services",
+		"account_number": "5.1.4",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 167
+	},
+	{
+		"account_title": "Transportation Expense",
+		"account_number": "5.1.5",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 167
+	},
+	{
+		"account_title": "Depreciation And Amortisation",
+		"account_number": "5.1.6",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 167
+	},
+	{
+		"account_title": "Rental Expense",
+		"account_number": "5.1.7",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 167
+	},
+	{
+		"account_title": "Tax Other Than Income",
+		"account_number": "5.1.8",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 167
+	},
+	{
+		"account_title": "Expenses Classified By Function",
+		"account_number": "5.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 166
+	},
+	{
+		"account_title": "Cost Of Sales",
+		"account_number": "5.2.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 176
+	},
+	{
+		"account_title": "Selling, General And Administrative",
+		"account_number": "5.2.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 176
+	},
+	{
+		"account_title": "Non-Operating Income And Expense (Peripheral Activities)",
+		"account_number": "6",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 0,
+		"parent": null
+	},
+	{
+		"account_title": "Other Income",
+		"account_number": "6.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 179
+	},
+	{
+		"account_title": "Finance Income",
+		"account_number": "6.1.1",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 180
+	},
+	{
+		"account_title": "Interest Income",
+		"account_number": "6.1.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 180
+	},
+	{
+		"account_title": "Dividends",
+		"account_number": "6.1.3",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 180
+	},
+	{
+		"account_title": "Royalties",
+		"account_number": "6.1.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 180
+	},
+	{
+		"account_title": "Licensees",
+		"account_number": "6.1.5",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 180
+	},
+	{
+		"account_title": "Rental Income",
+		"account_number": "6.1.6",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 180
+	},
+	{
+		"account_title": "Contractual Fines And Penalties",
+		"account_number": "6.1.7",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 180
+	},
+	{
+		"account_title": "Income From Government Grants",
+		"account_number": "6.1.8",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 180
+	},
+	{
+		"account_title": "Property Service Charge Income",
+		"account_number": "6.1.9",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 180
+	},
+	{
+		"account_title": "Income From Reimbursements Under Insurance Policies",
+		"account_number": "6.1.10",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 180
+	},
+	{
+		"account_title": "Other Revenue",
+		"account_number": "6.1.11",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 180
+	},
+	{
+		"account_title": "Other Expenses",
+		"account_number": "6.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 179
+	},
+	{
+		"account_title": "Finance Costs",
+		"account_number": "6.2.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 192
+	},
+	{
+		"account_title": "Interest Expense",
+		"account_number": "6.2.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 192
+	},
+	{
+		"account_title": "Property Service Charges",
+		"account_number": "6.2.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 192
+	},
+	{
+		"account_title": "Unwinding Discounts On Provisions",
+		"account_number": "6.2.4",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 192
+	},
+	{
+		"account_title": "Donations And Subsidies",
+		"account_number": "6.2.5",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 192
+	},
+	{
+		"account_title": "Dividends Classified As Expense",
+		"account_number": "6.2.6",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 192
+	},
+	{
+		"account_title": "Other Expense By Nature",
+		"account_number": "6.2.7",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 192
+	},
+	{
+		"account_title": "Other Operating Expenses By Function",
+		"account_number": "6.2.8",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 192
+	},
+	{
+		"account_title": "Gains And Losses",
+		"account_number": "6.3",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 1,
+		"parent": 179
+	},
+	{
+		"account_title": "Foreign Exchange Gain (Loss)",
+		"account_number": "6.3.1",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Impairment",
+		"account_number": "6.3.2",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Restructuring Activities",
+		"account_number": "6.3.3",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Disposals Of Non-Current Assets",
+		"account_number": "6.3.4",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Disposals Of Property, Plant And Equipment",
+		"account_number": "6.3.5",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Disposals Of Investment Properties",
+		"account_number": "6.3.6",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Disposals Of Investments",
+		"account_number": "6.3.7",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Gains And Losses On Derivatives",
+		"account_number": "6.3.8",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Disposals Of Other Non-Current Assets",
+		"account_number": "6.3.9",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Changes In Contingent Consideration",
+		"account_number": "6.3.10",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Changes In Investment Property",
+		"account_number": "6.3.11",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Gain (Loss) On Liability Extinguishment",
+		"account_number": "6.3.12",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Expense (Income) On Discontinued Operations",
+		"account_number": "6.3.13",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Litigation Settlements",
+		"account_number": "6.3.14",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Other Reversals Of Provisions",
+		"account_number": "6.3.15",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Gain (Loss) On Financial Assets Reclassified To Fair Value",
+		"account_number": "6.3.16",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Cumulative Gain (Loss) From Reclassification To OCI",
+		"account_number": "6.3.17",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Gain (Loss) On Derecognition Of Amortised Cost Assets",
+		"account_number": "6.3.18",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Gain (Loss) On Non-Cash Dividends",
+		"account_number": "6.3.19",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 201
+	},
+	{
+		"account_title": "Other Comprehensive Income Reclassification Adjustments",
+		"account_number": "6.4",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 1,
+		"parent": 179
+	},
+	{
+		"account_title": "Exchange Differences On Translation",
+		"account_number": "6.4.1",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 221
+	},
+	{
+		"account_title": "Available-For-Sale Financial Assets",
+		"account_number": "6.4.2",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 221
+	},
+	{
+		"account_title": "Cash Flow Hedges",
+		"account_number": "6.4.3",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 221
+	},
+	{
+		"account_title": "Hedges Of Net Investment In Foreign Operations",
+		"account_number": "6.4.4",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 221
+	},
+	{
+		"account_title": "Change In Value Of Time Value Of Options",
+		"account_number": "6.4.5",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 221
+	},
+	{
+		"account_title": "Change In Value Of Forward Elements Of Forward Contracts",
+		"account_number": "6.4.6",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 221
+	},
+	{
+		"account_title": "Change In Value Of Foreign Currency Basis Spreads",
+		"account_number": "6.4.7",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 221
+	},
+	{
+		"account_title": "Financial Assets Measured At Fair Value Through Other Comprehensive Income",
+		"account_number": "6.4.8",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 221
+	},
+	{
+		"account_title": "Group Companies",
+		"account_number": "6.5",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 1,
+		"parent": 179
+	},
+	{
+		"account_title": "Equity Method Investments",
+		"account_number": "6.5.1",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 230
+	},
+	{
+		"account_title": "Subsidiaries, Jointly Controlled Entities And Associates",
+		"account_number": "6.5.2",
+		"balance": {
+			"title": "Debit or Credit",
+			"value": "2fe1d2d2-62b8-488c-9c26-8454f77ba971"
+		},
+		"indent": 2,
+		"parent": 230
+	},
+	{
+		"account_title": "Income Tax",
+		"account_number": "7",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 0,
+		"parent": null
+	},
+	{
+		"account_title": "Expense",
+		"account_number": "7.1",
+		"balance": {
+			"title": "Debit",
+			"value": "914a496c-46a9-4f4d-a6eb-cca6bbad56a3"
+		},
+		"indent": 1,
+		"parent": 233
+	},
+	{
+		"account_title": "Benefit",
+		"account_number": "7.2",
+		"balance": {
+			"title": "Credit",
+			"value": "6e149601-ba52-4640-8ddc-9cb98491d9a9"
+		},
+		"indent": 1,
+		"parent": 233
+	}
+]
