@@ -2,6 +2,15 @@
 
 
 
+## v0.7.1 (2024-06-04)
+
+### Fix
+
+* fix: ignore spelling issues in commit messages (#47)
+
+Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`934c926`](https://github.com/agritheory/test_utils/commit/934c9262d8981113cb7e545d3d5d19f7a3fc1d78))
+
+
 ## v0.7.0 (2024-06-04)
 
 ### Feature
