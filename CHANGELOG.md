@@ -2,6 +2,23 @@
 
 
 
+## v0.9.0 (2024-06-04)
+
+### Feature
+
+* feat(fixtures): fixtures data for customers (#39)
+
+* feat(fixtures): fixtures data for customers
+
+* fix: update create_customers and fixtures
+
+* chore: spelling for phoenix
+
+---------
+
+Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`335501f`](https://github.com/agritheory/test_utils/commit/335501f61b01c29445b2c4e9ede2234e54e77b04))
+
+
 ## v0.8.0 (2024-06-04)
 
 ### Feature
