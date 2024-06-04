@@ -1,0 +1,304 @@
+[
+	{
+		"template_name": "Default Due on Demand",
+		"terms": [
+			{
+				"credit_days": 0,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Day(s) after invoice date",
+				"invoice_portion": 100,
+				"payment_term": "Due on Demand"
+			}
+		]
+	},
+	{
+		"template_name": "Net 30",
+		"terms": [
+			{
+				"credit_days": 30,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Day(s) after invoice date",
+				"invoice_portion": 100,
+				"payment_term": "Net 30"
+			}
+		]
+	},
+	{
+		"template_name": "Due on Receipt",
+		"terms": [
+			{
+				"credit_days": 0,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Day(s) after invoice date",
+				"invoice_portion": 100,
+				"payment_term": "Due on Receipt"
+			}
+		]
+	},
+	{
+		"template_name": "Net 14",
+		"terms": [
+			{
+				"credit_days": 14,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Day(s) after invoice date",
+				"invoice_portion": 100,
+				"payment_term": "Net 14"
+			}
+		]
+	},
+	{
+		"template_name": "2% 10 Net 30",
+		"terms": [
+			{
+				"credit_days": 30,
+				"discount": 2,
+				"discount_type": "Percentage",
+				"discount_validity": 10,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Day(s) after invoice date",
+				"invoice_portion": 100,
+				"payment_term": "2% 10 Net 30"
+			}
+		]
+	},
+	{
+		"template_name": "20 in 14 80 in 30",
+		"terms": [
+			{
+				"credit_days": 14,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Day(s) after invoice date",
+				"invoice_portion": 20,
+				"payment_term": "20 Percent in 14 Days"
+			},
+			{
+				"credit_days": 30,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Day(s) after invoice date",
+				"invoice_portion": 80,
+				"payment_term": "80 Percent in 30 Days"
+			}
+		]
+	},
+	{
+		"template_name": "18 Month Rental Agreement",
+		"terms": [
+			{
+				"credit_days": 0,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 1"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 1,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 2"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 2,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 3"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 3,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 4"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 4,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 5"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 5,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 6"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 6,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 7"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 7,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 8"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 8,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 9"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 9,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 10"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 10,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 11"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 11,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 12"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 12,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 13"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 13,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 14"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 14,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 15"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 15,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 16"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 16,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 17"
+			},
+			{
+				"credit_days": 0,
+				"credit_months": 17,
+				"discount": 0,
+				"discount_type": "Percentage",
+				"discount_validity": 0,
+				"discount_validity_based_on": "Day(s) after invoice date",
+				"due_date_based_on": "Month(s) after the end of the invoice month",
+				"invoice_portion": 5.555555556,
+				"payment_term": "Rental Installment 18"
+			}
+		]
+	}
+]

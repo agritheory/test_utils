@@ -23,7 +23,6 @@ def load_customizations():
 		if app in frappe_apps:
 			continue
 
-		print(f"Loading {app} customizations")
 		customizations_directory = (
 			Path().cwd().parent / "apps" / app / app / app / "custom"
 		)
@@ -34,15 +33,19 @@ def load_customizations():
 		clear_global_cache()
 
 		files = list(customizations_directory.glob("**/*.json"))
-		for file in files:
+
+		files_to_be_synced = get_files_to_be_synced(files)
+		if len(files_to_be_synced) > 0:
+			print(f"\nLoading {app} customizations")
+
+		for i, file in enumerate(files_to_be_synced, start=1):
 			customizations = json.loads(Path(file).read_text())
 			doctype = customizations.get("doctype")
 
-			hash_updated = add_customization_hash(doctype, file)
-			if not hash_updated:
-				continue
-
 			modules = frappe.get_module_list(app)
+
+			print(f"Updating {doctype} of ({i} of {len(files_to_be_synced)})")
+
 			for module in modules:
 				for field in customizations.get("custom_fields"):
 					if field.get("module") != module:
@@ -78,6 +81,20 @@ def load_customizations():
 
 	if "hrms" in apps:
 		sync_hrms_customizations()
+
+
+def get_files_to_be_synced(all_files):
+	files = []
+	for file in all_files:
+		customizations = json.loads(Path(file).read_text())
+		doctype = customizations.get("doctype")
+
+		hash_updated = add_customization_hash(doctype, file)
+		if not hash_updated:
+			continue
+		files.append(file)
+
+	return files
 
 
 def sync_hrms_customizations():
