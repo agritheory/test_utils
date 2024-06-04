@@ -29,14 +29,18 @@ def create_suppliers(settings, only_create=None):
 		biz.update(supplier)
 		biz.save()
 
-	for address in addresses:
-		existing_address = frappe.get_value(
-			"Address", {"address_line1": address.get("address_line1")}
-		)
-		if not existing_address:
-			addr = frappe.new_doc("Address")
-			addr.update(address)
-			addr.save()
+		for address in addresses:
+			existing_address = frappe.get_value(
+				"Address", {"address_line1": address.get("address_line1")}
+			)
+			if existing_address:
+				continue
+
+			for link in address.get("links"):
+				if link.get("link_doctype") == "Supplier" and link.get("link_name") == biz.supplier_name:
+					addr = frappe.new_doc("Address")
+					addr.update(address)
+					addr.save()
 
 
 def create_payment_terms_template(settings, only_create=None):
