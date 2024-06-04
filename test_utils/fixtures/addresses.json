@@ -1,5 +1,117 @@
 [
 	{
+		"address_line1": "3606 Cookie Plaza",
+		"address_title": "Andromeda Fruit Market - Concord",
+		"address_type": "Shipping",
+		"city": "Concord",
+		"country": "United States",
+		"links": [
+			{
+				"link_doctype": "Customer",
+				"link_name": "Andromeda Fruit Market"
+			}
+		],
+		"name": "Andromeda Fruit Market - Concord-Shipping",
+		"pincode": "03301",
+		"state": "NH"
+	},
+	{
+		"address_line1": "920 Meade St",
+		"address_title": "Betelgeuse Bakery Suppliers - Bow",
+		"address_type": "Shipping",
+		"city": "Bow",
+		"country": "United States",
+		"links": [
+			{
+				"link_doctype": "Customer",
+				"link_name": "Betelgeuse Bakery Suppliers"
+			}
+		],
+		"name": "Betelgeuse Bakery Suppliers - Bow-Shipping",
+		"pincode": "03304",
+		"state": "NH"
+	},
+	{
+		"address_line1": "29 Navi Avenue",
+		"address_title": "Cassiopeia Restaurant Group - Salem",
+		"address_type": "Shipping",
+		"city": "Salem",
+		"country": "United States",
+		"links": [
+			{
+				"link_doctype": "Customer",
+				"link_name": "Cassiopeia Restaurant Group"
+			}
+		],
+		"name": "Cassiopeia Restaurant Group - Salem-Shipping",
+		"pincode": "01970",
+		"state": "MA"
+	},
+	{
+		"address_line1": "680 Rotanev Rotary",
+		"address_title": "Delphinus Food Distributors - Rockport",
+		"address_type": "Shipping",
+		"city": "Rockport",
+		"country": "United States",
+		"links": [
+			{
+				"link_doctype": "Customer",
+				"link_name": "Delphinus Food Distributors"
+			}
+		],
+		"name": "Delphinus Food Distributors - Rockport-Shipping",
+		"pincode": "01966",
+		"state": "MA"
+	},
+	{
+		"address_line1": "80 Alnair Circle",
+		"address_title": "Grus Goodies - Quincy",
+		"address_type": "Shipping",
+		"city": "Quincy",
+		"country": "United States",
+		"links": [
+			{
+				"link_doctype": "Customer",
+				"link_name": "Grus Goodies"
+			}
+		],
+		"name": "Grus Goodies - Quincy-Shipping",
+		"pincode": "02169",
+		"state": "MA"
+	},
+	{
+		"address_line1": "530 Ankaa Blvd",
+		"address_title": "Phoenix Fruit, Ltd - Braintree",
+		"address_type": "Shipping",
+		"city": "Braintree",
+		"country": "United States",
+		"links": [
+			{
+				"link_doctype": "Customer",
+				"link_name": "Phoenix Fruit, Ltd"
+			}
+		],
+		"name": "Phoenix Fruit, Ltd - Braintree-Shipping",
+		"pincode": "02184",
+		"state": "MA"
+	},
+	{
+		"address_line1": "444 Rue d'Alphard",
+		"address_title": "Hydra Produce Co - Montreal",
+		"address_type": "Shipping",
+		"city": "Montreal",
+		"country": "Canada",
+		"links": [
+			{
+				"link_doctype": "Customer",
+				"link_name": "Hydra Produce Co"
+			}
+		],
+		"name": "Hydra Produce Co - Montreal-Shipping",
+		"pincode": "H1Y3A4",
+		"state": "Quebec"
+	},
+	{
 		"address_line1": "67C Sweeny Street",
 		"address_title": "Ambrosia Pie Company",
 		"address_type": "Office",
