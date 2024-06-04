@@ -2,6 +2,29 @@
 
 
 
+## v0.8.0 (2024-06-04)
+
+### Feature
+
+* feat(fixtures): fixtures data for suppliers (#38)
+
+* feat(fixtures): fixtures data for supplier
+
+* feat: added supplier groups fixtures and builder functions
+
+* fix: change default price list to standard buying
+
+* fix: create address while creating suppliers
+
+---------
+
+Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`01cacc5`](https://github.com/agritheory/test_utils/commit/01cacc52a50d481cc5ef9b7e330855264d77a1d8))
+
+### Fix
+
+* fix: progress bar for load_customizations (#48) ([`cd5fe25`](https://github.com/agritheory/test_utils/commit/cd5fe25339c7abdd34e3dde9775f807f68d3c298))
+
+
 ## v0.7.1 (2024-06-04)
 
 ### Fix
