@@ -2,6 +2,13 @@
 
 
 
+## v0.7.0 (2024-06-04)
+
+### Feature
+
+* feat: update validate_customizations to work as pre-commit hook (#46) ([`13f70dc`](https://github.com/agritheory/test_utils/commit/13f70dc8f46df89cfa75c58780bf36dc2fd27ef1))
+
+
 ## v0.6.0 (2024-06-03)
 
 ### Feature
