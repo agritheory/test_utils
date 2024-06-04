@@ -6,60 +6,72 @@ try:
 except Exception as e:
 	raise (e)
 
+
 def get_fixtures_data_from_file(filename):
 	app_dir = pathlib.Path(__file__).resolve().parent.parent / "fixtures"
 	if pathlib.Path.exists(app_dir / filename):
 		with open(app_dir / filename) as f:
 			return json.load(f)
 
-def create_customers():
+
+def create_customers(settings, only_create=None):
 	customers = get_fixtures_data_from_file("customers.json")
+	addresses = get_fixtures_data_from_file("addresses.json")
+	users = get_fixtures_data_from_file("users.json")
+	contacts = get_fixtures_data_from_file("contacts.json")
 
 	for customer in customers:
+		if only_create and customer.get("customer_name") not in only_create:
+			continue
+
 		if frappe.db.exists("Customer", customer.get("customer_name")):
 			continue
 
 		cust = frappe.new_doc("Customer")
-		cust.customer_name = customer.get("customer_name")
-		cust.customer_type = customer.get("customer_type")
-		cust.customer_group = customer.get("customer_group")
-		cust.territory = customer.get("territory")
-		cust.tax_id = customer.get("tax_id")
+		cust.update(customer)
 		cust.save()
 
-		if customer.get("address"):
-			addr = frappe.new_doc("Address")
-			addr.address_title = f"{customer.get('customer_name')} - {customer.get('address')['city']}"
-			addr.address_type = "Shipping"
-			addr.address_line1 = customer.get("address")["address_line1"]
-			addr.city = customer.get("address")["city"]
-			addr.state = customer.get("address")["state"]
-			addr.country = customer.get("address")["country"]
-			addr.pincode = customer.get("address")["pincode"]
-			addr.append("links", {"link_doctype": "Customer", "link_name": cust.name})
-			addr.save()
+		for address in addresses:
+			existing_address = frappe.get_value(
+				"Address", {"address_line1": address.get("address_line1")}
+			)
+			if existing_address:
+				continue
 
-		if customer.get("user"):
-			user = frappe.new_doc("User")
-			user.first_name = customer.get("user").split(" ")[0]
-			user.last_name = customer.get("user").split(" ")[1]
-			user.username = customer.get("email")
-			user.time_zone = "America/New_York"
-			user.email = customer.get("email")
-			user.user_type = "System User"
-			user.send_welcome_email = 0
-			user.append("roles", {"role": "Customer"})
-			user.save()
+			for address_link in address.get("links"):
+				if (
+					address_link.get("link_doctype") == "Customer"
+					and address_link.get("link_name") == cust.customer_name
+				):
+					addr = frappe.new_doc("Address")
+					addr.update(address)
+					addr.save()
 
-			contact = frappe.new_doc("Contact")
-			contact.first_name = user.first_name
-			contact.last_name = user.last_name
-			contact.user = user.name
-			if addr:
-				contact.address = addr.name
-			contact.append("email_ids", {"email_id": user.name, "is_primary": 1})
-			contact.append("links", {"link_doctype": "Customer", "link_name": cust.name})
-			contact.save()
+		for user in users:
+			if frappe.db.exists("User", user.get("username")):
+				continue
+			for role in user.get("roles"):
+				if role.get("role") == "Customer":
+					user_doc = frappe.new_doc("User")
+					user_doc.update(user)
+					user_doc.save()
+
+		for contact in contacts:
+			existing_contact = frappe.db.get_value(
+				"Contact", {"email_id": customer.get("email")}
+			)
+			if existing_contact:
+				continue
+			for contact_link in contact.get("links"):
+				if (
+					contact_link.get("link_doctype") == "Customer"
+					and contact_link.get("link_name") == cust.customer_name
+				):
+					contact_doc = frappe.new_doc("Contact")
+					contact_doc.update(contact)
+					contact_doc.save()
+
+
 def create_items(settings, only_create=None):
 	items = get_fixtures_data_from_file(filename="items.json")
 	for item in items:
@@ -73,6 +85,7 @@ def create_items(settings, only_create=None):
 		i = frappe.new_doc("Item")
 		i.update(item)
 		i.save()
+
 
 def create_item_groups(settings, only_create=None):
 	item_groups = get_fixtures_data_from_file(filename="item_groups.json")

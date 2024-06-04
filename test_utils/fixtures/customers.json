@@ -6,14 +6,7 @@
 		"tax_id": "04-41486",
 		"territory": "All Territories",
 		"user": "Antonina Hunter",
-		"email": "ahunter@andromedafruit.co",
-		"address": {
-			"address_line1": "3606 Cookie Plaza",
-			"city": "Concord",
-			"state": "NH",
-			"country": "United States",
-			"pincode": "03301"
-		}
+		"email": "ahunter@andromedafruit.co"
 	},
 	{
 		"customer_group": "Commercial",
@@ -22,14 +15,7 @@
 		"tax_id": "04-43711",
 		"territory": "All Territories",
 		"user": "Jong Foley",
-		"email": "jfoley@bakerysuppliers.us",
-		"address": {
-			"address_line1": "920 Meade St",
-			"city": "Bow",
-			"state": "NH",
-			"country": "United States",
-			"pincode": "03304"
-		}
+		"email": "jfoley@bakerysuppliers.us"
 	},
 	{
 		"customer_group": "Commercial",
@@ -38,14 +24,7 @@
 		"tax_id": "04-33564",
 		"territory": "All Territories",
 		"user": "Illa Townsend",
-		"email": "illa@cassiopeiagroup.com",
-		"address": {
-			"address_line1": "29 Navi Avenue",
-			"city": "Salem",
-			"state": "MA",
-			"country": "United States",
-			"pincode": "01970"
-		}
+		"email": "illa@cassiopeiagroup.com"
 	},
 	{
 		"customer_group": "Commercial",
@@ -54,14 +33,7 @@
 		"tax_id": "04-35582",
 		"territory": "All Territories",
 		"user": "Byron Greene",
-		"email": "byron@delphinus.food",
-		"address": {
-			"address_line1": "680 Rotanev Rotary",
-			"city": "Rockport",
-			"state": "MA",
-			"country": "United States",
-			"pincode": "01966"
-		}
+		"email": "byron@delphinus.food"
 	},
 	{
 		"customer_group": "Commercial",
@@ -70,14 +42,7 @@
 		"tax_id": "04-50909",
 		"territory": "All Territories",
 		"user": "Leif Grusson",
-		"email": "leif@grusgoodies.com",
-		"address": {
-			"address_line1": "80 Alnair Circle",
-			"city": "Quincy",
-			"state": "MA",
-			"country": "United States",
-			"pincode": "02169"
-		}
+		"email": "leif@grusgoodies.com"
 	},
 	{
 		"customer_group": "Commercial",
@@ -86,14 +51,7 @@
 		"tax_id": "04-98249",
 		"territory": "All Territories",
 		"user": "Brenton Kennedy",
-		"email": "brenton@pheonix.fruit",
-		"address":{
-			"address_line1": "530 Ankaa Blvd",
-			"city": "Braintree",
-			"state": "MA",
-			"country": "United States",
-			"pincode": "02184"
-		}
+		"email": "brenton@pheonix.fruit"
 	},
 	{
 		"customer_group": "Commercial",
@@ -102,14 +60,7 @@
 		"tax_id": "04-57983",
 		"territory": "All Territories",
 		"user": "Marcell Crane",
-		"email": "marcell@hydraproduce.ca",
-		"address": {
-			"address_line1": "444 Rue d'Alphard",
-			"city": "Montreal",
-			"state": "Quebec",
-			"country": "Canada",
-			"pincode": "H1Y3A4"
-		}
+		"email": "marcell@hydraproduce.ca"
 	},
 	{
 		"customer_group": "Commercial",

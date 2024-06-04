@@ -1,0 +1,114 @@
+[
+	{
+		"email": "ahunter@andromedafruit.co",
+		"enabled": 1,
+		"first_name": "Antonina",
+		"full_name": "Antonina Hunter",
+		"last_name": "Hunter",
+		"name": "ahunter@andromedafruit.co",
+		"roles": [
+			{
+				"role": "Customer"
+			}
+		],
+		"time_zone": "America/New_York",
+		"user_type": "Website User",
+		"username": "ahunter@andromedafruit.co"
+	},
+	{
+		"email": "jfoley@bakerysuppliers.us",
+		"enabled": 1,
+		"first_name": "Jong",
+		"full_name": "Jong Foley",
+		"last_name": "Foley",
+		"name": "jfoley@bakerysuppliers.us",
+		"roles": [
+			{
+				"role": "Customer"
+			}
+		],
+		"time_zone": "America/New_York",
+		"user_type": "Website User",
+		"username": "jfoley@bakerysuppliers.us"
+	},
+	{
+		"email": "illa@cassiopeiagroup.com",
+		"enabled": 1,
+		"first_name": "Illa",
+		"full_name": "Illa Townsend",
+		"last_name": "Townsend",
+		"name": "illa@cassiopeiagroup.com",
+		"roles": [
+			{
+				"role": "Customer"
+			}
+		],
+		"time_zone": "America/New_York",
+		"user_type": "Website User",
+		"username": "illa@cassiopeiagroup.com"
+	},
+	{
+		"email": "byron@delphinus.food",
+		"enabled": 1,
+		"first_name": "Byron",
+		"full_name": "Byron Greene",
+		"last_name": "Greene",
+		"name": "byron@delphinus.food",
+		"roles": [
+			{
+				"role": "Customer"
+			}
+		],
+		"time_zone": "America/New_York",
+		"user_type": "Website User",
+		"username": "byron@delphinus.food"
+	},
+	{
+		"email": "leif@grusgoodies.com",
+		"enabled": 1,
+		"first_name": "Leif",
+		"full_name": "Leif Grusson",
+		"last_name": "Grusson",
+		"name": "leif@grusgoodies.com",
+		"roles": [
+			{
+				"role": "Customer"
+			}
+		],
+		"time_zone": "America/New_York",
+		"user_type": "Website User",
+		"username": "leif@grusgoodies.com"
+	},
+	{
+		"email": "brenton@pheonix.fruit",
+		"enabled": 1,
+		"first_name": "Brenton",
+		"full_name": "Brenton Kennedy",
+		"last_name": "Kennedy",
+		"name": "brenton@pheonix.fruit",
+		"roles": [
+			{
+				"role": "Customer"
+			}
+		],
+		"time_zone": "America/New_York",
+		"user_type": "Website User",
+		"username": "brenton@pheonix.fruit"
+	},
+	{
+		"email": "marcell@hydraproduce.ca",
+		"enabled": 1,
+		"first_name": "Marcell",
+		"full_name": "Marcell Crane",
+		"last_name": "Crane",
+		"name": "marcell@hydraproduce.ca",
+		"roles": [
+			{
+				"role": "Customer"
+			}
+		],
+		"time_zone": "America/New_York",
+		"user_type": "Website User",
+		"username": "marcell@hydraproduce.ca"
+	}
+]
