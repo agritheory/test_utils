@@ -26,6 +26,11 @@ repos:
         additional_dependencies:
           - tomli
 
+  - repo: https://github.com/ikamensh/flynt/
+    rev: 1.0.1
+    hooks:
+    -   id: flynt
+
 ci:
   autoupdate_schedule: weekly
   skip: []
