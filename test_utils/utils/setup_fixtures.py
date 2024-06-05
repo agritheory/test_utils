@@ -95,7 +95,10 @@ def create_suppliers(settings, only_create=None):
 				continue
 
 			for link in address.get("links"):
-				if link.get("link_doctype") == "Supplier" and link.get("link_name") == biz.supplier_name:
+				if (
+					link.get("link_doctype") == "Supplier"
+					and link.get("link_name") == biz.supplier_name
+				):
 					addr = frappe.new_doc("Address")
 					addr.update(address)
 					addr.save()
@@ -107,7 +110,10 @@ def create_payment_terms_template(settings, only_create=None):
 	)
 
 	for payment_terms_template in payment_terms_templates:
-		if only_create and payment_terms_template.get("template_name") not in only_create:
+		if (
+			only_create
+			and payment_terms_template.get("template_name") not in only_create
+		):
 			continue
 
 		if frappe.db.exists(
@@ -172,3 +178,49 @@ def create_item_groups(settings, only_create=None):
 		ig = frappe.new_doc("Item Group")
 		ig.update(item_group)
 		ig.save()
+
+
+def create_workstations(only_create=None):
+	workstations = get_fixtures_data_from_file(filename="workstations.json")
+
+	for workstation in workstations:
+		if only_create and workstation.get("workstation_name") not in only_create:
+			continue
+
+		if frappe.db.exists("Workstation", workstation.get("workstation_name")):
+			continue
+
+		workstation_doc = frappe.new_doc("Workstation")
+		workstation_doc.update(workstation)
+		workstation_doc.save()
+
+
+def create_operations(only_create=None):
+	operations = get_fixtures_data_from_file(filename="operations.json")
+
+	for operation in operations:
+		if only_create and operation.get("name") not in only_create:
+			continue
+
+		if frappe.db.exists("Operation", operation.get("name")):
+			continue
+
+		operation_doc = frappe.new_doc("Operation")
+		operation_doc.update(operation)
+		operation_doc.save()
+
+
+def create_boms(settings, only_create=None):
+	boms = get_fixtures_data_from_file(filename="boms.json")
+
+	for bom in boms:
+
+		if only_create and bom.get("item") not in only_create:
+			continue
+
+		if frappe.db.exists("BOM", {"item": bom.get("item")}):
+			continue
+
+		bom_doc = frappe.new_doc("BOM")
+		bom_doc.update(bom)
+		bom.save()
