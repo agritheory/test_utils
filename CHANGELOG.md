@@ -2,6 +2,21 @@
 
 
 
+## v0.10.0 (2024-06-06)
+
+### Feature
+
+* feat(fixtures): fixtures data for boms (#51)
+
+* feat(fixtures): fixtures data for boms
+
+* fix: remove check for existing bom ([`5eeac11`](https://github.com/agritheory/test_utils/commit/5eeac112b7f64698757abfe75b2b735e0dd74769))
+
+### Unknown
+
+* pre-commit: added flynt (#50) ([`1a1c30a`](https://github.com/agritheory/test_utils/commit/1a1c30a39f9f92551b4803b24cda9a1a97abddc7))
+
+
 ## v0.9.0 (2024-06-04)
 
 ### Feature
