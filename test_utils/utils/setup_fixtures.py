@@ -218,9 +218,6 @@ def create_boms(settings, only_create=None):
 		if only_create and bom.get("item") not in only_create:
 			continue
 
-		if frappe.db.exists("BOM", {"item": bom.get("item")}):
-			continue
-
 		bom_doc = frappe.new_doc("BOM")
 		bom_doc.update(bom)
 		bom.save()
