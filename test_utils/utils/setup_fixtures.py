@@ -221,3 +221,44 @@ def create_boms(settings, only_create=None):
 		bom_doc = frappe.new_doc("BOM")
 		bom_doc.update(bom)
 		bom.save()
+
+
+def create_employees(settings, only_create=None):
+	employees = get_fixtures_data_from_file(filename="employees.json")
+	addresses = get_fixtures_data_from_file(filename="addresses.json")
+
+	for employee in employees:
+		if only_create and employee.get("employee_name") not in only_create:
+			continue
+
+		if frappe.db.exists(
+			"Employee", {"employee_name": employee.get("employee_name")}
+		):
+			continue
+
+		empl = frappe.new_doc("Employee")
+		empl.update(employee)
+		empl.save()
+
+		for address in addresses:
+			existing_address = frappe.get_value(
+				"Address", {"address_line1": address.get("address_line1")}
+			)
+			if existing_address:
+				continue
+
+			for link in address.get("links"):
+				if (
+					link.get("link_doctype") == "Employee"
+					and link.get("link_title") == empl.employee_name
+				):
+					for addr_link in address.get("links"):
+						if addr_link.get("link_title") == empl.employee_name:
+							addr_link.update({"link_name": empl.name})
+
+					addr = frappe.new_doc("Address")
+					addr.update(address)
+					addr.save()
+					empl.employee_primary_address = addr.name
+					empl.save()
+			break
