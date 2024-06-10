@@ -12,30 +12,32 @@ from frappe.desk.form.linked_with import get_linked_fields
 from erpnext.accounts.doctype.account.account import update_account_number
 from erpnext.accounts.doctype.account.chart_of_accounts.chart_of_accounts import create_charts
 from erpnext.accounts.doctype.chart_of_accounts_importer.chart_of_accounts_importer import unset_existing_data, set_default_accounts
+from erpnext.setup.setup_wizard.operations.install_fixtures import create_bank_account
 
 
-def setup_chart_of_accounts(chart_template="Standard with Numbers", company=None):
+def setup_chart_of_accounts(company=None, chart_template="Standard with Numbers"):
 	"""
+	:param company: str | None; the company to apply the Chart of Accounts changes to. If None,
+	uses the default company
 	:param chart_template: str; options for which type of Chart of Accounts to create:
 	    - Standard with Numbers (default; ERPNext option that includes numbered accounts)
 	    - Standard (ERPNext option that excludes numbered accounts)
-	    - IFRS: imports sections 1-5 of standard IFRS Chart of Accounts
-	    - Farm: imports a farm Chart of Accounts to match Schedule F
-	:param company: str | None; the company to apply the Chart of Accounts changes to. If None,
-	uses the default company
+	    - IFRS: imports basic IFRS Chart of Accounts
+	    - Farm: imports a standard COA with Numbers plus additional income/expense items to match
+		  Schedule F
 	:return: None
 
 	Meant to be called after the setup_complete function (which has set up one of ERPNext's
 	default `chart_of_accounts` options for a US-based company.
 	"""
 	company = company or frappe.defaults.get_defaults().company
-	chart_template = chart_template.lower()
-	supported_types = ["standard with numbers", "standard", "ifrs", "farm"]
+	orig_ct, chart_template = chart_template, chart_template.lower()
+	supported_types = ["Standard with Numbers", "Standard", "IFRS", "Farm"]
 
-	if chart_template not in supported_types:
+	if chart_template not in [ct.lower() for ct in supported_types]:
 		frappe.throw(
 			msg=_("Unsupported Chart of Accounts Template"),
-			title=_(f"The selected Chart of Accounts template {chart_template} is not recognized. Please try one of {', '.join([s for s in supported_types])}")
+			title=_(f"The selected Chart of Accounts template {orig_ct} is not recognized. Please try one of {', '.join(supported_types)}")
 		)
 
 	if "standard" in chart_template:
@@ -46,13 +48,17 @@ def setup_chart_of_accounts(chart_template="Standard with Numbers", company=None
 		unset_existing_data(company)
 		custom_chart = load_custom_chart(chart_template)
 		create_charts(company=company, custom_chart=custom_chart)
+		
+		args = frappe._dict({"company_name": company, "bank_account": "Primary Checking", "set_default": 1})
+		create_bank_account(args)
 		set_default_accounts(company)  # TODO: sets receivable, payable, and provisional account, sets country fixtures - need any other defaults set?
+		
 		invalid_acct_links = find_invalid_account_links()
 		if invalid_acct_links:
 			link_list = "</li><li>".join([f"DocType: {d['dt']}, Document: {d['dn']}, Field Name: {d['fieldname']}" for d in invalid_acct_links])
 			message = _(f"The following Document(s) contain a link to an invalid Account in the noted field:<br><br><ul><li>{link_list}</li></ul>")
 			frappe.log_error(
-				title=_("Chart of Accounts Setup Error"),
+				title=_("Chart of Accounts Account Link Error"),
 				message=message,
 				reference_doctype="Company",
 				reference_name=company,
@@ -92,9 +98,9 @@ def rename_standard_accounts(company=None, with_numbers=True):
 		"Account", f"{acct_number_prefix}Creditors - {company_abbr}", f"{acct_number_prefix}Accounts Payable - {company_abbr}", force=True
 	)
 
-	if with_numbers:
-		update_account_number("1110 - Cash - CFC", "Petty Cash", account_number="1110")
-		update_account_number("Primary Checking - CFC", "Primary Checking", account_number="1201")
+	acct_number_prefix = "1110 - " if with_numbers else ""
+	update_account_number(f"{acct_number_prefix}Cash - {company_abbr}", "Petty Cash", account_number=acct_number_prefix[:4] if with_numbers else "")
+	update_account_number(f"Primary Checking - {company_abbr}", "Primary Checking", account_number="1201" if with_numbers else "")
 
 
 def create_electronic_payments_accounts(company=None):
@@ -182,3 +188,89 @@ def find_invalid_account_links():
 					invalid_accounts.append(frappe._dict({"dt": doctype, "dn": doc["name"], "fieldname": fieldname}))
 
 	return invalid_accounts
+
+
+def create_mop_bank_and_bank_account(settings):
+	if not settings.company_account:
+		frappe.log_error(
+			title=_("Error Setting Up MOP, Bank, and Bank Account - No Default Company Account"),
+			message=_(f"No Company Default bank account found for {settings.company}")
+		)
+
+	if not frappe.db.exists("Mode of Payment", "ACH/EFT"):
+		mop = frappe.new_doc("Mode of Payment")
+		mop.mode_of_payment = "ACH/EFT"
+		mop.enabled = 1
+		mop.type = "Electronic"
+		mop.append(
+			"accounts",
+			{"company": settings.company, "default_account": settings.company_account},
+		)
+		mop.save()
+
+	wire_transfer = frappe.get_doc("Mode of Payment", "Wire Transfer")
+	wire_transfer.type = "General"
+	wire_transfer.append(
+		"accounts", {"company": settings.company, "default_account": settings.company_account}
+	)
+	wire_transfer.save()
+
+	credit_card = frappe.get_doc("Mode of Payment", "Credit Card")
+	credit_card.type = "General"
+	credit_card.append(
+		"accounts", {"company": settings.company, "default_account": settings.company_account}
+	)
+	credit_card.save()
+
+	bank_draft = frappe.get_doc("Mode of Payment", "Bank Draft")
+	bank_draft.type = "General"
+	bank_draft.append(
+		"accounts", {"company": settings.company, "default_account": settings.company_account}
+	)
+	bank_draft.save()
+
+	check_mop = frappe.get_doc("Mode of Payment", "Check")
+	check_mop.type = "Bank"
+	check_mop.append(
+		"accounts", {"company": settings.company, "default_account": settings.company_account}
+	)
+	check_mop.save()
+
+	if not frappe.db.exists("Bank", "Local Bank"):
+		bank = frappe.new_doc("Bank")
+		bank.bank_name = "Local Bank"
+		bank.aba_number = "07200091"
+		bank.save()
+
+	if not frappe.db.exists("Bank Account", "Primary Checking - Local Bank"):
+		bank_account = frappe.new_doc("Bank Account")
+		bank_account.account_name = "Primary Checking"
+		bank_account.bank = bank.name
+		bank_account.is_default = 1
+		bank_account.is_company_account = 1
+		bank_account.company = settings.company
+		bank_account.account = settings.company_account
+		bank_account.check_number = 2500
+		bank_account.company_ach_id = "1381655417"
+		bank_account.bank_account_no = "072000915"
+		bank_account.branch_code = "07200091"
+		bank_account.save()
+
+	doc = frappe.new_doc("Journal Entry")
+	doc.posting_date = settings.day
+	doc.voucher_type = "Opening Entry"
+	doc.company = settings.company
+	opening_balance = 50000.00
+	doc.append(
+		"accounts",
+		{"account": settings.company_account, "debit_in_account_currency": opening_balance},
+	)
+	retained_earnings = frappe.get_value(
+		"Account", {"account_name": "Retained Earnings", "company": settings.company, "is_group": 0}
+	)
+	doc.append(
+		"accounts",
+		{"account": retained_earnings, "credit_in_account_currency": opening_balance},
+	)
+	doc.save()
+	doc.submit()
