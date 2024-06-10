@@ -4,8 +4,8 @@
 	"tree": {
 		"Assets": {
 			"Current Assets": {
-				"Petty Cash": {
-					"Cash In Hand": {
+				"Cash In Hand": {
+					"Petty Cash": {
 						"account_number": "1110",
 						"account_type": "Cash"
 					},
@@ -13,10 +13,7 @@
 					"account_type": "Cash"
 				},
 				"Bank Accounts": {
-					"Checking": {
-						"account_number": "1210",
-						"account_type": "Bank"
-					},
+					"is_group": 1,
 					"account_number": "1200",
 					"account_type": "Bank"
 				},
@@ -262,7 +259,7 @@
 			"root_type": "Income",
 			"account_number": "4000"
 		},
-		"Source of Funds Liabilities": {
+		"Liabilities": {
 			"Current Liabilities": {
 				"Accounts Payable": {
 					"Accounts Payable": {

@@ -223,6 +223,11 @@
                 "account_number": "1.09",
                 "account_type": "Cash"
             },
+            "Bank Accounts": {
+                "is_group": 1,
+                "account_number": "1.10",
+                "account_type": "Bank"
+            },
             "account_number": "1",
             "root_type": "Asset"
         },
@@ -650,11 +655,8 @@
                 "account_type": "Equity"
             },
             "Retained Earnings": {
-                "Current Year's Retained Profit (Loss)": {
+                "Retained Earnings": {
                     "account_number": "2.02.01"
-                },
-                "Prior Years' Retained Profit (Loss)": {
-                    "account_number": "2.02.02"
                 },
                 "account_number": "2.02",
                 "account_type": "Equity"
