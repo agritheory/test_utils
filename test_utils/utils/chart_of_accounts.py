@@ -48,11 +48,11 @@ def setup_chart_of_accounts(company=None, chart_template="Standard with Numbers"
 		unset_existing_data(company)
 		custom_chart = load_custom_chart(chart_template)
 		create_charts(company=company, custom_chart=custom_chart)
-		
+
 		args = frappe._dict({"company_name": company, "bank_account": "Primary Checking", "set_default": 1})
 		create_bank_account(args)
 		set_default_accounts(company)  # TODO: sets receivable, payable, and provisional account, sets country fixtures - need any other defaults set (see Company.set_default_accounts)?
-		
+
 		invalid_acct_links = find_invalid_account_links()
 		if invalid_acct_links:
 			link_list = "</li><li>".join([f"DocType: {d['dt']}, Document: {d['dn']}, Field Name: {d['fieldname']}" for d in invalid_acct_links])
@@ -179,22 +179,29 @@ def find_invalid_account_links():
 	"""
 	invalid_accounts = []
 	account_links = get_linked_fields("Account")  # format: {"DocType1": {"fieldname": [...]}, "DocType2": {"child_doctype": "DocType", "fieldname": [...]}}
+	error_string = ""
 	for doctype, data_dict in account_links.items():
 		fieldnames = data_dict.get("fieldname")
 		if "child_doctype" in data_dict or not fieldnames:
 			continue
-		for doc in frappe.get_all(doctype, ["name"] + fieldnames):
-			for fieldname in fieldnames:
-				if not frappe.db.exists("Account", doc[fieldname]):
-					invalid_accounts.append(frappe._dict({"dt": doctype, "dn": doc["name"], "fieldname": fieldname}))
 
+		try:
+			for doc in frappe.get_all(doctype, ["name"] + fieldnames):
+				for fieldname in fieldnames:
+					if not frappe.db.exists("Account", doc[fieldname]):
+						invalid_accounts.append(frappe._dict({"dt": doctype, "dn": doc["name"], "fieldname": fieldname}))
+		except Exception as e:
+			error_string += f"\n{e}"
+			continue
+	if error_string:
+		print(error_string)
 	return invalid_accounts
 
 
 def create_bank_and_bank_account(settings):
 	if not settings.company_account:
 		frappe.log_error(
-			title=_("Error Setting Up MOP, Bank, and Bank Account - No Default Company Account"),
+			title=_("Error Setting Up Bank and Bank Account - No Default Company Account"),
 			message=_(f"No Company Default bank account found for {settings.company}")
 		)
 

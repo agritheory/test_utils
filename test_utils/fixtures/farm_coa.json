@@ -51,11 +51,11 @@
 				"account_number": "1100-1600"
 			},
 			"Fixed Assets": {
-				"Capital Equipments": {
+				"Capital Equipment": {
 					"account_type": "Fixed Asset",
 					"account_number": "1710"
 				},
-				"Electronic Equipments": {
+				"Electronic Equipment": {
 					"account_type": "Fixed Asset",
 					"account_number": "1720"
 				},
@@ -63,7 +63,7 @@
 					"account_type": "Fixed Asset",
 					"account_number": "1730"
 				},
-				"Office Equipments": {
+				"Office Equipment": {
 					"account_type": "Fixed Asset",
 					"account_number": "1740"
 				},
@@ -75,7 +75,7 @@
 					"account_type": "Fixed Asset",
 					"account_number": "1760"
 				},
-				"Softwares": {
+				"Software": {
 					"account_type": "Fixed Asset",
 					"account_number": "1770"
 				},
