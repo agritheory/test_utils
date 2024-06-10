@@ -238,6 +238,8 @@ def create_employees(settings, only_create=None):
 
 		empl = frappe.new_doc("Employee")
 		empl.update(employee)
+		if settings.company:
+			empl.company = settings.company
 		empl.save()
 
 		for address in addresses:
