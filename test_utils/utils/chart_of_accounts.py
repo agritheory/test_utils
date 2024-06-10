@@ -88,15 +88,16 @@ def rename_standard_accounts(company=None, with_numbers=True):
 		force=True,
 	)
 
-	acct_number_prefix = "1310 - " if with_numbers else ""
-	frappe.rename_doc(
-		"Account", f"{acct_number_prefix}Debtors - {company_abbr}", f"{acct_number_prefix}Accounts Receivable - {company_abbr}", force=True
-	)
+	if with_numbers:
+		acct_number_prefix = "1310 - "
+		frappe.rename_doc(
+			"Account", f"{acct_number_prefix}Debtors - {company_abbr}", f"{acct_number_prefix}Accounts Receivable - {company_abbr}", force=True
+		)
 
-	acct_number_prefix = "2110 - " if with_numbers else ""
-	frappe.rename_doc(
-		"Account", f"{acct_number_prefix}Creditors - {company_abbr}", f"{acct_number_prefix}Accounts Payable - {company_abbr}", force=True
-	)
+		acct_number_prefix = "2110 - "
+		frappe.rename_doc(
+			"Account", f"{acct_number_prefix}Creditors - {company_abbr}", f"{acct_number_prefix}Accounts Payable - {company_abbr}", force=True
+		)
 
 	acct_number_prefix = "1110 - " if with_numbers else ""
 	update_account_number(f"{acct_number_prefix}Cash - {company_abbr}", "Petty Cash", account_number=acct_number_prefix[:4] if with_numbers else "")
