@@ -51,7 +51,7 @@ def setup_chart_of_accounts(company=None, chart_template="Standard with Numbers"
 		
 		args = frappe._dict({"company_name": company, "bank_account": "Primary Checking", "set_default": 1})
 		create_bank_account(args)
-		set_default_accounts(company)  # TODO: sets receivable, payable, and provisional account, sets country fixtures - need any other defaults set?
+		set_default_accounts(company)  # TODO: sets receivable, payable, and provisional account, sets country fixtures - need any other defaults set (see Company.set_default_accounts)?
 		
 		invalid_acct_links = find_invalid_account_links()
 		if invalid_acct_links:
@@ -190,51 +190,12 @@ def find_invalid_account_links():
 	return invalid_accounts
 
 
-def create_mop_bank_and_bank_account(settings):
+def create_bank_and_bank_account(settings):
 	if not settings.company_account:
 		frappe.log_error(
 			title=_("Error Setting Up MOP, Bank, and Bank Account - No Default Company Account"),
 			message=_(f"No Company Default bank account found for {settings.company}")
 		)
-
-	if not frappe.db.exists("Mode of Payment", "ACH/EFT"):
-		mop = frappe.new_doc("Mode of Payment")
-		mop.mode_of_payment = "ACH/EFT"
-		mop.enabled = 1
-		mop.type = "Electronic"
-		mop.append(
-			"accounts",
-			{"company": settings.company, "default_account": settings.company_account},
-		)
-		mop.save()
-
-	wire_transfer = frappe.get_doc("Mode of Payment", "Wire Transfer")
-	wire_transfer.type = "General"
-	wire_transfer.append(
-		"accounts", {"company": settings.company, "default_account": settings.company_account}
-	)
-	wire_transfer.save()
-
-	credit_card = frappe.get_doc("Mode of Payment", "Credit Card")
-	credit_card.type = "General"
-	credit_card.append(
-		"accounts", {"company": settings.company, "default_account": settings.company_account}
-	)
-	credit_card.save()
-
-	bank_draft = frappe.get_doc("Mode of Payment", "Bank Draft")
-	bank_draft.type = "General"
-	bank_draft.append(
-		"accounts", {"company": settings.company, "default_account": settings.company_account}
-	)
-	bank_draft.save()
-
-	check_mop = frappe.get_doc("Mode of Payment", "Check")
-	check_mop.type = "Bank"
-	check_mop.append(
-		"accounts", {"company": settings.company, "default_account": settings.company_account}
-	)
-	check_mop.save()
 
 	if not frappe.db.exists("Bank", "Local Bank"):
 		bank = frappe.new_doc("Bank")
