@@ -179,7 +179,7 @@ def find_invalid_account_links():
 	"""
 	invalid_accounts = []
 	account_links = get_linked_fields("Account")  # format: {"DocType1": {"fieldname": [...]}, "DocType2": {"child_doctype": "DocType", "fieldname": [...]}}
-	error_string = ""
+
 	for doctype, data_dict in account_links.items():
 		fieldnames = data_dict.get("fieldname")
 		if "child_doctype" in data_dict or not fieldnames:
@@ -188,13 +188,11 @@ def find_invalid_account_links():
 		try:
 			for doc in frappe.get_all(doctype, ["name"] + fieldnames):
 				for fieldname in fieldnames:
-					if not frappe.db.exists("Account", doc[fieldname]):
+					if doc[fieldname] and not frappe.db.exists("Account", doc[fieldname]):
 						invalid_accounts.append(frappe._dict({"dt": doctype, "dn": doc["name"], "fieldname": fieldname}))
-		except Exception as e:
-			error_string += f"\n{e}"
+		except Exception as e:  # Bank Clearance and QuickBooks Migrator doctypes throw missing table error
 			continue
-	if error_string:
-		print(error_string)
+
 	return invalid_accounts
 
 
