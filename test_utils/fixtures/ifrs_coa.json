@@ -262,10 +262,11 @@
                     "account_number": "5.01.08"
                 },
                 "Expenses Included In Valuation": {
-                    "account_type": "Expenses Included In Valuation"
+                    "account_type": "Expenses Included In Valuation",
+                    "account_number": "5.01.09"
                 },
                 "Change in inventories of finished goods and work in progress": {
-                    "account_number": "5.01.08",
+                    "account_number": "5.01.10",
                     "account_type": "Stock Adjustment"
                 },
                 "account_number": "5.01"
