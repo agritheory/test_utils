@@ -18,7 +18,7 @@ def get_fixtures_data_from_file(filename):
 def before_test(company):
 	frappe.clear_cache()
 	today = frappe.utils.getdate()
-	setup_data = get_fixtures_data_from_file("setup.json")
+	setup_data = get_fixtures_data_from_file("company.json")
 	companies = [d.get("company_name") for d in setup_data]
 
 	if company not in companies:
