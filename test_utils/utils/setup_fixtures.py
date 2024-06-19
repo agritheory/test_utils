@@ -4,7 +4,6 @@ import json
 try:
 	import frappe
 	from frappe.desk.page.setup_wizard.setup_wizard import setup_complete
-	from erpnext.setup.utils import enable_all_roles_and_domains, set_defaults_for_tests
 except Exception as e:
 	raise (e)
 
@@ -35,8 +34,6 @@ def before_test(company):
 			)
 			setup_complete(setup)
 			frappe.db.commit()
-	enable_all_roles_and_domains()
-	set_defaults_for_tests()
 	frappe.db.commit()
 	# add create_test_data() and create address for company
 	for module in frappe.get_all("Module Onboarding"):
