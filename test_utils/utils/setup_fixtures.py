@@ -34,7 +34,7 @@ def before_test(company):
 			)
 			setup_complete(setup)
 			frappe.db.commit()
-	frappe.db.commit()
+
 	# add create_test_data() and create address for company
 	for module in frappe.get_all("Module Onboarding"):
 		frappe.db.set_value("Module Onboarding", module, "is_complete", 1)
