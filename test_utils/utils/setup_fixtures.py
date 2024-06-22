@@ -3,6 +3,7 @@ import json
 
 try:
 	import frappe
+	from frappe.desk.page.setup_wizard.setup_wizard import setup_complete
 except Exception as e:
 	raise (e)
 
@@ -12,6 +13,33 @@ def get_fixtures_data_from_file(filename):
 	if pathlib.Path.exists(app_dir / filename):
 		with open(app_dir / filename) as f:
 			return json.load(f)
+
+
+def before_test(company):
+	frappe.clear_cache()
+	today = frappe.utils.getdate()
+	setup_data = get_fixtures_data_from_file("company.json")
+	companies = [d.get("company_name") for d in setup_data]
+
+	if company not in companies:
+		frappe.throw(f"Company: {company} does not exist in setup data.")
+
+	for setup in setup_data:
+		if company == setup.get("company_name"):
+			setup.update(
+				{
+					"fy_start_date": today.replace(month=1, day=1).isoformat(),
+					"fy_end_date": today.replace(month=12, day=31).isoformat(),
+				}
+			)
+			setup_complete(setup)
+			frappe.db.commit()
+
+	# add create_test_data() and create address for company
+	for module in frappe.get_all("Module Onboarding"):
+		frappe.db.set_value("Module Onboarding", module, "is_complete", 1)
+	frappe.set_value("Website Settings", "Website Settings", "home_page", "login")
+	frappe.db.commit()
 
 
 def create_customers(settings, only_create=None):
@@ -85,6 +113,9 @@ def create_suppliers(settings, only_create=None):
 
 		biz = frappe.new_doc("Supplier")
 		biz.update(supplier)
+		if settings.company:
+			for sc_default in biz.get("subcontracting_defaults"):
+				sc_default.update({"company": settings.company})
 		biz.save()
 
 		for address in addresses:
@@ -161,6 +192,9 @@ def create_items(settings, only_create=None):
 
 		i = frappe.new_doc("Item")
 		i.update(item)
+		if settings.company:
+			for item_default in i.get("item_defaults"):
+				item_default.update({"company": settings.company})
 		i.save()
 
 
@@ -220,6 +254,8 @@ def create_boms(settings, only_create=None):
 
 		bom_doc = frappe.new_doc("BOM")
 		bom_doc.update(bom)
+		if settings.company:
+			bom.company = settings.company
 		bom.save()
 
 
@@ -293,3 +329,45 @@ def create_bank_and_bank_account(settings=None):
 	)
 	je_doc.save()
 	je_doc.submit()
+
+def create_employees(settings, only_create=None):
+	employees = get_fixtures_data_from_file(filename="employees.json")
+	addresses = get_fixtures_data_from_file(filename="addresses.json")
+
+	for employee in employees:
+		if only_create and employee.get("employee_name") not in only_create:
+			continue
+
+		if frappe.db.exists(
+			"Employee", {"employee_name": employee.get("employee_name")}
+		):
+			continue
+
+		empl = frappe.new_doc("Employee")
+		empl.update(employee)
+		if settings.company:
+			empl.company = settings.company
+		empl.save()
+
+		for address in addresses:
+			existing_address = frappe.get_value(
+				"Address", {"address_line1": address.get("address_line1")}
+			)
+			if existing_address:
+				continue
+
+			for link in address.get("links"):
+				if (
+					link.get("link_doctype") == "Employee"
+					and link.get("link_title") == empl.employee_name
+				):
+					for addr_link in address.get("links"):
+						if addr_link.get("link_title") == empl.employee_name:
+							addr_link.update({"link_name": empl.name})
+
+					addr = frappe.new_doc("Address")
+					addr.update(address)
+					addr.save()
+					empl.employee_primary_address = addr.name
+					empl.save()
+			break

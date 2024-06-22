@@ -1,6 +1,24 @@
 # CHANGELOG
 
+## v0.11.0 (2024-06-21)
 
+### Feature
+
+* feat(fixtures): fixtures data for employees (#52)
+
+* feat(fixtures): fixtures data for employees
+
+* fix: set company for employee from settings ([`579b93c`](https://github.com/agritheory/test_utils/commit/579b93cc14394223a8c735228837a98f213083d2))
+
+* feat: setup company fixtures (#55)
+
+* feat: setup company fixtures
+
+* fix: rename setup.json to company.json
+
+* fix: change path for fixtures file
+
+* fix: remove extra db.commit() ([`99ecb1b`](https://github.com/agritheory/test_utils/commit/99ecb1ba53a3bd2d20b753f130276757e7772493))
 
 ## v0.10.0 (2024-06-06)
 
@@ -15,7 +33,6 @@
 ### Unknown
 
 * pre-commit: added flynt (#50) ([`1a1c30a`](https://github.com/agritheory/test_utils/commit/1a1c30a39f9f92551b4803b24cda9a1a97abddc7))
-
 
 ## v0.9.0 (2024-06-04)
 
@@ -32,7 +49,6 @@
 ---------
 
 Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`335501f`](https://github.com/agritheory/test_utils/commit/335501f61b01c29445b2c4e9ede2234e54e77b04))
-
 
 ## v0.8.0 (2024-06-04)
 
@@ -56,7 +72,6 @@ Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`01cacc5`](https://g
 
 * fix: progress bar for load_customizations (#48) ([`cd5fe25`](https://github.com/agritheory/test_utils/commit/cd5fe25339c7abdd34e3dde9775f807f68d3c298))
 
-
 ## v0.7.1 (2024-06-04)
 
 ### Fix
@@ -65,13 +80,11 @@ Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`01cacc5`](https://g
 
 Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`934c926`](https://github.com/agritheory/test_utils/commit/934c9262d8981113cb7e545d3d5d19f7a3fc1d78))
 
-
 ## v0.7.0 (2024-06-04)
 
 ### Feature
 
 * feat: update validate_customizations to work as pre-commit hook (#46) ([`13f70dc`](https://github.com/agritheory/test_utils/commit/13f70dc8f46df89cfa75c58780bf36dc2fd27ef1))
-
 
 ## v0.6.0 (2024-06-03)
 
@@ -79,13 +92,11 @@ Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`934c926`](https://g
 
 * feat: update clean_customized_doctypes to work as pre-commit hook (#42) ([`cbd1628`](https://github.com/agritheory/test_utils/commit/cbd1628c1277f9a13f888037e5aaa47dd592f1d8))
 
-
 ## v0.5.0 (2024-06-03)
 
 ### Feature
 
 * feat: update validate_javascript_dependencies to work as pre-commit hook (#43) ([`49d7eed`](https://github.com/agritheory/test_utils/commit/49d7eed55daf3e67a716d21c0872e541d62040f7))
-
 
 ## v0.4.0 (2024-06-03)
 
@@ -100,7 +111,6 @@ Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`934c926`](https://g
 ### Unknown
 
 * Merge pull request #44 from agritheory/fix-ci ([`93a4f7f`](https://github.com/agritheory/test_utils/commit/93a4f7f5ddd9bcb65bb6c79f7c2b4b6d3a571e9f))
-
 
 ## v0.3.0 (2024-05-29)
 
@@ -134,13 +144,11 @@ Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`934c926`](https://g
 
 * fix: add only_create api and change function ([`fabb59d`](https://github.com/agritheory/test_utils/commit/fabb59de188a96dc00a2d910f837e8af73d5f2a9))
 
-
 ## v0.2.2 (2024-05-04)
 
 ### Fix
 
 * fix: sync hrms customization if hrms in installed apps (#33) ([`5fec2bd`](https://github.com/agritheory/test_utils/commit/5fec2bd0722206018dc094dd409e62ffdae97442))
-
 
 ## v0.2.1 (2024-05-01)
 
@@ -176,7 +184,6 @@ Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`934c926`](https://g
 
 Co-authored-by: Myuddin khatri &lt;khatrimayu111@gmail.com&gt; ([`75c5367`](https://github.com/agritheory/test_utils/commit/75c5367235eaf648197caceb362915b289ed917f))
 
-
 ## v0.2.0 (2024-04-26)
 
 ### Feature
@@ -188,7 +195,6 @@ Co-authored-by: Myuddin khatri &lt;khatrimayu111@gmail.com&gt; ([`75c5367`](http
 * Merge pull request #27 from MyuddinKhatri/add-release.yaml
 
 feat: added release.yaml to github workflows ([`d7b51db`](https://github.com/agritheory/test_utils/commit/d7b51db932ce98fb441d8a18cdf9bea77a310a21))
-
 
 ## v0.1.0 (2024-04-25)
 
