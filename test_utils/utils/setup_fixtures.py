@@ -180,6 +180,49 @@ def create_supplier_groups(settings, only_create=None):
 		bsg.save()
 
 
+def create_warehouses(settings):
+	items = get_fixtures_data_from_file(filename="items.json")
+	warehouses = []
+	for item in items:
+		for item_default in item.get("item_defaults"):
+			if item_default.get("default_warehouse") and item_default.get("default_warehouse") not in warehouses:
+				warehouses.append(item_default.get("default_warehouse"))
+
+	company_abbr = frappe.db.get_value("Company", settings.company, "abbr")
+	root_wh = frappe.get_value("Warehouse", {"company": settings.company, "is_group": 1})
+	if frappe.db.exists("Warehouse", f"Stores - {company_abbr}"):
+		frappe.rename_doc("Warehouse", f"Stores - {company_abbr}", f"Storeroom - {company_abbr}", force=True)
+	if frappe.db.exists("Warehouse", f"Finished Goods - {company_abbr}"):
+		frappe.rename_doc("Warehouse", f"Finished Goods - {company_abbr}", f"Baked Goods - {company_abbr}", force=True)
+		frappe.set_value("Warehouse", f"Baked Goods - {company_abbr}", "is_group", 1)
+
+	for wh in frappe.get_all("Warehouse", {"company": settings.company}, ["name", "is_group"]):
+		if wh.name not in warehouses and not wh.is_group:
+			frappe.delete_doc("Warehouse", wh.name)
+
+	for warehouse in warehouses:
+		if frappe.db.exists("Warehouse", warehouse):
+			continue
+		wh_doc = frappe.new_doc("Warehouse")
+		wh_doc.warehouse_name = warehouse.split(" - ")[0]
+		wh_doc.parent_warehouse = root_wh
+		wh_doc.company = settings.company
+		wh_doc.save()
+
+	if not frappe.db.exists("Warehouse", f"Bakery Display - {company_abbr}"):
+		wh = frappe.new_doc("Warehouse")
+		wh.warehouse_name = "Bakery Display"
+		wh.parent_warehouse = f"Baked Goods - {company_abbr}"
+		wh.company = settings.company
+		wh.save()
+
+	if frappe.db.exists("Warehouse", f"Refrigerated Display - {company_abbr}"):
+		wh = frappe.get_doc("Warehouse", "Refrigerated Display - APC")
+		wh.parent_warehouse = f"Baked Goods - {company_abbr}"
+		wh.save()
+
+
+
 def create_items(settings, only_create=None):
 	items = get_fixtures_data_from_file(filename="items.json")
 	for item in items:
