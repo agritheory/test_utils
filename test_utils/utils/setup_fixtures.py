@@ -300,3 +300,19 @@ def create_employees(settings, only_create=None):
 					empl.employee_primary_address = addr.name
 					empl.save()
 			break
+
+
+def create_holiday_lists(settings):
+	holiday_lists = get_fixtures_data_from_file(filename="holiday_lists.json")
+
+	for hl in holiday_lists:
+		year = hl.get("holiday_list_name").split("-")[0]
+		holiday_list_name = f"{year}- {settings.get('country')}"
+		if frappe.db.exists("Holiday List", holiday_list_name):
+			continue
+		holiday_list = frappe.new_doc("Holiday List")
+		if settings and settings.get("country") != "Canada":
+			hl['holidays'] = list(filter(lambda x: "Canada Day" not in x.values() and "Victoria Day" not in x.values(), hl.get("holidays")))
+		holiday_list.update(hl)
+		holiday_list.update({"holiday_list_name": holiday_list_name})
+		holiday_list.save()
