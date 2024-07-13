@@ -14,6 +14,7 @@ validate_copyright = "test_utils.pre_commit.validate_copyright:main"
 validate_javascript_dependencies = "test_utils.pre_commit.validate_javascript_dependencies:main"
 validate_python_dependencies = "test_utils.pre_commit.validate_python_dependencies:main"
 validate_customizations = "test_utils.pre_commit.validate_customizations:main"
+add_translations = "test_utils.pre_commit.add_translations:main"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
