@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.13.1 (2024-07-13)
+
+### Fix
+
+* fix: add exit codes, other cleanup (#64) ([`4531acc`](https://github.com/agritheory/test_utils/commit/4531acc225652a3b91d51d38874d0ed7c6f9a400))
+
 ## v0.13.0 (2024-07-13)
 
 ### Feature
