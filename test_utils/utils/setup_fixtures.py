@@ -1,5 +1,5 @@
-import pathlib
 import json
+import pathlib
 
 try:
 	import frappe
@@ -136,15 +136,10 @@ def create_suppliers(settings, only_create=None):
 
 
 def create_payment_terms_template(settings, only_create=None):
-	payment_terms_templates = get_fixtures_data_from_file(
-		"payment_terms_templates.json"
-	)
+	payment_terms_templates = get_fixtures_data_from_file("payment_terms_templates.json")
 
 	for payment_terms_template in payment_terms_templates:
-		if (
-			only_create
-			and payment_terms_template.get("template_name") not in only_create
-		):
+		if only_create and payment_terms_template.get("template_name") not in only_create:
 			continue
 
 		if frappe.db.exists(
@@ -170,9 +165,7 @@ def create_supplier_groups(settings, only_create=None):
 		if only_create and supplier_group.get("supplier_group_name") not in only_create:
 			continue
 
-		if frappe.db.exists(
-			"Supplier Group", supplier_group.get("supplier_group_name")
-		):
+		if frappe.db.exists("Supplier Group", supplier_group.get("supplier_group_name")):
 			continue
 
 		bsg = frappe.new_doc("Supplier Group")
@@ -330,6 +323,7 @@ def create_bank_and_bank_account(settings=None):
 	je_doc.save()
 	je_doc.submit()
 
+
 def create_employees(settings, only_create=None):
 	employees = get_fixtures_data_from_file(filename="employees.json")
 	addresses = get_fixtures_data_from_file(filename="addresses.json")
@@ -338,9 +332,7 @@ def create_employees(settings, only_create=None):
 		if only_create and employee.get("employee_name") not in only_create:
 			continue
 
-		if frappe.db.exists(
-			"Employee", {"employee_name": employee.get("employee_name")}
-		):
+		if frappe.db.exists("Employee", {"employee_name": employee.get("employee_name")}):
 			continue
 
 		empl = frappe.new_doc("Employee")

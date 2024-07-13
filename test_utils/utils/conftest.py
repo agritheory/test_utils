@@ -2,11 +2,12 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
 try:
 	import frappe
 	from frappe.utils import get_bench_path
 except Exception as e:
-	raise(e)
+	raise (e)
 
 
 def _get_logger(*args, **kwargs):

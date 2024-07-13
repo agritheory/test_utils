@@ -7,6 +7,7 @@ import pathlib
 import sys
 import tempfile
 from typing import Sequence
+
 from test_utils.pre_commit.validate_customizations import scrub
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
@@ -24,9 +25,7 @@ def get_customized_doctypes_to_clean(app):
 		if not (app_dir / app / scrub(module) / "custom").exists():
 			continue
 
-		for custom_file in list(
-			(app_dir / app / scrub(module) / "custom").glob("**/*.json")
-		):
+		for custom_file in list((app_dir / app / scrub(module) / "custom").glob("**/*.json")):
 			if custom_file.stem in customized_doctypes:
 				customized_doctypes[custom_file.stem].append(custom_file.resolve())
 			else:
@@ -40,7 +39,7 @@ def validate_and_clean_customized_doctypes(customized_doctypes):
 	for doctype, customize_files in customized_doctypes.items():
 		for customize_file in customize_files:
 			temp_file_path = tempfile.mktemp()
-			with open(customize_file, "r") as f, open(temp_file_path, "w") as temp_file:
+			with open(customize_file) as f, open(temp_file_path, "w") as temp_file:
 				file_contents = json.load(f)
 				original_content = copy.deepcopy(file_contents)
 				for key, value in list(file_contents.items()):

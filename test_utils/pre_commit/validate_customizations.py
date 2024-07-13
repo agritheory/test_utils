@@ -40,10 +40,7 @@ def get_customized_doctypes():
 		if app_dir.stem == "hrms":
 			p = ast.parse((app_dir / "hrms" / "setup.py").read_text())
 			for node in p.body[:]:
-				if (
-					not isinstance(node, ast.FunctionDef)
-					or node.name != "get_custom_fields"
-				):
+				if not isinstance(node, ast.FunctionDef) or node.name != "get_custom_fields":
 					p.body.remove(node)
 			module = types.ModuleType("hrms")
 			code = compile(p, "setup.py", "exec")
@@ -54,9 +51,7 @@ def get_customized_doctypes():
 			hrms_custom_fields = hrms.get_custom_fields()
 			for doctype, fields in hrms_custom_fields.items():
 				if doctype in customized_doctypes:
-					customized_doctypes[scrub(doctype)].append(
-						{"custom_fields": fields}
-					)
+					customized_doctypes[scrub(doctype)].append({"custom_fields": fields})
 				else:
 					customized_doctypes[scrub(doctype)] = [{"custom_fields": fields}]
 
@@ -150,9 +145,7 @@ def validate_duplicate_customizations(customized_doctypes):
 				app = customize_file.parent.parent.parent.parent.stem
 				file_contents = json.loads(customize_file.read_text())
 			if file_contents.get("custom_fields"):
-				fields = [
-					cf.get("fieldname") for cf in file_contents.get("custom_fields")
-				]
+				fields = [cf.get("fieldname") for cf in file_contents.get("custom_fields")]
 				common_fields[doctype][module] = fields
 			if file_contents.get("property_setters"):
 				ps = [ps.get("name") for ps in file_contents.get("property_setters")]
@@ -204,9 +197,7 @@ def validate_system_generated(customized_doctypes):
 			if file_contents.get("property_setters"):
 				for ps in file_contents.get("property_setters"):
 					if ps.get("is_system_generated"):
-						exceptions.append(
-							f"Property Setter {ps.get('name')} is system generated"
-						)
+						exceptions.append(f"Property Setter {ps.get('name')} is system generated")
 
 	return exceptions
 
@@ -270,8 +261,7 @@ def main(argv: Sequence[str] = None):
 		set_module = True
 
 	exceptions = validate_customizations(set_module)
-
-  if exceptions:
+	if exceptions:
 		for exception in list(set(exceptions)):
 			print(exception)
 

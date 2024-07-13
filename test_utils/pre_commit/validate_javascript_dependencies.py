@@ -38,10 +38,7 @@ def get_mismatched_versions():
 				if app == app2:
 					continue
 
-				if (
-					package in app2_packages
-					and app2_packages[package] != package_version
-				):
+				if package in app2_packages and app2_packages[package] != package_version:
 					# Check if exception already exists
 					existing_exception = next(
 						(exception for exception in exceptions if package in exception),
