@@ -270,7 +270,8 @@ def main(argv: Sequence[str] = None):
 		set_module = True
 
 	exceptions = validate_customizations(set_module)
-	if exceptions:
+
+  if exceptions:
 		for exception in list(set(exceptions)):
 			print(exception)
 

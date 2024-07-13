@@ -62,3 +62,14 @@ Validate Customizations
       - id: validate_customizations
         args: ["--set-module", "True"]
 ```
+
+### Update pre-commit config - `update_pre_commit_config`
+
+Update test_utils pre-commit config to latest
+
+```
+  - repo: https://github.com/agritheory/test_utils/
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.5.0
+    hooks:
+      - id: update_pre_commit_config
+```
