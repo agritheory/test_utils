@@ -1,15 +1,17 @@
-
 import argparse
 import pathlib
 import sys
-import toml
 from typing import Sequence
+
+import toml
+
 
 def get_dependencies(app):
 	apps_dir = pathlib.Path().resolve().parent
 	if pathlib.Path.exists(apps_dir / app / "pyproject.toml"):
 		with open(apps_dir / app / "pyproject.toml") as f:
 			return toml.load(f)
+
 
 def get_versions(app):
 	pyproject_toml = get_dependencies(app)
@@ -18,22 +20,27 @@ def get_versions(app):
 
 	if pyproject_toml.get("build-system", {}).get("build-backend") == "flit_core.buildapi":
 		dependencies = pyproject_toml.get("project", {}).get("dependencies", [])
-	elif pyproject_toml.get("build-system", {}).get("build-backend") == "poetry.core.masonry.api":
-		dependencies =pyproject_toml.get("tool", {}).get("poetry", {}).get("dependencies", [])
+	elif (
+		pyproject_toml.get("build-system", {}).get("build-backend")
+		== "poetry.core.masonry.api"
+	):
+		dependencies = (
+			pyproject_toml.get("tool", {}).get("poetry", {}).get("dependencies", [])
+		)
 
 	dependency_objects = {}
 	for dep in dependencies:
-		if '==' in dep:
-			package, version = dep.split('==')
-		elif '~=' in dep:
-			package, version = dep.split('~=')
-			version = '~' + version
-		elif '>=' in dep:
-			package, version = dep.split('>=')
-			version = '>=' + version
-		elif '<=' in dep:
-			package, version = dep.split('<=')
-			version = '<=' + version
+		if "==" in dep:
+			package, version = dep.split("==")
+		elif "~=" in dep:
+			package, version = dep.split("~=")
+			version = "~" + version
+		elif ">=" in dep:
+			package, version = dep.split(">=")
+			version = ">=" + version
+		elif "<=" in dep:
+			package, version = dep.split("<=")
+			version = "<=" + version
 		else:
 			package = dep
 			version = ""
@@ -41,6 +48,7 @@ def get_versions(app):
 		dependency_objects[package] = version
 
 	return dependency_objects
+
 
 def get_mismatched_versions():
 	apps_order = pathlib.Path().resolve().parent.parent / "sites" / "apps.txt"
@@ -55,7 +63,9 @@ def get_mismatched_versions():
 
 				if package in app2_packages and app2_packages[package] != package_version:
 					# Check if exception already exists
-					existing_exception = next((exception for exception in exceptions if package in exception), None)
+					existing_exception = next(
+						(exception for exception in exceptions if package in exception), None
+					)
 					if existing_exception:
 						existing_exception[package][app] = package_version
 					else:

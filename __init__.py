@@ -1,6 +1,4 @@
-
-from test_utils.utils.conftest import monkeymodule, db_instance
-from test_utils.utils.customize import load_customizations, add_customization_hash
-
+from test_utils.utils.conftest import db_instance, monkeymodule
+from test_utils.utils.customize import add_customization_hash, load_customizations
 
 __version__ = "0.13.1"

@@ -7,12 +7,17 @@ try:
 except Exception as e:
 	raise (e)
 
+from erpnext.accounts.doctype.account.account import update_account_number
+from erpnext.accounts.doctype.account.chart_of_accounts.chart_of_accounts import (
+	create_charts,
+)
+from erpnext.accounts.doctype.chart_of_accounts_importer.chart_of_accounts_importer import (
+	set_default_accounts,
+	unset_existing_data,
+)
+from erpnext.setup.setup_wizard.operations.install_fixtures import create_bank_account
 from frappe import _
 from frappe.desk.form.linked_with import get_linked_fields
-from erpnext.accounts.doctype.account.account import update_account_number
-from erpnext.accounts.doctype.account.chart_of_accounts.chart_of_accounts import create_charts
-from erpnext.accounts.doctype.chart_of_accounts_importer.chart_of_accounts_importer import unset_existing_data, set_default_accounts
-from erpnext.setup.setup_wizard.operations.install_fixtures import create_bank_account
 
 
 def setup_chart_of_accounts(company=None, chart_template="Standard with Numbers"):
@@ -24,7 +29,7 @@ def setup_chart_of_accounts(company=None, chart_template="Standard with Numbers"
 	    - Standard (ERPNext option that excludes numbered accounts)
 	    - IFRS: imports basic IFRS Chart of Accounts
 	    - Farm: imports a standard COA with Numbers plus additional income/expense items to match
-		  Schedule F
+	          Schedule F
 	:return: None
 
 	Meant to be called after the setup_complete function (which has set up one of ERPNext's
@@ -37,7 +42,9 @@ def setup_chart_of_accounts(company=None, chart_template="Standard with Numbers"
 	if chart_template not in [ct.lower() for ct in supported_types]:
 		frappe.throw(
 			msg=_("Unsupported Chart of Accounts Template"),
-			title=_(f"The selected Chart of Accounts template {orig_ct} is not recognized. Please try one of {', '.join(supported_types)}")
+			title=_(
+				f"The selected Chart of Accounts template {orig_ct} is not recognized. Please try one of {', '.join(supported_types)}"
+			),
 		)
 
 	if "standard" in chart_template:
@@ -49,14 +56,25 @@ def setup_chart_of_accounts(company=None, chart_template="Standard with Numbers"
 		custom_chart = load_custom_chart(chart_template)
 		create_charts(company=company, custom_chart=custom_chart)
 
-		args = frappe._dict({"company_name": company, "bank_account": "Primary Checking", "set_default": 1})
+		args = frappe._dict(
+			{"company_name": company, "bank_account": "Primary Checking", "set_default": 1}
+		)
 		create_bank_account(args)
-		set_default_accounts(company)  # TODO: sets receivable, payable, and provisional account, sets country fixtures - need any other defaults set (see Company.set_default_accounts)?
+		set_default_accounts(
+			company
+		)  # TODO: sets receivable, payable, and provisional account, sets country fixtures - need any other defaults set (see Company.set_default_accounts)?
 
 		invalid_acct_links = find_invalid_account_links()
 		if invalid_acct_links:
-			link_list = "</li><li>".join([f"DocType: {d['dt']}, Document: {d['dn']}, Field Name: {d['fieldname']}" for d in invalid_acct_links])
-			message = _(f"The following Document(s) contain a link to an invalid Account in the noted field:<br><br><ul><li>{link_list}</li></ul>")
+			link_list = "</li><li>".join(
+				[
+					f"DocType: {d['dt']}, Document: {d['dn']}, Field Name: {d['fieldname']}"
+					for d in invalid_acct_links
+				]
+			)
+			message = _(
+				f"The following Document(s) contain a link to an invalid Account in the noted field:<br><br><ul><li>{link_list}</li></ul>"
+			)
 			frappe.log_error(
 				title=_("Chart of Accounts Account Link Error"),
 				message=message,
@@ -91,17 +109,31 @@ def rename_standard_accounts(company=None, with_numbers=True):
 	if with_numbers:
 		acct_number_prefix = "1310 - "
 		frappe.rename_doc(
-			"Account", f"{acct_number_prefix}Debtors - {company_abbr}", f"{acct_number_prefix}Accounts Receivable - {company_abbr}", force=True
+			"Account",
+			f"{acct_number_prefix}Debtors - {company_abbr}",
+			f"{acct_number_prefix}Accounts Receivable - {company_abbr}",
+			force=True,
 		)
 
 		acct_number_prefix = "2110 - "
 		frappe.rename_doc(
-			"Account", f"{acct_number_prefix}Creditors - {company_abbr}", f"{acct_number_prefix}Accounts Payable - {company_abbr}", force=True
+			"Account",
+			f"{acct_number_prefix}Creditors - {company_abbr}",
+			f"{acct_number_prefix}Accounts Payable - {company_abbr}",
+			force=True,
 		)
 
 	acct_number_prefix = "1110 - " if with_numbers else ""
-	update_account_number(f"{acct_number_prefix}Cash - {company_abbr}", "Petty Cash", account_number=acct_number_prefix[:4] if with_numbers else "")
-	update_account_number(f"Primary Checking - {company_abbr}", "Primary Checking", account_number="1201" if with_numbers else "")
+	update_account_number(
+		f"{acct_number_prefix}Cash - {company_abbr}",
+		"Petty Cash",
+		account_number=acct_number_prefix[:4] if with_numbers else "",
+	)
+	update_account_number(
+		f"Primary Checking - {company_abbr}",
+		"Primary Checking",
+		account_number="1201" if with_numbers else "",
+	)
 
 
 def create_electronic_payments_accounts(company=None):
@@ -114,18 +146,24 @@ def create_electronic_payments_accounts(company=None):
 	company = company or frappe.defaults.get_defaults().company
 	coa_company = company
 	while True:
-		based_on, coa, existing_co = frappe.get_value("Company", coa_company, ["create_chart_of_accounts_based_on", "chart_of_accounts", "existing_company"])
+		based_on, coa, existing_co = frappe.get_value(
+			"Company",
+			coa_company,
+			["create_chart_of_accounts_based_on", "chart_of_accounts", "existing_company"],
+		)
 		if based_on == "Standard Template":
 			break
 		coa_company = existing_co
-	with_numbers="Numbers" in coa
+	with_numbers = "Numbers" in coa
 	company_abbr = frappe.get_value("Company", company, "abbr") or ""
 
 	rca = frappe.new_doc("Account")  # receivable clearing account
 	rca.account_name = "Electronic Payments Receivable"
 	rca.account_number = "1320" if with_numbers else ""
 	rca.account_type = "Receivable"
-	rca.parent_account = frappe.get_value("Account", {"name": ["like", "%Accounts Receivable%"], "is_group": 1})
+	rca.parent_account = frappe.get_value(
+		"Account", {"name": ["like", "%Accounts Receivable%"], "is_group": 1}
+	)
 	rca.currency = "USD"
 	rca.company = company
 	rca.save()
@@ -134,7 +172,9 @@ def create_electronic_payments_accounts(company=None):
 	pca.account_name = "Electronic Payments Payable"
 	pca.account_number = "2130" if with_numbers else ""
 	pca.account_type = "Payable"
-	pca.parent_account = frappe.get_value("Account", {"name": ["like", "%Accounts Payable%"], "is_group": 1})
+	pca.parent_account = frappe.get_value(
+		"Account", {"name": ["like", "%Accounts Payable%"], "is_group": 1}
+	)
 	pca.currency = "USD"
 	pca.company = company
 	pca.save()
@@ -143,7 +183,9 @@ def create_electronic_payments_accounts(company=None):
 	fee.account_name = "Electronic Payments Provider Fees"
 	fee.account_number = "5223" if with_numbers else ""
 	# fee.account_type = ""
-	fee.parent_account = frappe.get_value("Account", {"name": ["like", "%Indirect Expenses%"], "is_group": 1})
+	fee.parent_account = frappe.get_value(
+		"Account", {"name": ["like", "%Indirect Expenses%"], "is_group": 1}
+	)
 	fee.currency = "USD"
 	fee.company = company
 	fee.save()
@@ -173,12 +215,14 @@ def find_invalid_account_links():
 	:return: list[dict[str, str]] for any invalid account links in following format, empty list if none:
 	{
 	    "dt": DocType,
-		"dn": Document name,
-		"fieldname": field name,
+	        "dn": Document name,
+	        "fieldname": field name,
 	}
 	"""
 	invalid_accounts = []
-	account_links = get_linked_fields("Account")  # format: {"DocType1": {"fieldname": [...]}, "DocType2": {"child_doctype": "DocType", "fieldname": [...]}}
+	account_links = get_linked_fields(
+		"Account"
+	)  # format: {"DocType1": {"fieldname": [...]}, "DocType2": {"child_doctype": "DocType", "fieldname": [...]}}
 
 	for doctype, data_dict in account_links.items():
 		fieldnames = data_dict.get("fieldname")
@@ -189,7 +233,9 @@ def find_invalid_account_links():
 			for doc in frappe.get_all(doctype, ["name"] + fieldnames):
 				for fieldname in fieldnames:
 					if doc[fieldname] and not frappe.db.exists("Account", doc[fieldname]):
-						invalid_accounts.append(frappe._dict({"dt": doctype, "dn": doc["name"], "fieldname": fieldname}))
+						invalid_accounts.append(
+							frappe._dict({"dt": doctype, "dn": doc["name"], "fieldname": fieldname})
+						)
 		except Exception as e:  # Bank Clearance and QuickBooks Migrator doctypes throw missing table error
 			continue
 
@@ -200,7 +246,7 @@ def create_bank_and_bank_account(settings):
 	if not settings.company_account:
 		frappe.log_error(
 			title=_("Error Setting Up Bank and Bank Account - No Default Company Account"),
-			message=_(f"No Company Default bank account found for {settings.company}")
+			message=_(f"No Company Default bank account found for {settings.company}"),
 		)
 
 	if not frappe.db.exists("Bank", "Local Bank"):
@@ -233,7 +279,8 @@ def create_bank_and_bank_account(settings):
 		{"account": settings.company_account, "debit_in_account_currency": opening_balance},
 	)
 	retained_earnings = frappe.get_value(
-		"Account", {"account_name": "Retained Earnings", "company": settings.company, "is_group": 0}
+		"Account",
+		{"account_name": "Retained Earnings", "company": settings.company, "is_group": 0},
 	)
 	doc.append(
 		"accounts",

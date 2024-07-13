@@ -1,17 +1,17 @@
 import ast
 import json
-from pathlib import Path
 import sys
 import tempfile
 import types
+from pathlib import Path
 
 try:
 	import frappe
-	from frappe.database.schema import add_column
 	from frappe.cache_manager import clear_global_cache
-	from frappe.modules.import_file import calculate_hash
-	from frappe.modules import get_doctype_module
 	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+	from frappe.database.schema import add_column
+	from frappe.modules import get_doctype_module
+	from frappe.modules.import_file import calculate_hash
 except Exception as e:
 	raise (e)
 
@@ -23,13 +23,9 @@ def load_customizations():
 		if app in frappe_apps:
 			continue
 
-		customizations_directory = (
-			Path().cwd().parent / "apps" / app / app / app / "custom"
-		)
+		customizations_directory = Path().cwd().parent / "apps" / app / app / app / "custom"
 
-		add_column(
-			doctype="DocType", column_name="customization_hash", fieldtype="Text"
-		)
+		add_column(doctype="DocType", column_name="customization_hash", fieldtype="Text")
 		clear_global_cache()
 
 		files = list(customizations_directory.glob("**/*.json"))
