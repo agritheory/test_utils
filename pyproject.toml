@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "test_utils"
-version = "0.12.0"
+version = "0.13.0"
 description = "AgriTheory Test Utilities and Fixtures"
 authors = ["AgriTheory <support@agritheory.dev>"]
 readme = "README.md"

@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v0.13.0 (2024-07-13)
+
+### Feature
+
+* feat: auto update pre-commit config (#59)
+
+* feat: auto update pre-commit config
+
+* docs: update_pre_commit_config ([`8ee41dd`](https://github.com/agritheory/test_utils/commit/8ee41dda35e150e53666bd0f85970a382919ee2f))
+
 ## v0.12.0 (2024-07-13)
 
 ### Feature
