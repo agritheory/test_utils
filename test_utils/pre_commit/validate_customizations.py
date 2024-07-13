@@ -270,9 +270,9 @@ def main(argv: Sequence[str] = None):
 		set_module = True
 
 	exceptions = validate_customizations(set_module)
-	print('validation customizations exceptions', exceptions)
-	if exceptions:
-		for exception in exceptions:
+
+  if exceptions:
+		for exception in list(set(exceptions)):
 			print(exception)
 
 	sys.exit(1) if exceptions else sys.exit(0)
