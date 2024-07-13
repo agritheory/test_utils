@@ -1,8 +1,10 @@
 
 import argparse
-import os
 import datetime
+import os
+import sys
 import tempfile
+
 from typing import Sequence
 
 def validate_copyright(app, files):
@@ -58,3 +60,5 @@ def main(argv: Sequence[str] = None):
 	files = args.filenames
 	if files:
 		validate_copyright(app, files)
+
+	sys.exit(0)

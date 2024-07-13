@@ -75,4 +75,5 @@ def main(argv: Sequence[str] = None):
 				print(f"\nVersion mismatch for {package} in:")
 				for app, version in apps.items():
 					print(f"{app}: {version}")
-		sys.exit(1)
+
+	sys.exit(1) if exceptions else sys.exit(0)
