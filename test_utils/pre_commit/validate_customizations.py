@@ -249,7 +249,7 @@ def validate_customizations_on_own_doctypes(customized_doctypes):
 	return exceptions
 
 
-def validate_customizations(set_module):
+def validate_customizations(set_module=False):
 	customized_doctypes = get_customized_doctypes()
 	exceptions = validate_no_custom_perms(customized_doctypes)
 	exceptions += validate_module(customized_doctypes, set_module)
@@ -270,7 +270,9 @@ def main(argv: Sequence[str] = None):
 		set_module = True
 
 	exceptions = validate_customizations(set_module)
-	for exception in exceptions:
-		print(exception)
+	print('validation customizations exceptions', exceptions)
 	if exceptions:
-		sys.exit(1)
+		for exception in exceptions:
+			print(exception)
+
+	sys.exit(1) if exceptions else sys.exit(0)

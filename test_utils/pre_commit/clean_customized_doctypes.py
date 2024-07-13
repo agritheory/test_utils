@@ -4,6 +4,7 @@ import datetime
 import json
 import os
 import pathlib
+import sys
 import tempfile
 from typing import Sequence
 from test_utils.pre_commit.validate_customizations import scrub
@@ -51,10 +52,10 @@ def validate_and_clean_customized_doctypes(customized_doctypes):
 									"value",
 								]:
 									del item[item_key]
-								if item_key == "modified":
-									item["modified"] = datetime.datetime.now().strftime(
-										DATETIME_FORMAT
-									)
+								# if item_key == "modified":
+								# 	item["modified"] = datetime.datetime.now().strftime(
+								# 		DATETIME_FORMAT
+								# 	)
 
 					elif value is None and key not in ["default", "value"]:
 						del file_contents[key]
@@ -80,4 +81,6 @@ def main(argv: Sequence[str] = None):
 		customized_doctypes = get_customized_doctypes_to_clean(app)
 		modified_files = validate_and_clean_customized_doctypes(customized_doctypes)
 		for modified_file in modified_files:
-			print(f"File modified: {modified_file}")
+			print(f"File cleaned: {modified_file}")
+
+	sys.exit(0)
