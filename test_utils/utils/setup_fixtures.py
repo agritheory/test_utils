@@ -8,11 +8,21 @@ except Exception as e:
 	raise (e)
 
 
-def get_fixtures_data_from_file(filename):
+def get_fixtures_data_from_file(filename, country=None):
 	app_dir = pathlib.Path(__file__).resolve().parent.parent / "fixtures"
-	if pathlib.Path.exists(app_dir / filename):
-		with open(app_dir / filename) as f:
-			return json.load(f)
+	if not country:
+		if pathlib.Path.exists(app_dir / filename):
+			with open(app_dir / filename) as f:
+				return json.load(f)
+	else:
+		if pathlib.Path.exists(app_dir / filename):
+			with open(app_dir / filename) as f:
+				data = json.load(f)
+				filtered_data = []
+				for entry in data:
+					if entry.get("country") == country:
+						filtered_data.append(entry)
+				return filtered_data
 
 
 def before_test(company):
@@ -303,16 +313,11 @@ def create_employees(settings, only_create=None):
 
 
 def create_holiday_lists(settings):
-	holiday_lists = get_fixtures_data_from_file(filename="holiday_lists.json")
+	holiday_lists = get_fixtures_data_from_file(filename="holiday_lists.json", country = settings.country)
 
 	for hl in holiday_lists:
-		year = hl.get("holiday_list_name").split("-")[0]
-		holiday_list_name = f"{year}- {settings.get('country')}"
-		if frappe.db.exists("Holiday List", holiday_list_name):
+		if frappe.db.exists("Holiday List", hl.get("holiday_list_name")):
 			continue
 		holiday_list = frappe.new_doc("Holiday List")
-		if settings and settings.get("country") != "Canada":
-			hl['holidays'] = list(filter(lambda x: "Canada Day" not in x.values() and "Victoria Day" not in x.values(), hl.get("holidays")))
 		holiday_list.update(hl)
-		holiday_list.update({"holiday_list_name": holiday_list_name})
 		holiday_list.save()
