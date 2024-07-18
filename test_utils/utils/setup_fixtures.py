@@ -313,7 +313,9 @@ def create_employees(settings, only_create=None):
 
 
 def create_holiday_lists(settings):
-	holiday_lists = get_fixtures_data_from_file(filename="holiday_lists.json", country = settings.country)
+	holiday_lists = get_fixtures_data_from_file(
+		filename="holiday_lists.json", country=settings.country
+	)
 
 	for hl in holiday_lists:
 		if frappe.db.exists("Holiday List", hl.get("holiday_list_name")):
