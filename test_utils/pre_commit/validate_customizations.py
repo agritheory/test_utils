@@ -58,7 +58,7 @@ def get_customized_doctypes():
 	return dict(sorted(customized_doctypes.items()))
 
 
-def validate_module(customized_doctypes, set_module=False):
+def validate_module(customized_doctypes):
 	exceptions = []
 	app_dir = pathlib.Path().resolve()
 	this_app = app_dir.stem
@@ -70,13 +70,9 @@ def validate_module(customized_doctypes, set_module=False):
 		for customize_file in customize_files:
 			if not this_app in str(customize_file):
 				continue
-			module = customize_file.parent.parent.stem
 			file_contents = json.loads(customize_file.read_text())
 			if file_contents.get("custom_fields"):
 				for custom_field in file_contents.get("custom_fields"):
-					if set_module:
-						custom_field["module"] = unscrub(module)
-						continue
 					if not custom_field.get("module"):
 						exceptions.append(
 							f"Custom Field for {custom_field.get('dt')} in {this_app} '{custom_field.get('fieldname')}' does not have a module key"
@@ -89,9 +85,6 @@ def validate_module(customized_doctypes, set_module=False):
 						continue
 			if file_contents.get("property_setters"):
 				for ps in file_contents.get("property_setters"):
-					if set_module:
-						ps["module"] = unscrub(module)
-						continue
 					if not ps.get("module"):
 						exceptions.append(
 							f"Property Setter for {ps.get('doc_type')} in {this_app} '{ps.get('property')}' on {ps.get('field_name')} does not have a module key"
@@ -102,9 +95,6 @@ def validate_module(customized_doctypes, set_module=False):
 							f"Property Setter for {ps.get('doc_type')} in {this_app} '{ps.get('property')}' on {ps.get('field_name')} has module key ({ps.get('module')}) associated with another app"
 						)
 						continue
-			if set_module:
-				with customize_file.open("w", encoding="UTF-8") as target:
-					json.dump(file_contents, target, sort_keys=True, indent=2)
 
 	return exceptions
 
@@ -240,10 +230,10 @@ def validate_customizations_on_own_doctypes(customized_doctypes):
 	return exceptions
 
 
-def validate_customizations(set_module=False):
+def validate_customizations():
 	customized_doctypes = get_customized_doctypes()
 	exceptions = validate_no_custom_perms(customized_doctypes)
-	exceptions += validate_module(customized_doctypes, set_module)
+	exceptions += validate_module(customized_doctypes)
 	exceptions += validate_system_generated(customized_doctypes)
 	exceptions += validate_customizations_on_own_doctypes(customized_doctypes)
 	exceptions += validate_duplicate_customizations(customized_doctypes)
@@ -253,14 +243,9 @@ def validate_customizations(set_module=False):
 def main(argv: Sequence[str] = None):
 	parser = argparse.ArgumentParser()
 	parser.add_argument("filenames", nargs="*")
-	parser.add_argument("--set-module", action="append", help="Set module")
 	args = parser.parse_args(argv)
 
-	set_module = False
-	if args.set_module and args.set_module[0]:
-		set_module = True
-
-	exceptions = validate_customizations(set_module)
+	exceptions = validate_customizations()
 	if exceptions:
 		for exception in list(set(exceptions)):
 			print(exception)
