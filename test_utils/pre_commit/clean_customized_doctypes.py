@@ -51,15 +51,18 @@ def validate_and_clean_customized_doctypes(customized_doctypes):
 									"value",
 								]:
 									del item[item_key]
-								# if item_key == "modified":
-								# 	item["modified"] = datetime.datetime.now().strftime(
-								# 		DATETIME_FORMAT
-								# 	)
 
 					elif value is None and key not in ["default", "value"]:
 						del file_contents[key]
 
 				if file_contents != original_content:
+					for key, value in list(file_contents.items()):
+						if isinstance(value, list):
+							for item in value:
+								for item_key, item_value in list(item.items()):
+									if item_key == "modified":
+										item["modified"] = datetime.datetime.now().strftime(DATETIME_FORMAT)
+
 					temp_file.write(json.dumps(file_contents, indent="\t", sort_keys=True))
 					os.replace(temp_file_path, customize_file)
 					modified_files.append(customize_file)
