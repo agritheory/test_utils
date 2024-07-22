@@ -1,5 +1,5 @@
-import pathlib
 import json
+import pathlib
 
 try:
 	import frappe
@@ -136,15 +136,10 @@ def create_suppliers(settings, only_create=None):
 
 
 def create_payment_terms_template(settings, only_create=None):
-	payment_terms_templates = get_fixtures_data_from_file(
-		"payment_terms_templates.json"
-	)
+	payment_terms_templates = get_fixtures_data_from_file("payment_terms_templates.json")
 
 	for payment_terms_template in payment_terms_templates:
-		if (
-			only_create
-			and payment_terms_template.get("template_name") not in only_create
-		):
+		if only_create and payment_terms_template.get("template_name") not in only_create:
 			continue
 
 		if frappe.db.exists(
@@ -170,9 +165,7 @@ def create_supplier_groups(settings, only_create=None):
 		if only_create and supplier_group.get("supplier_group_name") not in only_create:
 			continue
 
-		if frappe.db.exists(
-			"Supplier Group", supplier_group.get("supplier_group_name")
-		):
+		if frappe.db.exists("Supplier Group", supplier_group.get("supplier_group_name")):
 			continue
 
 		bsg = frappe.new_doc("Supplier Group")
@@ -259,6 +252,78 @@ def create_boms(settings, only_create=None):
 		bom.save()
 
 
+def create_bank_and_bank_account(settings=None):
+	mode_of_payments = get_fixtures_data_from_file(filename="mode_of_payments.json")
+	banks = get_fixtures_data_from_file(filename="banks.json")
+	bank_accounts = get_fixtures_data_from_file(filename="bank_accounts.json")
+
+	for mode_of_payment in mode_of_payments:
+		if frappe.db.exists("Mode of Payment", mode_of_payment.get("mode_of_payment")):
+			continue
+
+		mop_doc = frappe.new_doc("Mode of Payment")
+		mop_doc.update(mode_of_payment)
+		mop_doc.append(
+			"accounts",
+			{"company": settings.company, "default_account": settings.company_account},
+		)
+		mop_doc.save()
+
+	mops = ["Wire Transfer", "Credit Card", "Bank Draft", "Check"]
+	for mop in mops:
+		existing_mop = frappe.get_doc("Mode of Payment", mop)
+		existing_mop.type = "Bank" if mop == "Check" else "General"
+		existing_mop.append(
+			"accounts",
+			{"company": settings.company, "default_account": settings.company_account},
+		)
+		existing_mop.save()
+
+	for bank in banks:
+		if frappe.db.exists("Bank", bank.get("bank_name")):
+			continue
+
+		bank_doc = frappe.new_doc("Bank")
+		bank_doc.update(bank)
+		bank_doc.save()
+
+	for bank_account in bank_accounts:
+		if frappe.db.exists(
+			"Bank Account", {"account_name": bank_account.get("account_name")}
+		):
+			continue
+
+		bank_account_doc = frappe.new_doc("Bank Account")
+		bank_account_doc.update(bank_account)
+		if settings.company:
+			bank_account_doc.company = settings.company
+		if settings.company_account:
+			bank_account_doc.account = settings.company_account
+		bank_account_doc.save()
+
+	je_doc = frappe.new_doc("Journal Entry")
+	je_doc.posting_date = settings.day
+	je_doc.voucher_type = "Opening Entry"
+	je_doc.company = settings.company
+	opening_balance = 50000.00
+	je_doc.append(
+		"accounts",
+		{
+			"account": settings.company_account,
+			"debit_in_account_currency": opening_balance,
+		},
+	)
+	retained_earnings = frappe.get_value(
+		"Account", {"account_name": "Retained Earnings", "company": settings.company}
+	)
+	je_doc.append(
+		"accounts",
+		{"account": retained_earnings, "credit_in_account_currency": opening_balance},
+	)
+	je_doc.save()
+	je_doc.submit()
+
+
 def create_employees(settings, only_create=None):
 	employees = get_fixtures_data_from_file(filename="employees.json")
 	addresses = get_fixtures_data_from_file(filename="addresses.json")
@@ -267,9 +332,7 @@ def create_employees(settings, only_create=None):
 		if only_create and employee.get("employee_name") not in only_create:
 			continue
 
-		if frappe.db.exists(
-			"Employee", {"employee_name": employee.get("employee_name")}
-		):
+		if frappe.db.exists("Employee", {"employee_name": employee.get("employee_name")}):
 			continue
 
 		empl = frappe.new_doc("Employee")

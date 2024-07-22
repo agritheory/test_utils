@@ -34,6 +34,13 @@
   language: python
   require_serial: true
 
+- id: update_pre_commit_config
+  name: update_pre_commit_config
+  description: "Update test_utils pre-commit config to latest"
+  entry: update_pre_commit_config
+  language: python
+  require_serial: true
+
 - id: mypy
   name: mypy
   description: "Check for type hints"
@@ -42,4 +49,3 @@
   types: [python]
   exclude: ^tests/
   args: ["--install-types", "--non-interactive", "--ignore-missing-imports"]
-  require_serial: true

@@ -63,6 +63,17 @@ Validate Customizations
         args: ["--set-module", "True"]
 ```
 
+### Update pre-commit config - `update_pre_commit_config`
+
+Update test_utils pre-commit config to latest
+
+```
+  - repo: https://github.com/agritheory/test_utils/
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.11.0
+    hooks:
+      - id: update_pre_commit_config
+```
+
 ### Mypy - `mypy`
 
 Run mypy on the codebase using a preset configuration

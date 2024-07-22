@@ -1,5 +1,53 @@
 # CHANGELOG
 
+## v0.13.1 (2024-07-13)
+
+### Fix
+
+* fix: add exit codes, other cleanup (#64) ([`4531acc`](https://github.com/agritheory/test_utils/commit/4531acc225652a3b91d51d38874d0ed7c6f9a400))
+
+## v0.13.0 (2024-07-13)
+
+### Feature
+
+* feat: auto update pre-commit config (#59)
+
+* feat: auto update pre-commit config
+
+* docs: update_pre_commit_config ([`8ee41dd`](https://github.com/agritheory/test_utils/commit/8ee41dda35e150e53666bd0f85970a382919ee2f))
+
+## v0.12.0 (2024-07-13)
+
+### Feature
+
+* feat(fixtures): fixtures data for bank, bank accounts and mode of payments (#53) ([`42ecda0`](https://github.com/agritheory/test_utils/commit/42ecda0e2d4f716faf58f10b948469a388cf9bfd))
+
+* feat: add alternative chart of accounts (#49)
+
+* feat: start chart of accounts
+
+* wip: create alternative coa json files
+
+* feat: update farm COA
+
+* feat: update IFRS COA
+
+* feat: update COA for consistent accounts
+
+* feat: update for bank, bank account and setup flow
+
+* refactor: remove app-specific MOP creation
+
+* refactor: only change A/R and A/P acct names with numbers
+
+* refactor: fix spelling, add error string
+
+* refactor: check value exists for invalid accout links
+
+* fix: duplicate account numbers
+
+* chore: shorten too-long account name ([`61c37c1`](https://github.com/agritheory/test_utils/commit/61c37c104a9aa2a7e30534db50f709b6fc760bd6))
+
 ## v0.11.0 (2024-06-21)
 
 ### Feature

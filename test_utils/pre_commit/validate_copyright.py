@@ -1,16 +1,17 @@
-
 import argparse
-import os
 import datetime
+import os
+import sys
 import tempfile
 from typing import Sequence
+
 
 def validate_copyright(app, files):
 	year = datetime.datetime.now().year
 	app_publisher = ""
 
 	hooks_file = f"{app}/hooks.py"
-	with open(hooks_file, "r") as file:
+	with open(hooks_file) as file:
 		for line in file:
 			if "app_publisher" in line:
 				app_publisher = line.split("=")[1].strip().replace('"', "")
@@ -37,7 +38,7 @@ def validate_copyright(app, files):
 def validate_and_write_file(file, initial_string, copyright_string):
 	# using tempfile to avoid issues while reading large files
 	temp_file_path = tempfile.mktemp()
-	with open(file, "r") as original_file, open(temp_file_path, "w") as temp_file:
+	with open(file) as original_file, open(temp_file_path, "w") as temp_file:
 		first_line = original_file.readline()
 		if not first_line.startswith(initial_string):
 			temp_file.write(copyright_string)
@@ -48,13 +49,16 @@ def validate_and_write_file(file, initial_string, copyright_string):
 			# Replace the original file with the temp file
 			os.replace(temp_file_path, file)
 
+
 def main(argv: Sequence[str] = None):
 	parser = argparse.ArgumentParser()
-	parser.add_argument('filenames', nargs='*')
-	parser.add_argument('--app', action='append', help='An argument for the hook')
+	parser.add_argument("filenames", nargs="*")
+	parser.add_argument("--app", action="append", help="An argument for the hook")
 	args = parser.parse_args(argv)
 
 	app = args.app[0]
 	files = args.filenames
 	if files:
 		validate_copyright(app, files)
+
+	sys.exit(0)

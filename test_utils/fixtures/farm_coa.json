@@ -1,0 +1,331 @@
+{
+	"country_code": "us",
+	"name": "Farm Chart of Accounts with Numbers",
+	"tree": {
+		"Assets": {
+			"Current Assets": {
+				"Cash In Hand": {
+					"Petty Cash": {
+						"account_number": "1110",
+						"account_type": "Cash"
+					},
+					"account_number": "1100",
+					"account_type": "Cash"
+				},
+				"Bank Accounts": {
+					"is_group": 1,
+					"account_number": "1200",
+					"account_type": "Bank"
+				},
+				"Accounts Receivable": {
+					"Accounts Receivable": {
+						"account_number": "1310",
+						"account_type": "Receivable"
+					},
+					"account_number": "1300"
+				},
+				"Inventory Assets": {
+					"Inventory On Hand": {
+						"account_number": "1410",
+						"account_type": "Stock"
+					},
+					"account_number": "1400",
+					"account_type": "Stock"
+				},
+				"Tax Assets": {
+					"is_group": 1,
+					"account_number": "1500"
+				},
+				"Loans and Advances (Assets)": {
+					"Employee Advances": {
+						"account_number": "1610"
+					},
+					"account_number": "1600"
+				},
+				"Securities and Deposits": {
+					"Earnest Money": {
+						"account_number": "1651"
+					},
+					"account_number": "1650"
+				},
+				"account_number": "1100-1600"
+			},
+			"Fixed Assets": {
+				"Capital Equipment": {
+					"account_type": "Fixed Asset",
+					"account_number": "1710"
+				},
+				"Electronic Equipment": {
+					"account_type": "Fixed Asset",
+					"account_number": "1720"
+				},
+				"Furnitures and Fixtures": {
+					"account_type": "Fixed Asset",
+					"account_number": "1730"
+				},
+				"Office Equipment": {
+					"account_type": "Fixed Asset",
+					"account_number": "1740"
+				},
+				"Plants and Machineries": {
+					"account_type": "Fixed Asset",
+					"account_number": "1750"
+				},
+				"Buildings": {
+					"account_type": "Fixed Asset",
+					"account_number": "1760"
+				},
+				"Software": {
+					"account_type": "Fixed Asset",
+					"account_number": "1770"
+				},
+				"Accumulated Depreciation": {
+					"account_type": "Accumulated Depreciation",
+					"account_number": "1780"
+				},
+				"CWIP Account": {
+					"account_type": "Capital Work in Progress",
+					"account_number": "1790"
+				},
+				"account_number": "1700"
+			},
+			"Investments": {
+				"is_group": 1,
+				"account_number": "1800"
+			},
+			"Temporary Accounts": {
+				"Temporary Opening": {
+					"account_type": "Temporary",
+					"account_number": "1910"
+				},
+				"account_number": "1900"
+			},
+			"account_number": "1000",
+			"root_type": "Asset"
+		},
+		"Expenses": {
+			"Direct Expenses": {
+				"Inventory Expenses": {
+					"Cost of Goods Sold": {
+						"account_type": "Cost of Goods Sold",
+						"account_number": "5111"
+					},
+					"Expenses Included In Asset Valuation": {
+						"account_type": "Expenses Included In Asset Valuation",
+						"account_number": "5112"
+					},
+					"Expenses Included In Valuation": {
+						"account_type": "Expenses Included In Valuation",
+						"account_number": "5118"
+					},
+					"Inventory Adjustment": {
+						"account_type": "Stock Adjustment",
+						"account_number": "5119"
+					},
+					"account_number": "5110"
+				},
+				"Growing Expenses": {
+					"Car and Truck Expenses": {
+						"account_number": "5201"
+					},
+					"Chemicals": {
+						"account_number": "5202"
+					},
+					"Custom Hire": {
+						"account_number": "5203"
+					},
+					"Feed": {
+						"account_number": "5204"
+					},
+					"Fertilizers and Lime": {
+						"account_number": "5205"
+					},
+					"Freight and Trucking": {
+						"account_number": "5206"
+					},
+					"Gasoline, Fuel, and Oil": {
+						"account_number": "5207"
+					},
+					"Labor Hired": {
+						"account_number": "5208"
+					},
+					"Repairs and Maintenance": {
+						"account_number": "5209"
+					},
+					"Seeds and Plants": {
+						"account_number": "5210"
+					},
+					"Storage and Warehousing": {
+						"account_number": "5211"
+					},
+					"Growing Supplies": {
+						"account_number": "5212"
+					},
+					"Veterinary, Breeding, and Medicine": {
+						"account_number": "5213"
+					},
+					"account_number": "5200"
+				},
+				"account_number": "5100-5200"
+			},
+			"Indirect Expenses": {
+				"Administrative Expenses": {
+					"account_number": "5301"
+				},
+				"Commission on Sales": {
+					"account_number": "5302"
+				},
+				"Depreciation": {
+					"account_type": "Depreciation",
+					"account_number": "5303"
+				},
+				"Entertainment Expenses": {
+					"account_number": "5304"
+				},
+				"Freight and Forwarding Charges": {
+					"account_type": "Chargeable",
+					"account_number": "5305"
+				},
+				"Legal Expenses": {
+					"account_number": "5306"
+				},
+				"Marketing Expenses": {
+					"account_type": "Chargeable",
+					"account_number": "5307"
+				},
+				"Insurance Expenses": {
+					"account_number": "5308"
+				},
+				"Office Rent": {
+					"account_number": "5309"
+				},
+				"Postal Expenses": {
+					"account_number": "5310"
+				},
+				"Print and Stationery": {
+					"account_number": "5311"
+				},
+				"Round Off": {
+					"account_type": "Round Off",
+					"account_number": "5312"
+				},
+				"Salary": {
+					"account_number": "5313"
+				},
+				"Sales Expenses": {
+					"account_number": "5314"
+				},
+				"Telephone Expenses": {
+					"account_number": "5315"
+				},
+				"Travel Expenses": {
+					"account_number": "5316"
+				},
+				"Utility Expenses": {
+					"account_number": "5317"
+				},
+				"Write Off": {
+					"account_number": "5318"
+				},
+				"Exchange Gain/Loss": {
+					"account_number": "5319"
+				},
+				"Gain/Loss on Asset Disposal": {
+					"account_number": "5320"
+				},
+				"Miscellaneous Expenses": {
+					"account_type": "Chargeable",
+					"account_number": "5321"
+				},
+				"account_number": "5300"
+			},
+			"root_type": "Expense",
+			"account_number": "5000"
+		},
+		"Income": {
+			"Direct Income": {
+				"Sales": {
+					"account_number": "4110"
+				},
+				"Service": {
+					"account_number": "4120"
+				},
+				"account_number": "4100"
+			},
+			"Indirect Income": {
+				"is_group": 1,
+				"account_number": "4200"
+			},
+			"root_type": "Income",
+			"account_number": "4000"
+		},
+		"Liabilities": {
+			"Current Liabilities": {
+				"Accounts Payable": {
+					"Accounts Payable": {
+						"account_type": "Payable",
+						"account_number": "2110"
+					},
+					"Payroll Payable": {
+						"account_number": "2120"
+					},
+					"account_number": "2100"
+				},
+				"Inventory Liabilities": {
+					"Inventory Received But Not Billed": {
+						"account_type": "Stock Received But Not Billed",
+						"account_number": "2210"
+					},
+					"Asset Received But Not Billed": {
+						"account_type": "Asset Received But Not Billed",
+						"account_number": "2211"
+					},
+					"account_number": "2200"
+				},
+				"Duties and Taxes": {
+					"Sales Tax Payable": {
+						"account_number": "2310"
+					},
+					"account_type": "Tax",
+					"is_group": 1,
+					"account_number": "2300"
+				},
+				"Loans (Liabilities)": {
+					"Secured Loans": {
+						"account_number": "2410"
+					},
+					"Unsecured Loans": {
+						"account_number": "2420"
+					},
+					"Bank Overdraft Account": {
+						"account_number": "2430"
+					},
+					"account_number": "2400"
+				},
+				"account_number": "2100-2400"
+			},
+			"root_type": "Liability",
+			"account_number": "2000"
+		},
+		"Equity": {
+			"Capital Stock": {
+				"account_type": "Equity",
+				"account_number": "3100"
+			},
+			"Dividends Paid": {
+				"account_type": "Equity",
+				"account_number": "3200"
+			},
+			"Opening Balance Equity": {
+				"account_type": "Equity",
+				"account_number": "3300"
+			},
+			"Retained Earnings": {
+				"account_type": "Equity",
+				"account_number": "3400"
+			},
+			"root_type": "Equity",
+			"account_number": "3000"
+		}
+	}
+}

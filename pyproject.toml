@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "test_utils"
-version = "0.11.0"
+version = "0.13.1"
 description = "AgriTheory Test Utilities and Fixtures"
 authors = ["AgriTheory <support@agritheory.dev>"]
 readme = "README.md"
@@ -14,6 +14,7 @@ validate_copyright = "test_utils.pre_commit.validate_copyright:main"
 validate_javascript_dependencies = "test_utils.pre_commit.validate_javascript_dependencies:main"
 validate_python_dependencies = "test_utils.pre_commit.validate_python_dependencies:main"
 validate_customizations = "test_utils.pre_commit.validate_customizations:main"
+update_pre_commit_config = "test_utils.pre_commit.update_pre_commit_config:main"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
