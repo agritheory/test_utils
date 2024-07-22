@@ -8,11 +8,21 @@ except Exception as e:
 	raise (e)
 
 
-def get_fixtures_data_from_file(filename):
+def get_fixtures_data_from_file(filename, country=None):
 	app_dir = pathlib.Path(__file__).resolve().parent.parent / "fixtures"
-	if pathlib.Path.exists(app_dir / filename):
-		with open(app_dir / filename) as f:
-			return json.load(f)
+	if not country:
+		if pathlib.Path.exists(app_dir / filename):
+			with open(app_dir / filename) as f:
+				return json.load(f)
+	else:
+		if pathlib.Path.exists(app_dir / filename):
+			with open(app_dir / filename) as f:
+				data = json.load(f)
+				filtered_data = []
+				for entry in data:
+					if entry.get("country") == country:
+						filtered_data.append(entry)
+				return filtered_data
 
 
 def before_test(company):
@@ -363,3 +373,16 @@ def create_employees(settings, only_create=None):
 					empl.employee_primary_address = addr.name
 					empl.save()
 			break
+
+
+def create_holiday_lists(settings):
+	holiday_lists = get_fixtures_data_from_file(
+		filename="holiday_lists.json", country=settings.country
+	)
+
+	for hl in holiday_lists:
+		if frappe.db.exists("Holiday List", hl.get("holiday_list_name")):
+			continue
+		holiday_list = frappe.new_doc("Holiday List")
+		holiday_list.update(hl)
+		holiday_list.save()
