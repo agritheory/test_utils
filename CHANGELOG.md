@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## v0.13.4 (2024-07-22)
+
+### Fix
+
+* fix: add mypy hook with default args (#62)
+
+Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`801e6ac`](https://github.com/agritheory/test_utils/commit/801e6ac693416eed36860a6fda72f8b5e66d44ff))
+
+## v0.13.3 (2024-07-13)
+
+### Chore
+
+* chore: add more pre-commit configs (#67) ([`873c36f`](https://github.com/agritheory/test_utils/commit/873c36f8e3116db7ddbede001d732a36775ef1ed))
+
+## v0.13.2 (2024-07-13)
+
+### Unknown
+
+* Fix exit codes (#66)
+
+* fix: add exit codes, other cleanup
+
+* fix: better validate customizations error message ([`949f1b5`](https://github.com/agritheory/test_utils/commit/949f1b5c3c6bfc156c7ad8a530d0e4a8cd9225b4))
+
 ## v0.13.1 (2024-07-13)
 
 ### Fix
