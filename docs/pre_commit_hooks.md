@@ -10,7 +10,7 @@ Check all *.js, *.ts, *.py, and *.md files and add copyright in these files if c
 
 ```
   - repo: https://github.com/agritheory/test_utils/
-    rev: {rev} // The revision or tag to clone. Example: rev: v0.5.0
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.11.0
     hooks:
       - id: validate_copyright
         files: '\.(js|ts|py|md)$'
@@ -23,7 +23,7 @@ Remove unused keys in customizations.
 
 ```
   - repo: https://github.com/agritheory/test_utils/
-    rev: {rev} // The revision or tag to clone. Example: rev: v0.5.0
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.11.0
     hooks:
       - id: clean_customized_doctypes
         args: ["--app", "{app_name}"]
@@ -35,7 +35,7 @@ Examine package.json across the installed apps on the site to detect any version
 
 ```
   - repo: https://github.com/agritheory/test_utils/
-    rev: {rev} // The revision or tag to clone. Example: rev: v0.5.0
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.11.0
     hooks:
       - id: validate_javascript_dependencies
 ```
@@ -46,7 +46,7 @@ Examine pyproject.toml across the installed apps on the site to detect any versi
 
 ```
   - repo: https://github.com/agritheory/test_utils/
-    rev: {rev} // The revision or tag to clone. Example: rev: v0.5.0
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.11.0
     hooks:
       - id: validate_python_dependencies
 ```
@@ -57,7 +57,7 @@ Validate Customizations
 
 ```
   - repo: https://github.com/agritheory/test_utils/
-    rev: {rev} // The revision or tag to clone. Example: rev: v0.5.0
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.11.0
     hooks:
       - id: validate_customizations
         args: ["--set-module", "True"]
@@ -69,7 +69,18 @@ Update test_utils pre-commit config to latest
 
 ```
   - repo: https://github.com/agritheory/test_utils/
-    rev: {rev} // The revision or tag to clone. Example: rev: v0.5.0
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.11.0
     hooks:
       - id: update_pre_commit_config
+```
+
+### Mypy - `mypy`
+
+Run mypy on the codebase using a preset configuration
+
+```
+  - repo: https://github.com/agritheory/test_utils/
+    rev: {rev} // The revision or tag to clone. Example: rev: v0.11.0
+    hooks:
+      - id: mypy
 ```
