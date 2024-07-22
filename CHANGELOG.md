@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## v0.14.0 (2024-07-22)
+
+### Feature
+
+* feat: holiday list fixtures (#58)
+
+* feat: holiday list fixtures
+
+* fix: add country to json and filter data based on country
+
+* fix: format setup_fixtures.py ([`c84d6b2`](https://github.com/agritheory/test_utils/commit/c84d6b23779e3d6cf59874da369d2316a46dc688))
+
 ## v0.13.4 (2024-07-22)
 
 ### Fix
