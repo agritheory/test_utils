@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## v0.14.1 (2024-07-26)
+
+### Fix
+
+* fix: remove set-module from validate customizations (#69)
+
+* fix: remove set-module from validate customizations
+
+* fix: update modified timestamp when json is modified
+
+* fix: remove timestamp modify code ([`6c1ea61`](https://github.com/agritheory/test_utils/commit/6c1ea61191509759c84ba45a992a34a108225aad))
+
 ## v0.14.0 (2024-07-22)
 
 ### Feature
