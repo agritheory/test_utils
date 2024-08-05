@@ -386,3 +386,107 @@ def create_holiday_lists(settings):
 		holiday_list = frappe.new_doc("Holiday List")
 		holiday_list.update(hl)
 		holiday_list.save()
+
+
+def create_quarantine_warehouse(
+	settings,
+	wh_name="Quarantined, Scrap and Rejected Items",
+	account_name=None,
+	parent_account=None,
+	account_number="1430",
+	parent_wh=None,
+	is_default_scrap_wh=True,
+):
+	"""
+	Creates a quarantine/scrap/rejected item Warehouse and sets it as the default scrap warehouse
+	in Manufacturing Settings. If `account_name` is None, will also create an associated Account
+	of the same name.
+
+	:param settings: dict; needs a "company" key to use for the Warehouse and related Account
+	:param wh_name: str; name to use for the warehouse (and account if account_name is None)
+	:param account_name: str | None; the Account name to associate with the warehouse. Leave as
+	    None to create a new account
+	:param parent_acct: str | None; ignored if account_name provided, otherwise the parent Account
+	    for the new Account. If neither provided, will try to find a parent
+	:param account_number: str | None; ignored if account_name provided, otherwise the Account
+	    number used for the new Account
+	:param parent_wh: str | None; name of the parent Warehouse to use for new one, if None, will
+	    use the first group Warehouse returned for company
+	:param is_default_scrap_wh: bool; if True, will use this Warehouse as the default Scrap
+	    Warehouse in Manufacturing Settings
+	"""
+	if not account_name:
+		if not parent_account:
+			# If one possible parent account in system, use it, if zero or 2+, account is standalone
+			parent_accts = frappe.get_all(
+				"Account",
+				{
+					"company": settings.company,
+					"root_type": "Asset",
+					"account_type": "Stock",
+					"is_group": 1,
+				},
+				"name",
+				pluck="name",
+			)
+			parent_account = parent_accts[0] if len(parent_accts) == 1 else ""
+
+		if not frappe.db.exists(
+			"Account",
+			{
+				"name": wh_name,
+				"company": settings.company,
+				"root_type": "Asset",
+				"account_type": "Stock",
+			},
+		):
+			a = frappe.new_doc("Account")
+			a.name = a.account_name = wh_name
+			a.account_number = account_number
+			a.is_group = 0
+			a.company = settings.company
+			a.root_type = "Asset"
+			a.report_type = "Balance Sheet"
+			a.account_currency = frappe.get_value(
+				"Company", settings.company, "default_currency"
+			)
+			a.parent_account = parent_account
+			a.account_type = "Stock"
+			a.save()
+			account_name = a.name
+
+	if not parent_wh:
+		parent_wh = frappe.get_value(
+			"Warehouse", {"company": settings.company, "is_group": 1}
+		)
+
+	wh_type = "Quarantine"
+	if not frappe.db.exists("Warehouse Type", wh_type):
+		wht = frappe.new_doc("Warehouse Type")
+		wht.name = wh_type
+		wht.save()
+
+	if not frappe.db.exists(
+		"Warehouse",
+		{
+			"warehouse_name": wh_name,
+			"company": settings.company,
+			"is_rejected_warehouse": 1,
+			"account": account_name,
+		},
+	):
+		wh = frappe.new_doc("Warehouse")
+		wh.warehouse_name = wh_name
+		wh.company = settings.company
+		wh.is_group = 0
+		wh.parent_warehouse = parent_wh
+		wh.is_rejected_warehouse = 1
+		wh.account = account_name
+		wh.warehouse_type = wh_type
+		wh.save()
+		wh_name = wh.name
+
+	if is_default_scrap_wh:
+		ms = frappe.get_doc("Manufacturing Settings")
+		ms.default_scrap_warehouse = wh_name
+		ms.save()
