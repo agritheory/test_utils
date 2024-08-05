@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.15.0 (2024-08-05)
+
+### Feature
+
+* feat: add quarantine warehouse (#72) ([`54995f4`](https://github.com/agritheory/test_utils/commit/54995f4e5c978cd573253bf40e00cd3764e6ba11))
+
 ## v0.14.1 (2024-07-26)
 
 ### Fix
