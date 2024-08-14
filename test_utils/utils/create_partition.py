@@ -7,12 +7,14 @@ except Exception as e:
 
 def primary_key_exists(table_name):
 	try:
-		result = frappe.db.sql(f"""
-		SELECT COUNT(*) 
+		result = frappe.db.sql(
+			f"""
+		SELECT COUNT(*)
 		FROM information_schema.TABLE_CONSTRAINTS
-		WHERE TABLE_NAME = '{table_name}' 
+		WHERE TABLE_NAME = '{table_name}'
 		AND CONSTRAINT_TYPE = 'PRIMARY KEY';
-		""")
+		"""
+		)
 		return result[0][0] > 0
 	except Exception as e:
 		print(f"Error checking primary key existence: {e}")
@@ -27,8 +29,8 @@ def modify_primary_key(table_name, date_field):
 			DROP PRIMARY KEY;
 			"""
 			frappe.db.sql(drop_pk_sql)
-			
-			pk_columns =  f"name, {date_field}"
+
+			pk_columns = f"name, {date_field}"
 			add_pk_sql = f"""
 			ALTER TABLE `{table_name}`
 			ADD PRIMARY KEY ({pk_columns});
@@ -43,17 +45,18 @@ def modify_primary_key(table_name, date_field):
 def create_partition():
 	"""
 	partition_doctypes = {
-		"Sales Order": {
-			"date_field": "transaction_date",
-		},
-		"Sales Invoice": {
-			"date_field": "posting_date",
-		},
+	        "Sales Order": {
+	                "date_field": "transaction_date",
+	        },
+	        "Sales Invoice": {
+	                "date_field": "posting_date",
+	        },
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
-
 	fiscal_years = frappe.get_all(
-		"Fiscal Year", fields=["name", "year_start_date", "year_end_date"], order_by="year_start_date ASC"
+		"Fiscal Year",
+		fields=["name", "year_start_date", "year_end_date"],
+		order_by="year_start_date ASC",
 	)
 
 	for doctype, settings in partition_doctypes.items():
