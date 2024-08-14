@@ -1,4 +1,5 @@
 import argparse
+import sys
 from typing import Sequence
 
 try:
@@ -8,10 +9,14 @@ except Exception as e:
 
 
 def add_translations(lang, app):
-	untranslated_file = "untranslated_strings"
-	translated_file = "translated_strings"
-	get_untranslated(lang=lang, untranslated_file=untranslated_file, app=app)
-	update_translations(lang=lang, untranslated_file=untranslated_file, translated_file=translated_file, app=app)
+	try:
+		untranslated_file = "untranslated_strings"
+		translated_file = "translated_strings"
+		get_untranslated(lang=lang, untranslated_file=untranslated_file, app=app)
+		update_translations(lang=lang, untranslated_file=untranslated_file, translated_file=translated_file, app=app)
+	except Exception as e:
+		print(f"An error occurred while translating for lang '{lang}' and app '{app}': {e}")
+		sys.exit(0)
 
 
 def main(argv: Sequence[str] = None):
