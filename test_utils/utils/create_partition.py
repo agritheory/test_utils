@@ -6,17 +6,17 @@ except Exception as e:
 
 
 def primary_key_exists(table_name):
-    try:
-        result = frappe.db.sql(f"""
-        SELECT COUNT(*) 
-        FROM information_schema.TABLE_CONSTRAINTS
-        WHERE TABLE_NAME = '{table_name}' 
-        AND CONSTRAINT_TYPE = 'PRIMARY KEY';
-        """)
-        return result[0][0] > 0
-    except Exception as e:
-        print(f"Error checking primary key existence: {e}")
-        return False
+	try:
+		result = frappe.db.sql(f"""
+		SELECT COUNT(*) 
+		FROM information_schema.TABLE_CONSTRAINTS
+		WHERE TABLE_NAME = '{table_name}' 
+		AND CONSTRAINT_TYPE = 'PRIMARY KEY';
+		""")
+		return result[0][0] > 0
+	except Exception as e:
+		print(f"Error checking primary key existence: {e}")
+		return False
 
 
 def modify_primary_key(table_name, date_field):
