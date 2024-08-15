@@ -21,7 +21,7 @@ def primary_key_exists(table_name):
 		return False
 
 
-def modify_primary_key(table_name, date_field):
+def modify_primary_key(table_name, partition_field):
 	try:
 		if primary_key_exists(table_name):
 			drop_pk_sql = f"""
@@ -30,7 +30,21 @@ def modify_primary_key(table_name, date_field):
 			"""
 			frappe.db.sql(drop_pk_sql)
 
-			pk_columns = f"name, {date_field}"
+			unique_indexes = frappe.db.sql(
+				f"SHOW INDEXES FROM `{table_name}` WHERE Non_unique = 0", as_dict=True
+			)
+
+			for index in unique_indexes:
+				index_name = index["Key_name"]
+				columns = index["Column_name"]
+				frappe.db.sql(f"ALTER TABLE `{table_name}` DROP INDEX `{index_name}`;")
+				if partition_field not in columns:
+					columns = f"{columns}, `{partition_field}`"
+				frappe.db.sql(
+					f"ALTER TABLE `{table_name}` ADD UNIQUE INDEX `{index_name}` ({columns});"
+				)
+
+			pk_columns = f"name, {partition_field}"
 			add_pk_sql = f"""
 			ALTER TABLE `{table_name}`
 			ADD PRIMARY KEY ({pk_columns});
@@ -45,14 +59,18 @@ def modify_primary_key(table_name, date_field):
 def create_partition():
 	"""
 	partition_doctypes = {
-	                "Sales Order": {
-	                                "date_field": "transaction_date",
-	                                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month"
-	                },
-	                "Sales Invoice": {
-	                                "date_field": "posting_date",
-	                                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month"
-	                },
+	        "Sales Order": {
+	                "field": "transaction_date",
+	                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
+	        },
+	        "Sales Invoice": {
+	                "field": "posting_date",
+	                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
+	        },
+	        "Item": {
+	                "field": "disabled",
+	                "partition_by": "field",  # Options: "fiscal_year", "quarter", "month", "field"
+	        },
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
 	fiscal_years = frappe.get_all(
@@ -63,10 +81,10 @@ def create_partition():
 
 	for doctype, settings in partition_doctypes.items():
 		table_name = get_table_name(doctype)
-		date_field = settings.get("date_field", "posting_date")[0]
+		partition_field = settings.get("field", "posting_date")[0]
 		partition_by = settings.get("partition_by", "fiscal_year")[0]
 
-		modify_primary_key(table_name, date_field)
+		modify_primary_key(table_name, partition_field)
 
 		partitions = []
 
@@ -76,7 +94,7 @@ def create_partition():
 
 			if partition_by == "fiscal_year":
 				partition_sql = (
-					f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{date_field}`)) (\n"
+					f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`)) (\n"
 				)
 				for fiscal_year in fiscal_years:
 					partitions.append(
@@ -84,7 +102,7 @@ def create_partition():
 					)
 
 			elif partition_by == "quarter":
-				partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{date_field}`) * 10 + QUARTER(`{date_field}`)) (\n"
+				partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 10 + QUARTER(`{partition_field}`)) (\n"
 				for quarter in range(1, 5):
 					quarter_code = year_start * 10 + quarter
 					partitions.append(
@@ -92,12 +110,25 @@ def create_partition():
 					)
 
 			elif partition_by == "month":
-				partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{date_field}`) * 100 + MONTH(`{date_field}`)) (\n"
+				partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 100 + MONTH(`{partition_field}`)) (\n"
 				for month in range(1, 13):
 					month_code = year_start * 100 + month
 					partitions.append(
 						f"PARTITION {year_start}_month_{month:02d} VALUES LESS THAN ({month_code + 1})"
 					)
+
+			elif partition_by == "field":
+				partition_sql = (
+					f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
+				)
+				partition_values = frappe.db.sql(
+					f"SELECT DISTINCT `{partition_field}` FROM `{table_name}`", as_dict=True
+				)
+				for value in partition_values:
+					partition_value = value[partition_field]
+					partition_name = f"{partition_field}_{partition_value}"
+					if partition_name not in [p.split()[1] for p in partitions]:
+						partitions.append(f"PARTITION {partition_name} VALUES IN ({partition_value})")
 
 		partition_sql += ",\n".join(partitions)
 		partition_sql += ");"
