@@ -183,14 +183,6 @@ def create_partition():
 			)
 			partition_sql += ",\n".join(partitions)
 			partition_sql += ");"
-
-			try:
-				frappe.db.sql(partition_sql)
-				frappe.db.commit()
-				print(f"Partitioning for {doctype} completed successfully.")
-			except Exception as e:
-				print(f"Error while partitioning {doctype}: {e}")
-
 		else:
 			partitions = []
 			for fiscal_year in fiscal_years:
@@ -245,9 +237,10 @@ def create_partition():
 
 			partition_sql += ",\n".join(partitions)
 			partition_sql += ");"
-			try:
-				frappe.db.sql(partition_sql)
-				frappe.db.commit()
-				print(f"Partitioning for {doctype} completed successfully.")
-			except Exception as e:
-				print(f"Error while partitioning {doctype}: {e}")
+
+		try:
+			frappe.db.sql(partition_sql)
+			frappe.db.commit()
+			print(f"Partitioning for {doctype} completed successfully.")
+		except Exception as e:
+			print(f"Error while partitioning {doctype}: {e}")
