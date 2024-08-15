@@ -45,12 +45,14 @@ def modify_primary_key(table_name, date_field):
 def create_partition():
 	"""
 	partition_doctypes = {
-	        "Sales Order": {
-	                "date_field": "transaction_date",
-	        },
-	        "Sales Invoice": {
-	                "date_field": "posting_date",
-	        },
+	                "Sales Order": {
+	                                "date_field": "transaction_date",
+	                                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month"
+	                },
+	                "Sales Invoice": {
+	                                "date_field": "posting_date",
+	                                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month"
+	                },
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
 	fiscal_years = frappe.get_all(
@@ -61,21 +63,44 @@ def create_partition():
 
 	for doctype, settings in partition_doctypes.items():
 		table_name = get_table_name(doctype)
-		date_field = settings["date_field"][0]
+		date_field = settings.get("date_field", "posting_date")[0]
+		partition_by = settings.get("partition_by", "fiscal_year")[0]
+
 		modify_primary_key(table_name, date_field)
 
-		partition_sql = (
-			f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR({date_field})) ("
-		)
+		partitions = []
 
-		for year in fiscal_years:
-			year_start = year.get("year_start_date").year
-			year_end = year.get("year_end_date").year + 1
-			partition_sql += (
-				f"PARTITION fiscal_year_{year_start} VALUES LESS THAN ({year_end}), "
-			)
+		for fiscal_year in fiscal_years:
+			year_start = fiscal_year.get("year_start_date").year
+			year_end = fiscal_year.get("year_end_date").year + 1
 
-		partition_sql = partition_sql.rstrip(", ") + ");"
+			if partition_by == "fiscal_year":
+				partition_sql = (
+					f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{date_field}`)) (\n"
+				)
+				for fiscal_year in fiscal_years:
+					partitions.append(
+						f"PARTITION fiscal_year_{year_start} VALUES LESS THAN ({year_end}), "
+					)
+
+			elif partition_by == "quarter":
+				partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{date_field}`) * 10 + QUARTER(`{date_field}`)) (\n"
+				for quarter in range(1, 5):
+					quarter_code = year_start * 10 + quarter
+					partitions.append(
+						f"PARTITION {year_start}_quarter_{quarter} VALUES LESS THAN ({quarter_code + 1})"
+					)
+
+			elif partition_by == "month":
+				partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{date_field}`) * 100 + MONTH(`{date_field}`)) (\n"
+				for month in range(1, 13):
+					month_code = year_start * 100 + month
+					partitions.append(
+						f"PARTITION {year_start}_month_{month:02d} VALUES LESS THAN ({month_code + 1})"
+					)
+
+		partition_sql += ",\n".join(partitions)
+		partition_sql += ");"
 
 		try:
 			frappe.db.sql(partition_sql)
