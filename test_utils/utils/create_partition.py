@@ -8,6 +8,16 @@ except Exception as e:
 def add_custom_field(parent_doctype, partition_field):
 	parent_doctype_meta = frappe.get_meta(parent_doctype)
 	partition_docfield = parent_doctype_meta._fields.get(partition_field)
+	if not partition_docfield:
+		# V13 compatibility
+		partition_docfields = list(
+			filter(lambda x: x.get("fieldname") == partition_field, parent_doctype_meta.fields)
+		)
+		partition_docfield = partition_docfields[0] if partition_docfields else None
+	if not partition_docfield:
+		raise ValueError(
+			f"Partition field {partition_field} does not exist for {parent_doctype}"
+		)
 
 	for child_doctype in [df.options for df in parent_doctype_meta.get_table_fields()]:
 
@@ -15,7 +25,7 @@ def add_custom_field(parent_doctype, partition_field):
 			"Custom Field", filters={"dt": child_doctype, "fieldname": partition_field}
 		):
 			return
-
+		print(f"Adding {partition_field} to {child_doctype} for {parent_doctype}")
 		custom_field = frappe.get_doc(
 			{
 				"doctype": "Custom Field",
