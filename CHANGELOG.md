@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.16.0 (2024-09-04)
+
+### Feature
+
+* feat: create warehouses (#57) ([`1d6817d`](https://github.com/agritheory/test_utils/commit/1d6817d110ff4e0007365d434b38b56857e280a8))
+
 ## v0.15.0 (2024-08-05)
 
 ### Feature
