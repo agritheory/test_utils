@@ -119,13 +119,47 @@ def restore_database(site, backup_file):
 		print(f"Unexpected error: {e}")
 
 
-def get_partitions_to_backup(tables_partitions):
-	partitions_to_backup = {}
-	for doctype, partitions in tables_partitions.items():
-		partitions_to_backup[f"tab{doctype}"] = partitions
+def get_last_n_partitions_for_tables(table_names, n):
+	table_names_list = "', '".join(table_names)
+
+	query = f"""
+		SELECT TABLE_NAME, PARTITION_NAME
+		FROM information_schema.PARTITIONS
+		WHERE TABLE_NAME IN ('{table_names_list}')
+		AND TABLE_ROWS > 0
+		ORDER BY TABLE_NAME, PARTITION_ORDINAL_POSITION DESC
+	"""
+
+	partitions = frappe.db.sql(query, as_dict=True)
+
+	result = {}
+	for partition in partitions:
+		table_name = partition["TABLE_NAME"]
+		partition_name = partition["PARTITION_NAME"]
+		if table_name not in result:
+			result[table_name] = []
+		result[table_name].append(partition_name)
+
+	final_result = {}
+	for table_name, partitions in result.items():
+		final_result[table_name] = partitions[:n]
+
+	return final_result
+
+
+def get_partitions_to_backup(partitioned_doctypes_to_restore=None, last_n_partitions=1):
+	if partitioned_doctypes_to_restore:
+		tables_partitions = partitioned_doctypes_to_restore
+	else:
+		tables_partitions = list(frappe.get_hooks("partition_doctypes").keys())
+
+	table_names = []
+	for doctype in tables_partitions:
+		table_names.append(f"tab{doctype}")
 		for child_doctype in get_child_doctypes(doctype):
-			partitions_to_backup[f"tab{child_doctype}"] = partitions
-	return partitions_to_backup
+			table_names.append(f"tab{child_doctype}")
+
+	return get_last_n_partitions_for_tables(table_names, last_n_partitions)
 
 
 def backup_partition(site, table, current_partition):
@@ -205,14 +239,14 @@ to_site = {
     "name": "site_name",
 }
 
-tables_partitions = {
-    'Sales Order': ['2018_month_01', '2018_month_02'],
-    'Sales Invoice': ['2018_month_01', '2018_month_02'],
-}
+partitioned_doctypes_to_restore = ["Sales Order", "Sales Invoice"]
+last_n_partitions = 1
 """
 
 
-def restore(from_site, to_site, tables_partitions):
+def restore(
+	from_site, to_site, partitioned_doctypes_to_restore=None, last_n_partitions=1
+):
 	schema_dump_file = dump_schema_only(from_site, "/tmp/schema_dump.sql")
 	full_bkp_file = backup_full_database(from_site, "/tmp/full_backup_file.sql")
 	schema_and_non_partitioned_data = merge_sql_files(
@@ -222,7 +256,9 @@ def restore(from_site, to_site, tables_partitions):
 	)
 	restore_database(to_site, schema_and_non_partitioned_data)
 
-	partitions_to_backup = get_partitions_to_backup(tables_partitions)
+	partitions_to_backup = get_partitions_to_backup(
+		partitioned_doctypes_to_restore, last_n_partitions
+	)
 
 	bkps_files = []
 	for table, partitions in partitions_to_backup.items():
