@@ -42,23 +42,19 @@ def dump_schema_only(site, schema_dump_file):
 
 
 def backup_full_database(site, full_backup_file):
-	exclude_tables = get_partitioned_tables()  # Fetch list of tables to exclude
+	exclude_tables = get_partitioned_tables()
 
 	try:
-		# Locate the shell script within the module
 		with importlib.resources.path(
 			"test_utils.utils", "mysqldump_wrapper.sh"
 		) as script_path:
-			# Copy the script to a temporary location
 			temp_script_path = "/tmp/mysqldump_wrapper.sh"
 			with open(script_path) as src_file:
 				with open(temp_script_path, "w") as temp_file:
 					temp_file.write(src_file.read())
 
-			# Make the temporary script executable
 			os.chmod(temp_script_path, 0o755)
 
-			# Prepare the command and arguments for the wrapper script
 			command = [
 				temp_script_path,
 				site["user"],
@@ -68,12 +64,8 @@ def backup_full_database(site, full_backup_file):
 				full_backup_file,
 			] + exclude_tables
 
-			# Execute the wrapper script
-			print("Executing command:", " ".join(command))  # Debug output
-
 			result = subprocess.run(command, capture_output=True, text=True, check=False)
 
-			# Check for errors
 			if result.returncode != 0:
 				print(f"Error occurred: {result.stderr}")
 				raise Exception(f"Backup failed with return code {result.returncode}")
@@ -89,24 +81,18 @@ def merge_sql_files(
 	output_path="/tmp/schema_and_non_partitioned_data.sql",
 ):
 	try:
-		# Construct the cat command
 		command = [
 			"bash",
 			"-c",
 			f'cat "{schema_dump_path}" "{full_backup_path}" > "{output_path}"',
 		]
-
-		# Execute the command
 		result = subprocess.run(command, capture_output=True, text=True, check=False)
-
-		# Check for errors
 		if result.returncode != 0:
 			print(f"Error occurred: {result.stderr}")
 			raise Exception(f"Merge failed with return code {result.returncode}")
 
 		print(f"Files merged successfully into {output_path}")
 		return output_path
-
 	except Exception as e:
 		print(f"An error occurred: {e}")
 
@@ -206,24 +192,23 @@ def restore_partition(site, table, partition_bkp_file):
 from_site = {
     "user": "root",
     "password": "123",
-    "host": "172.18.0.2",
-    "db": "_9f2612621965ef9a",
-    "name": "partition.localhost",
+    "host": "localhost,
+    "db": "db_name",
+    "name": "site_name",
 }
 
 to_site = {
     "user": "root",
     "password": "123",
-    "host": "172.18.0.2",
-    "db": "partitionrestore.localhost",
-    "name": "partitionrestore.localhost",
+    "host": "localhost,
+    "db": "db_name",
+    "name": "site_name",
 }
 
 tables_partitions = {
     'Sales Order': ['2018_month_01', '2018_month_02'],
     'Sales Invoice': ['2018_month_01', '2018_month_02'],
 }
-
 """
 
 
