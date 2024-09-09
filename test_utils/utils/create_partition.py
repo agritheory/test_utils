@@ -6,6 +6,9 @@ except Exception as e:
 
 
 def add_custom_field(parent_doctype, partition_field):
+	# Skip creation of standard fields
+	if partition_field in frappe.model.default_fields:
+		return
 	parent_doctype_meta = frappe.get_meta(parent_doctype)
 	partition_docfield = parent_doctype_meta._fields.get(partition_field)
 	if not partition_docfield:
@@ -41,7 +44,8 @@ def add_custom_field(parent_doctype, partition_field):
 		)
 		try:
 			custom_field.insert()
-		except Exception:
+		except Exception as e:
+			print(f"Error adding {partition_field} to {child_doctype} for {parent_doctype}: {e}")
 			continue
 
 
