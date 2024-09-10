@@ -2,9 +2,10 @@ import subprocess
 import datetime
 import shlex
 import frappe
-import pymysql
 import os
 import importlib.resources
+import pymysql
+import csv
 
 
 def get_child_doctypes(doctype):
@@ -164,24 +165,28 @@ def get_partitions_to_backup(partitioned_doctypes_to_restore=None, last_n_partit
 
 def backup_partition(site, table, current_partition):
 	timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-	output_file = (
-		f'/tmp/{table.lower().replace(" ", "")}_{current_partition}_{timestamp}.sql'
+	output_file = os.path.join(
+		"/tmp/", f'{table.lower().replace(" ", "")}_{current_partition}_{timestamp}.csv'
 	)
 
 	sql_query = f"""
-    SELECT * FROM `{table}` PARTITION ({current_partition})
-    INTO OUTFILE '{output_file}'
-    FIELDS TERMINATED BY ','
-    ENCLOSED BY '"'
-    LINES TERMINATED BY '\n';
-    """
-
+	SELECT * FROM `{table}` PARTITION ({current_partition});
+	"""
 	try:
 		connection = pymysql.connect(
 			user=site["user"], password=site["password"], host=site["host"], database=site["db"]
 		)
 		cursor = connection.cursor()
 		cursor.execute(sql_query)
+		rows = cursor.fetchall()
+		columns = [desc[0] for desc in cursor.description]
+
+		with open(output_file, "w", newline="", encoding="utf-8") as f:
+			writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
+			writer.writerow(columns)
+			for row in rows:
+				writer.writerow([item if item is not None else "" for item in row])
+
 		connection.commit()
 		cursor.close()
 		connection.close()
@@ -203,45 +208,70 @@ def restore_partition(site, table, partition_bkp_file):
 			user=site["user"], password=site["password"], host=site["host"], database=site["db"]
 		)
 		cursor = connection.cursor()
-		sql_query = f"""
-        LOAD DATA INFILE '{partition_bkp_file}'
-        INTO TABLE `{table}`
-        FIELDS TERMINATED BY ','
-        ENCLOSED BY '"'
-        LINES TERMINATED BY '\\n'
-        IGNORE 1 LINES;
-        """
-		cursor.execute(sql_query)
+
+		with open(partition_bkp_file, encoding="utf-8") as f:
+			reader = csv.reader(f)
+			header = next(reader)
+			sanitized_header = [f"`{col}`" for col in header]
+
+			for row in reader:
+				row = [None if field == "" else field for field in row]
+				sql_query = f"""
+				INSERT INTO `{table}` ({', '.join(sanitized_header)})
+				VALUES ({', '.join(['%s'] * len(header))});
+				"""
+				try:
+					cursor.execute(sql_query, row)
+				except pymysql.MySQLError as e:
+					print(f"Error inserting row {row}: {e}")
+					continue
 		connection.commit()
 		cursor.close()
 		connection.close()
 		print(f"Data imported successfully from {partition_bkp_file}.")
 	except pymysql.MySQLError as e:
-		print(f"Error during import: {e}")
+		print(f"Error during import {partition_bkp_file}: {e}")
 	except Exception as e:
-		print(f"Unexpected error: {e}")
+		print(f"Unexpected error {partition_bkp_file}: {e}")
 
 
 """
 from_site = {
-    "user": "root",
-    "password": "123",
-    "host": "localhost,
-    "db": "db_name",
-    "name": "site_name",
+	"user": "root",
+	"password": "123",
+	"host": "localhost,
+	"db": "db_name",
+	"name": "site_name",
 }
 
 to_site = {
-    "user": "root",
-    "password": "123",
-    "host": "localhost,
-    "db": "db_name",
-    "name": "site_name",
+	"user": "root",
+	"password": "123",
+	"host": "localhost,
+	"db": "db_name",
+	"name": "site_name",
 }
 
 partitioned_doctypes_to_restore = ["Sales Order", "Sales Invoice"]
 last_n_partitions = 1
 """
+
+
+def restore_partitions(
+	from_site, to_site, partitioned_doctypes_to_restore=None, last_n_partitions=1
+):
+	partitions_to_backup = get_partitions_to_backup(
+		partitioned_doctypes_to_restore, last_n_partitions
+	)
+
+	bkps_files = []
+	for table, partitions in partitions_to_backup.items():
+		for partition in partitions:
+			partition_bkp_file = backup_partition(from_site, table, partition)
+			bkps_files.append({"table": table, "partition_bkp_file": partition_bkp_file})
+
+	for file in bkps_files:
+		restore_partition(to_site, file["table"], file["partition_bkp_file"])
 
 
 def restore(
@@ -255,16 +285,6 @@ def restore(
 		output_path="/tmp/schema_and_non_partitioned_data.sql",
 	)
 	restore_database(to_site, schema_and_non_partitioned_data)
-
-	partitions_to_backup = get_partitions_to_backup(
-		partitioned_doctypes_to_restore, last_n_partitions
+	restore_partitions(
+		from_site, to_site, partitioned_doctypes_to_restore, last_n_partitions
 	)
-
-	bkps_files = []
-	for table, partitions in partitions_to_backup.items():
-		for partition in partitions:
-			partition_bkp_file = backup_partition(from_site, table, partition)
-			bkps_files.append({"table": table, "partition_bkp_file": partition_bkp_file})
-
-	for file in bkps_files:
-		restore_partition(to_site, file["table"], file["partition_bkp_file"])
