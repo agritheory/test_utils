@@ -1,11 +1,13 @@
 import subprocess
 import datetime
 import shlex
-import frappe
 import os
 import importlib.resources
 import pymysql
 import csv
+import gzip
+import shutil
+import frappe
 
 
 def get_child_doctypes(doctype):
@@ -23,28 +25,40 @@ def get_partitioned_tables():
 	return list(set(partitioned_tables))
 
 
-def dump_schema_only(site, schema_dump_file):
+def dump_schema_only(site, backup_dir, compress):
 	exclude_tables = get_partitioned_tables()
+	schema_dump_file = f"{backup_dir}/schema_dump.sql"
 	try:
 		command = (
 			f"mysqldump -u {site['user']} -p{site['password']} -h {site['host']} {site['db']} "
 			f"--no-data " + " ".join([shlex.quote(table) for table in exclude_tables])
 		)
-		with open(schema_dump_file, "w") as f:
-			subprocess.run(
-				command, shell=True, stdout=f, stderr=subprocess.PIPE, text=True, check=True
+
+		if compress:
+			compressed_file_path = f"{schema_dump_file}.gz"
+			with gzip.open(compressed_file_path, "wb") as f:
+				process = subprocess.run(command, shell=True, capture_output=True, check=True)
+				f.write(process.stdout)
+			print(
+				f"Schema dump completed and compressed successfully. File saved as {compressed_file_path}."
 			)
-		print(f"Schema dump completed successfully. File saved as {schema_dump_file}.")
-		return schema_dump_file
+			return compressed_file_path
+		else:
+			with open(schema_dump_file, "w") as f:
+				subprocess.run(
+					command, shell=True, stdout=f, stderr=subprocess.PIPE, text=True, check=True
+				)
+			print(f"Schema dump completed successfully. File saved as {schema_dump_file}.")
+			return schema_dump_file
 	except subprocess.CalledProcessError as e:
 		print(f"Error during schema dump: {e.stderr}")
 	except Exception as e:
 		print(f"Unexpected error: {e}")
 
 
-def backup_full_database(site, full_backup_file):
+def backup_full_database(site, backup_dir, compress):
 	exclude_tables = get_partitioned_tables()
-
+	full_backup_file = f"{backup_dir}/full_backup_file.sql"
 	try:
 		with importlib.resources.path(
 			"test_utils.utils", "mysqldump_wrapper.sh"
@@ -71,16 +85,25 @@ def backup_full_database(site, full_backup_file):
 				print(f"Error occurred: {result.stderr}")
 				raise Exception(f"Backup failed with return code {result.returncode}")
 
-			return full_backup_file
+			if compress:
+				compressed_file_path = f"{full_backup_file}.gz"
+				with open(full_backup_file, "rb") as f_in:
+					with gzip.open(compressed_file_path, "wb") as f_out:
+						f_out.writelines(f_in)
+				os.remove(full_backup_file)
+				print(
+					f"Backup completed and compressed successfully. File saved as {compressed_file_path}."
+				)
+				return compressed_file_path
+			else:
+				print(f"Backup completed successfully. File saved as {full_backup_file}.")
+				return full_backup_file
 	except Exception as e:
 		print(f"Unexpected error: {e}")
 
 
-def merge_sql_files(
-	schema_dump_path,
-	full_backup_path,
-	output_path="/tmp/schema_and_non_partitioned_data.sql",
-):
+def merge_sql_files(schema_dump_path, full_backup_path, backup_dir, compress):
+	output_path = f"{backup_dir}/schema_and_non_partitioned_data.sql"
 	try:
 		command = [
 			"bash",
@@ -92,13 +115,23 @@ def merge_sql_files(
 			print(f"Error occurred: {result.stderr}")
 			raise Exception(f"Merge failed with return code {result.returncode}")
 
-		print(f"Files merged successfully into {output_path}")
-		return output_path
+		if compress:
+			compressed_file_path = f"{output_path}.gz"
+			with open(output_path, "rb") as output_file:
+				with gzip.open(compressed_file_path, "wb") as gz_file:
+					shutil.copyfileobj(output_file, gz_file)
+			os.remove(output_path)
+			print(f"Files merged successfully and compressed into {compressed_file_path}.")
+			return compressed_file_path
+		else:
+			print(f"Files merged successfully into {output_path}")
+			return output_path
 	except Exception as e:
 		print(f"An error occurred: {e}")
 
 
 def restore_database(site, backup_file):
+	backup_file = uncompress_if_needed(backup_file)
 	try:
 		command = [
 			"bench",
@@ -163,7 +196,7 @@ def get_partitions_to_backup(partitioned_doctypes_to_restore=None, last_n_partit
 	return get_last_n_partitions_for_tables(table_names, last_n_partitions)
 
 
-def backup_partition(site, table, current_partition):
+def backup_partition(site, table, current_partition, compress):
 	timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 	output_file = os.path.join(
 		"/tmp/", f'{table.lower().replace(" ", "")}_{current_partition}_{timestamp}.csv'
@@ -190,10 +223,21 @@ def backup_partition(site, table, current_partition):
 		connection.commit()
 		cursor.close()
 		connection.close()
-		print(
-			f"Backup of partition {current_partition} completed successfully. File saved as {output_file}."
-		)
-		return output_file
+		if compress:
+			compressed_file_path = f"{output_file}.gz"
+			with open(output_file, "rb") as f_in:
+				with gzip.open(compressed_file_path, "wb") as f_out:
+					shutil.copyfileobj(f_in, f_out)
+			os.remove(output_file)
+			print(
+				f"Backup of partition {current_partition} completed and compressed. File saved as {compressed_file_path}."
+			)
+			return compressed_file_path
+		else:
+			print(
+				f"Backup of partition {current_partition} completed successfully. File saved as {output_file}."
+			)
+			return output_file
 	except pymysql.MySQLError as e:
 		print(f"Error during backup: {e}")
 		return None
@@ -204,6 +248,7 @@ def backup_partition(site, table, current_partition):
 
 def restore_partition(site, table, partition_bkp_file):
 	try:
+		partition_bkp_file = uncompress_if_needed(partition_bkp_file)
 		connection = pymysql.connect(
 			user=site["user"], password=site["password"], host=site["host"], database=site["db"]
 		)
@@ -235,30 +280,8 @@ def restore_partition(site, table, partition_bkp_file):
 		print(f"Unexpected error {partition_bkp_file}: {e}")
 
 
-"""
-from_site = {
-	"user": "root",
-	"password": "123",
-	"host": "localhost,
-	"db": "db_name",
-	"name": "site_name",
-}
-
-to_site = {
-	"user": "root",
-	"password": "123",
-	"host": "localhost,
-	"db": "db_name",
-	"name": "site_name",
-}
-
-partitioned_doctypes_to_restore = ["Sales Order", "Sales Invoice"]
-last_n_partitions = 1
-"""
-
-
 def restore_partitions(
-	from_site, to_site, partitioned_doctypes_to_restore=None, last_n_partitions=1
+	from_site, to_site, compress, partitioned_doctypes_to_restore=None, last_n_partitions=1
 ):
 	partitions_to_backup = get_partitions_to_backup(
 		partitioned_doctypes_to_restore, last_n_partitions
@@ -267,24 +290,55 @@ def restore_partitions(
 	bkps_files = []
 	for table, partitions in partitions_to_backup.items():
 		for partition in partitions:
-			partition_bkp_file = backup_partition(from_site, table, partition)
+			partition_bkp_file = backup_partition(from_site, table, partition, compress)
 			bkps_files.append({"table": table, "partition_bkp_file": partition_bkp_file})
 
 	for file in bkps_files:
 		restore_partition(to_site, file["table"], file["partition_bkp_file"])
 
 
+def uncompress_if_needed(file_path):
+	if file_path.endswith(".gz"):
+		uncompressed_path = file_path[:-3]
+		with gzip.open(file_path, "rb") as gz_file:
+			with open(uncompressed_path, "wb") as out_file:
+				shutil.copyfileobj(gz_file, out_file)
+		return uncompressed_path
+	return file_path
+
+
 def restore(
-	from_site, to_site, partitioned_doctypes_to_restore=None, last_n_partitions=1
+	from_site,
+	to_site,
+	backup_dir="/tmp",
+	partitioned_doctypes_to_restore=None,
+	last_n_partitions=1,
+	compress=False,
 ):
-	schema_dump_file = dump_schema_only(from_site, "/tmp/schema_dump.sql")
-	full_bkp_file = backup_full_database(from_site, "/tmp/full_backup_file.sql")
+	"""
+	from_site = {
+	        "user": "root",
+	        "password": "123",
+	        "host": "localhost,
+	        "db": "db_name",
+	        "name": "site_name",
+	}
+	to_site = {
+	        "user": "root",
+	        "password": "123",
+	        "host": "localhost,
+	        "db": "db_name",
+	        "name": "site_name",
+	}
+	partitioned_doctypes_to_restore = ["Sales Order", "Sales Invoice"]
+	last_n_partitions = 1
+	"""
+	schema_dump_file = dump_schema_only(from_site, backup_dir, compress)
+	full_bkp_file = backup_full_database(from_site, backup_dir, compress)
 	schema_and_non_partitioned_data = merge_sql_files(
-		schema_dump_file,
-		full_bkp_file,
-		output_path="/tmp/schema_and_non_partitioned_data.sql",
+		schema_dump_file, full_bkp_file, backup_dir, compress
 	)
 	restore_database(to_site, schema_and_non_partitioned_data)
 	restore_partitions(
-		from_site, to_site, partitioned_doctypes_to_restore, last_n_partitions
+		from_site, to_site, compress, partitioned_doctypes_to_restore, last_n_partitions
 	)
