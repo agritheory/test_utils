@@ -7,6 +7,7 @@ import pymysql
 import csv
 import gzip
 import shutil
+import json
 import frappe
 
 
@@ -26,7 +27,9 @@ def get_partitioned_tables():
 
 
 def dump_schema_only(site, backup_dir, compress):
-	exclude_tables = get_partitioned_tables()
+	exclude_tables = list(
+		set(frappe.get_hooks("exclude_tables") + get_partitioned_tables())
+	)
 	schema_dump_file = f"{backup_dir}/schema_dump.sql"
 	try:
 		command = (
@@ -57,7 +60,9 @@ def dump_schema_only(site, backup_dir, compress):
 
 
 def backup_full_database(site, backup_dir, compress):
-	exclude_tables = get_partitioned_tables()
+	partitioned_tables = get_partitioned_tables()
+	exclude = list(set(frappe.get_hooks("exclude_tables") + partitioned_tables))
+
 	full_backup_file = f"{backup_dir}/full_backup_file.sql"
 	try:
 		with importlib.resources.path(
@@ -77,7 +82,7 @@ def backup_full_database(site, backup_dir, compress):
 				site["host"],
 				site["db"],
 				full_backup_file,
-			] + exclude_tables
+			] + exclude
 
 			result = subprocess.run(command, capture_output=True, text=True, check=False)
 
@@ -307,38 +312,64 @@ def uncompress_if_needed(file_path):
 	return file_path
 
 
+def get_site_config_data(site_name):
+	try:
+		site_config_path = f"./{site_name}/site_config.json"
+
+		if not os.path.exists(site_config_path):
+			raise FileNotFoundError(f"site_config.json not found for site: {site_name}")
+
+		with open(site_config_path) as f:
+			site_config = json.load(f)
+
+		return site_config
+
+	except Exception as e:
+		print(f"Error reading site config for site {site_name}: {str(e)}")
+		return None
+
+
 def restore(
 	from_site,
 	to_site,
+	mariadb_user,
+	mariadb_password,
+	mariadb_host="localhost",
 	backup_dir="/tmp",
 	partitioned_doctypes_to_restore=None,
 	last_n_partitions=1,
 	compress=False,
 ):
-	"""
-	from_site = {
-	        "user": "root",
-	        "password": "123",
-	        "host": "localhost,
-	        "db": "db_name",
-	        "name": "site_name",
-	}
-	to_site = {
-	        "user": "root",
-	        "password": "123",
-	        "host": "localhost,
-	        "db": "db_name",
-	        "name": "site_name",
-	}
-	partitioned_doctypes_to_restore = ["Sales Order", "Sales Invoice"]
-	last_n_partitions = 1
-	"""
-	schema_dump_file = dump_schema_only(from_site, backup_dir, compress)
-	full_bkp_file = backup_full_database(from_site, backup_dir, compress)
+	from_site_config = get_site_config_data(from_site)
+	to_site_config = get_site_config_data(to_site)
+	from_site_config.update(
+		{
+			"user": mariadb_user,
+			"host": mariadb_host,
+			"name": from_site,
+			"password": mariadb_password,
+			"db": from_site_config["db_name"],
+		}
+	)
+	to_site_config.update(
+		{
+			"user": mariadb_user,
+			"host": mariadb_host,
+			"name": to_site,
+			"password": mariadb_password,
+			"db": to_site_config["db_name"],
+		}
+	)
+	schema_dump_file = dump_schema_only(from_site_config, backup_dir, compress)
+	full_bkp_file = backup_full_database(from_site_config, backup_dir, compress)
 	schema_and_non_partitioned_data = merge_sql_files(
 		schema_dump_file, full_bkp_file, backup_dir, compress
 	)
-	restore_database(to_site, schema_and_non_partitioned_data)
+	restore_database(to_site_config, schema_and_non_partitioned_data)
 	restore_partitions(
-		from_site, to_site, compress, partitioned_doctypes_to_restore, last_n_partitions
+		from_site_config,
+		to_site_config,
+		compress,
+		partitioned_doctypes_to_restore,
+		last_n_partitions,
 	)
