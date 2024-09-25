@@ -329,6 +329,17 @@ def get_site_config_data(site_name):
 		return None
 
 
+def delete_backup_files(backup_dir):
+	try:
+		for filename in os.listdir(backup_dir):
+			file_path = os.path.join(backup_dir, filename)
+			if any(filename.endswith(ext) for ext in [".sql", ".gz", ".csv"]):
+				os.remove(file_path)
+				print(f"Deleted file: {file_path}")
+	except Exception as e:
+		print(f"Error while deleting backup files: {str(e)}")
+
+
 def restore(
 	from_site,
 	to_site,
@@ -339,6 +350,7 @@ def restore(
 	partitioned_doctypes_to_restore=None,
 	last_n_partitions=1,
 	compress=False,
+	delete_files=False,
 ):
 	from_site_config = get_site_config_data(from_site)
 	to_site_config = get_site_config_data(to_site)
@@ -373,3 +385,5 @@ def restore(
 		partitioned_doctypes_to_restore,
 		last_n_partitions,
 	)
+	if delete_files:
+		delete_backup_files(backup_dir)
