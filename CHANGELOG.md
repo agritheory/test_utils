@@ -286,7 +286,7 @@ Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`934c926`](https://g
 
 * fix: compute hash for concatenated data for standard and custom json
 
-* wip: restruacture
+* wip: restructure
 
 ---------
 
