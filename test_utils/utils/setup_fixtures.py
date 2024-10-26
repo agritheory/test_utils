@@ -188,18 +188,30 @@ def create_warehouses(settings):
 	warehouses = []
 	for item in items:
 		for item_default in item.get("item_defaults"):
-			if item_default.get("default_warehouse") and item_default.get("default_warehouse") not in warehouses:
+			if (
+				item_default.get("default_warehouse")
+				and item_default.get("default_warehouse") not in warehouses
+			):
 				warehouses.append(item_default.get("default_warehouse"))
 
 	company_abbr = frappe.db.get_value("Company", settings.company, "abbr")
 	root_wh = frappe.get_value("Warehouse", {"company": settings.company, "is_group": 1})
 	if frappe.db.exists("Warehouse", f"Stores - {company_abbr}"):
-		frappe.rename_doc("Warehouse", f"Stores - {company_abbr}", f"Storeroom - {company_abbr}", force=True)
+		frappe.rename_doc(
+			"Warehouse", f"Stores - {company_abbr}", f"Storeroom - {company_abbr}", force=True
+		)
 	if frappe.db.exists("Warehouse", f"Finished Goods - {company_abbr}"):
-		frappe.rename_doc("Warehouse", f"Finished Goods - {company_abbr}", f"Baked Goods - {company_abbr}", force=True)
+		frappe.rename_doc(
+			"Warehouse",
+			f"Finished Goods - {company_abbr}",
+			f"Baked Goods - {company_abbr}",
+			force=True,
+		)
 		frappe.set_value("Warehouse", f"Baked Goods - {company_abbr}", "is_group", 1)
 
-	for wh in frappe.get_all("Warehouse", {"company": settings.company}, ["name", "is_group"]):
+	for wh in frappe.get_all(
+		"Warehouse", {"company": settings.company}, ["name", "is_group"]
+	):
 		if wh.name not in warehouses and not wh.is_group:
 			frappe.delete_doc("Warehouse", wh.name)
 
@@ -223,7 +235,6 @@ def create_warehouses(settings):
 		wh = frappe.get_doc("Warehouse", "Refrigerated Display - APC")
 		wh.parent_warehouse = f"Baked Goods - {company_abbr}"
 		wh.save()
-
 
 
 def create_items(settings, only_create=None):

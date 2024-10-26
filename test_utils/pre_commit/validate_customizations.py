@@ -38,22 +38,29 @@ def get_customized_doctypes():
 				else:
 					customized_doctypes[custom_file.stem] = [custom_file.resolve()]
 		if app_dir.stem == "hrms":
-			p = ast.parse((app_dir / "hrms" / "setup.py").read_text())
-			for node in p.body[:]:
-				if not isinstance(node, ast.FunctionDef) or node.name != "get_custom_fields":
-					p.body.remove(node)
-			module = types.ModuleType("hrms")
-			code = compile(p, "setup.py", "exec")
-			sys.modules["hrms"] = module
-			exec(code, module.__dict__)
-			import hrms
+			pass
 
-			hrms_custom_fields = hrms.get_custom_fields()
-			for doctype, fields in hrms_custom_fields.items():
-				if doctype in customized_doctypes:
-					customized_doctypes[scrub(doctype)].append({"custom_fields": fields})
-				else:
-					customized_doctypes[scrub(doctype)] = [{"custom_fields": fields}]
+			# def _bypass(*args, **kwargs):
+			# 	return args[0]
+
+			# _ = _bypass
+
+			# p = ast.parse((app_dir / "hrms" / "setup.py").read_text())
+			# for node in p.body[:]:
+			# 	if not isinstance(node, ast.FunctionDef) or node.name != "get_custom_fields":
+			# 		p.body.remove(node)
+			# module = types.ModuleType("hrms")
+			# code = compile(p, "setup.py", "exec")
+			# sys.modules["hrms"] = module
+			# exec(code, module.__dict__)
+			# import hrms
+
+			# hrms_custom_fields = hrms.get_custom_fields()
+			# for doctype, fields in hrms_custom_fields.items():
+			# 	if doctype in customized_doctypes:
+			# 		customized_doctypes[scrub(doctype)].append({"custom_fields": fields})
+			# 	else:
+			# 		customized_doctypes[scrub(doctype)] = [{"custom_fields": fields}]
 
 	return dict(sorted(customized_doctypes.items()))
 
