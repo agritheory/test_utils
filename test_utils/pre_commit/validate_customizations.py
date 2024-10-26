@@ -47,6 +47,7 @@ def get_customized_doctypes():
 			sys.modules["hrms"] = module
 			exec(code, module.__dict__)
 			import hrms
+			from frappe import _
 
 			hrms_custom_fields = hrms.get_custom_fields()
 			for doctype, fields in hrms_custom_fields.items():
