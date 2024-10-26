@@ -23,6 +23,7 @@ repos:
     rev: v2.3.0
     hooks:
       - id: codespell
+        args: ["--check-filenames"]
         additional_dependencies:
           - tomli
 
@@ -37,7 +38,7 @@ repos:
       - id: pyupgrade
         args: ['--py310-plus']
 
-  - repo: https://github.com/frappe/black
+  - repo: https://github.com/agritheory/black
     rev: 951ccf4d5bb0d692b457a5ebc4215d755618eb68
     hooks:
       - id: black

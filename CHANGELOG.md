@@ -102,7 +102,7 @@ Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`801e6ac`](https://g
 
 * refactor: fix spelling, add error string
 
-* refactor: check value exists for invalid accout links
+* refactor: check value exists for invalid account links
 
 * fix: duplicate account numbers
 
@@ -282,7 +282,7 @@ Co-authored-by: Rohan Bansal &lt;rohan@agritheory.dev&gt; ([`934c926`](https://g
 
 * feat: added customize.py
 
-* format: formate customize.py with black
+* format: format customize.py with black
 
 * fix: compute hash for concatenated data for standard and custom json
 
