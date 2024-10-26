@@ -38,6 +38,12 @@ def get_customized_doctypes():
 				else:
 					customized_doctypes[custom_file.stem] = [custom_file.resolve()]
 		if app_dir.stem == "hrms":
+
+			def _bypass(*args, **kwargs):
+				return args[0]
+
+			_ = _bypass
+
 			p = ast.parse((app_dir / "hrms" / "setup.py").read_text())
 			for node in p.body[:]:
 				if not isinstance(node, ast.FunctionDef) or node.name != "get_custom_fields":
@@ -47,7 +53,6 @@ def get_customized_doctypes():
 			sys.modules["hrms"] = module
 			exec(code, module.__dict__)
 			import hrms
-			from frappe import _
 
 			hrms_custom_fields = hrms.get_custom_fields()
 			for doctype, fields in hrms_custom_fields.items():
