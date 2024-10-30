@@ -23,11 +23,10 @@ def add_custom_field(parent_doctype, partition_field):
 		)
 
 	for child_doctype in [df.options for df in parent_doctype_meta.get_table_fields()]:
-
 		if frappe.get_all(
 			"Custom Field", filters={"dt": child_doctype, "fieldname": partition_field}
 		):
-			return
+			continue
 		print(f"Adding {partition_field} to {child_doctype} for {parent_doctype}")
 		custom_field = frappe.get_doc(
 			{
