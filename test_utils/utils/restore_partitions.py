@@ -8,6 +8,7 @@ import csv
 import gzip
 import shutil
 import json
+import sys
 import frappe
 
 
@@ -252,6 +253,8 @@ def backup_partition(site, table, current_partition, compress):
 
 
 def restore_partition(site, table, partition_bkp_file):
+
+	csv.field_size_limit(sys.maxsize)
 	try:
 		partition_bkp_file = uncompress_if_needed(partition_bkp_file)
 		connection = pymysql.connect(
