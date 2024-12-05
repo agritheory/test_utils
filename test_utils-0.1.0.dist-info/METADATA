@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: test-utils
+Version: 0.1.0
+Summary: A collection of utility functions and classes which makewriting and running functional and integration tests easier.
+Home-page: https://github.com/Kami/python-test-utils/
+Author: Tomaz Muraus
+Author-email: tomaz+pypi@tomaz.me
+License: Apache License (2.0)
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.6
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+

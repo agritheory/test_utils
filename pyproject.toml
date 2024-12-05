@@ -15,11 +15,13 @@ validate_javascript_dependencies = "test_utils.pre_commit.validate_javascript_de
 validate_python_dependencies = "test_utils.pre_commit.validate_python_dependencies:main"
 validate_customizations = "test_utils.pre_commit.validate_customizations:main"
 update_pre_commit_config = "test_utils.pre_commit.update_pre_commit_config:main"
+sql_docstring_formatter = "test_utils.pre_commit.sql_formatter:main"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
 mypy = "^1.10.1"
 toml = "^0.10.2"
+sqlglot = "^25.33.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
