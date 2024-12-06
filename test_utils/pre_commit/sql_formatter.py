@@ -4,11 +4,13 @@ import tokenize
 import os
 import re
 import sys
+import traceback
+
 from io import StringIO
 from typing import Sequence, List, Tuple, Optional
 from pathlib import Path
-from sqlglot import parse, transpile, ErrorLevel
-from sqlglot.errors import ParseError
+from sqlglot import parse, transpile, ErrorLevel, exp
+
 
 RED = "\033[91m"
 BLUE = "\033[94m"
@@ -142,37 +144,172 @@ def find_sql_docstrings(code: str) -> list[tuple[int, str]]:
 	return sql_strings
 
 
+def get_table_mapping(node):
+	"""Get dict of tables and their aliases and resolve to full names"""
+	tables = {}
+	default_table = None
+
+	for table in node.find_all(exp.Table):
+		if isinstance(table, str):
+			table_name = table
+		elif hasattr(table, "name") and isinstance(table.name, str):
+			table_name = table.name
+		elif hasattr(table, "name") and hasattr(table.name, "this"):
+			table_name = str(table.name.this)
+		else:
+			print(table, type(table))
+			table_name = None
+
+		if table_name:
+			alias = str(table.alias or table_name)
+			tables[alias] = table_name
+
+			# Set default table from first table in FROM clause
+			if not default_table and hasattr(node, "args"):
+				from_tables = node.args.get("from", {}).expressions
+				if from_tables:
+					if isinstance(from_tables[0].this, str):
+						default_table = exp.Table(this=from_tables[0].this, quoted=True)
+					elif hasattr(from_tables[0].this, "this"):
+						default_table = from_tables[0]
+					else:
+						default_table = exp.Table(this=list(tables.values())[0], quoted=True)
+
+	if not default_table and tables:
+		default_table = exp.Table(this=list(tables.values())[0], quoted=True)
+
+	# Use the mapping to resolve aliases in column references
+	for column in node.find_all(exp.Column):
+		if column.table and str(column.table) in tables:
+			table_name = tables[str(column.table)]
+			column.set(
+				"table",
+				exp.Table(
+					this=table_name,
+					quoted=True,
+					args={"this": exp.Identifier(this=table_name, quoted=True)},
+				),
+			)
+
+	# Remove aliases from table definitions
+	for table in node.find_all(exp.Table):
+		if table.alias:
+			table.set("alias", None)
+			table.set("quoted", True)
+
+	return tables, default_table
+
+
+def qualify_outputs(node):
+	"""Ensure all columns are qualified with a table name based on query context"""
+	tables, default_table = get_table_mapping(node)
+
+	# For SELECT expressions, unqualified columns belong to first FROM table
+	if hasattr(node, "expressions"):
+		for expr in node.expressions:
+			for column in expr.find_all(exp.Column):
+				if not column.table and not column.name.startswith("__PH"):
+					column.set("table", exp.Table(this=default_table, quoted=True))
+
+	# For JOIN conditions, unqualified columns belong to the JOIN table
+	if hasattr(node, "joins"):
+		for join in node.joins:
+			join_table = str(join.this)
+			if hasattr(join, "on"):
+				for column in join.on.find_all(exp.Column):
+					if not column.table and not column.name.startswith("__PH"):
+						column.set("table", exp.Table(this=join_table, quoted=True))
+
+	return node
+
+
+def ensure_quoting(node):
+	"""Ensure all identifiers are properly quoted for the current dialect"""
+	# Handle table references
+	for table in node.find_all(exp.Table):
+		table.set("quoted", True)
+		if hasattr(table, "this"):
+			if isinstance(table.this, str):
+				table.set("this", exp.Identifier(this=table.this, quoted=True))
+			else:
+				table.this.set("quoted", True)
+
+	# Handle column references
+	for column in node.find_all(exp.Column):
+		if column.table:
+			column.table.set("quoted", True)
+			if hasattr(column.table, "this"):
+				if isinstance(column.table.this, str):
+					column.table.set("this", exp.Identifier(this=column.table.this, quoted=True))
+				else:
+					column.table.this.set("quoted", True)
+
+	return node
+
+
 def format_sql_content(
 	sql: str, file_path: str, line_num: int, dialect: str = "mysql"
 ) -> tuple[str, bool, list[str]]:
 	warnings = []
 	try:
 		sql_for_format, replacements = replace_sql_patterns(sql)
+		print(f"\nProcessing {file_path}:{line_num}")
 
-		formatted = transpile(
-			sql_for_format,
-			read=dialect,
-			write=dialect,
+		parsed = parse(sql_for_format, read=dialect)[0]
+		resolved = resolve_columns(parsed)
+		qualified = qualify_outputs(parsed)
+		quoted = ensure_quoting(qualified)
+
+		formatted = quoted.sql(
+			dialect=dialect,
 			pretty=True,
 			indent=2,
-			# identify=True, # use table names not aliases
-		)[0]
-
+			normalize=True,
+		)
+		print("\nFormatted SQL:", formatted)
+		replaced = formatted
 		for placeholder, original in replacements:
-			formatted = formatted.replace(placeholder, original)
-		warnings.extend(check_format_patterns(formatted, file_path, line_num))
-		return formatted, True, warnings
+			print("replacing", placeholder.lower(), original)
+			print(placeholder.lower() in replaced)
+			replaced = replaced.replace(placeholder.lower(), original)
+
+		print("\nFinal SQL:", replaced)
+		warnings.extend(check_format_patterns(replaced, file_path, line_num))
+		return replaced, True, warnings
 
 	except Exception as e:
+		print(f"\nError at {file_path}:{line_num}")
+		print(f"Exception type: {type(e)}")
+		print(f"Exception args: {e.args}")
+		print(f"Exception: {str(e)}")
+		print("Traceback:", traceback.format_exc())
 		warnings.append(f"{RED}Could not format SQL: {str(e)}{RESET}")
 		return sql, True, warnings
 
 
+def resolve_columns(node):
+	tables = {}
+
+	for table in node.find_all(exp.Table):
+		tables[str(table.alias or table.name)] = str(table.name)
+
+	fallback_table = list(tables.values())[0]
+
+	for column in node.find_all(exp.Column):
+		if not column.table:
+			if len(tables) == 1:
+				column.set("table", exp.Table(this=list(tables.values())[0]))
+			elif len(tables) > 1:
+				# Try to infer table ownership
+				for alias, table_name in tables.items():
+					if column.name in ["name", "parent", "doctype", "parenttype"]:
+						column.set("table", exp.Table(this=table_name))
+						break
+
+	return node
+
+
 def replace_sql_patterns(sql: str) -> tuple[str, list[tuple[str, str]]]:
-	"""
-	Replace Python string formatting patterns with placeholders in SQL.
-	Returns the modified SQL and a list of (placeholder, original) pairs.
-	"""
 	replacements = []
 	patterns = [
 		(r"(%\([^)]+\)s)", "named parameter"),  # %(key)s patterns
@@ -181,12 +318,13 @@ def replace_sql_patterns(sql: str) -> tuple[str, list[tuple[str, str]]]:
 	]
 
 	for pattern, _ in patterns:
-		for match in re.finditer(pattern, sql):
-			placeholder = f"__PH{len(replacements)}__"
+		for idx, match in enumerate(re.finditer(pattern, sql)):
+			placeholder = f"__PH{idx}__"
+			print(idx, placeholder)
 			replacements.append((placeholder, match.group(0)))
 			sql = sql.replace(match.group(0), placeholder)
 
-	return sql, replacements
+	return sql, list(set(replacements))
 
 
 def update_file_content(
