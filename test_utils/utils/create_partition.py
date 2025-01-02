@@ -145,18 +145,19 @@ def get_partition_doctypes_extended():
 def create_partition():
 	"""
 	partition_doctypes = {
-	                "Sales Order": {
-	                                "field": "transaction_date",
-	                                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
-	                },
-	                "Sales Invoice": {
-	                                "field": "posting_date",
-	                                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
-	                },
-	                "Item": {
-	                                "field": "disabled",
-	                                "partition_by": "field",  # Options: "fiscal_year", "quarter", "month", "field"
-	                },
+	        "Sales Order": {
+	                "field": "transaction_date",
+	                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
+	        },
+	        "Sales Invoice": {
+	                "field": "posting_date",
+	                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
+	        },
+	        "Item": {
+	                "field": "disabled",
+	                "partition_by": "field",  # Options: "fiscal_year", "quarter", "month", "field"
+	        },
+	}
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
 
@@ -184,9 +185,10 @@ def create_partition():
 			)
 			for value in partition_values:
 				partition_value = value[partition_field]
-				partition_name = f"{partition_field}_{partition_value}"
+				partition_name = f"{frappe.scrub(doctype)}_{partition_field}_{partition_value}"
 				if partition_name not in [p.split()[1] for p in partitions]:
 					partitions.append(f"PARTITION {partition_name} VALUES IN ({partition_value})")
+					print(f"Creating partition {partition_name} for {doctype}")
 
 			if not partitions:
 				continue
@@ -201,31 +203,35 @@ def create_partition():
 			for fiscal_year in fiscal_years:
 				year_start = fiscal_year.get("year_start_date").year
 				year_end = fiscal_year.get("year_end_date").year + 1
+				partition_name = f"{frappe.scrub(doctype)}_fiscal_year_{year_start}"
 
 				if partition_by == "fiscal_year":
 					partition_sql = (
 						f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`)) (\n"
 					)
 					for fiscal_year in fiscal_years:
-						partitions.append(
-							f"PARTITION fiscal_year_{year_start} VALUES LESS THAN ({year_end}), "
-						)
+						partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({year_end}), ")
+						print(f"Creating partition {partition_name} for {doctype}")
 
 				elif partition_by == "quarter":
 					partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 10 + QUARTER(`{partition_field}`)) (\n"
 					for quarter in range(1, 5):
+						partition_name = f"{frappe.scrub(doctype)}_{year_start}_quarter_{quarter}"
 						quarter_code = year_start * 10 + quarter
 						partitions.append(
-							f"PARTITION {year_start}_quarter_{quarter} VALUES LESS THAN ({quarter_code + 1})"
+							f"PARTITION {partition_name} VALUES LESS THAN ({quarter_code + 1})"
 						)
+						print(f"Creating partition {partition_name} for {doctype}")
 
 				elif partition_by == "month":
 					partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 100 + MONTH(`{partition_field}`)) (\n"
 					for month in range(1, 13):
+						partition_name = f"{frappe.scrub(doctype)}_{year_start}_month_{month:02d}"
 						month_code = year_start * 100 + month
 						partitions.append(
-							f"PARTITION {year_start}_month_{month:02d} VALUES LESS THAN ({month_code + 1})"
+							f"PARTITION {partition_name} VALUES LESS THAN ({month_code + 1})"
 						)
+						print(f"Creating partition {partition_name} for {doctype}")
 
 				elif partition_by == "field":
 					field_partitions = []
@@ -234,11 +240,12 @@ def create_partition():
 					)
 					for value in partition_values:
 						partition_value = value[partition_field]
-						partition_name = f"{partition_field}_{partition_value}"
+						partition_name = f"{frappe.scrub(doctype)}_{partition_field}_{partition_value}"
 						if partition_name not in [p.split()[1] for p in partitions]:
 							field_partitions.append(
 								f"PARTITION {partition_name} VALUES IN ({partition_value})"
 							)
+							print(f"Creating partition {partition_name} for {doctype}")
 
 					if not field_partitions:
 						continue
