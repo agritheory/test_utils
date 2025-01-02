@@ -200,6 +200,7 @@ def create_partition():
 			partition_sql += ");"
 		else:
 			partitions = []
+			partition_sql = ""
 			for fiscal_year in fiscal_years:
 				year_start = fiscal_year.get("year_start_date").year
 				year_end = fiscal_year.get("year_end_date").year + 1
@@ -254,6 +255,10 @@ def create_partition():
 						f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
 					)
 					partitions += field_partitions
+
+			if not partition_sql:
+				print(f"No data for {doctype}, skipping partitioning.")
+				continue
 
 			partition_sql += ",\n".join(partitions)
 			partition_sql += ");"
