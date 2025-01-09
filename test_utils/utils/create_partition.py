@@ -51,10 +51,10 @@ def add_custom_field(parent_doctype, partition_field):
 def populate_partition_fields(doc, event):
 	"""
 	doc_events = {
-	                                "*": {
-	                                                                "before_insert": "yourapp.utils.populate_partition_fields",
-	                                                                "before_save": "yourapp.utils.populate_partition_fields",
-	                                }
+	                                                                "*": {
+	                                                                                                                                "before_insert": "yourapp.utils.populate_partition_fields",
+	                                                                                                                                "before_save": "yourapp.utils.populate_partition_fields",
+	                                                                }
 	}
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
@@ -126,6 +126,18 @@ def primary_key_exists(table_name):
 def modify_primary_key(table_name, partition_field):
 	try:
 		if primary_key_exists(table_name):
+
+			pk_info = frappe.db.sql(
+				f"SHOW KEYS FROM `{table_name}` WHERE Key_name = 'PRIMARY'", as_dict=True
+			)
+			current_pk_columns = [row["Column_name"] for row in pk_info]
+
+			if partition_field in current_pk_columns:
+				print(
+					f"Primary key in table {table_name} already includes the partition field `{partition_field}`. No changes needed."
+				)
+				return
+
 			drop_pk_sql = f"""
 			ALTER TABLE `{table_name}`
 			DROP PRIMARY KEY;
@@ -196,18 +208,18 @@ def get_date_range(doctype, field):
 def create_partition():
 	"""
 	partition_doctypes = {
-	                                "Sales Order": {
-	                                                                "field": "transaction_date",
-	                                                                "partition_by": "month",  # Options: "fiscal_year", "quarter", "month", "field"
-	                                },
-	                                "Sales Invoice": {
-	                                                                "field": "posting_date",
-	                                                                "partition_by": "quarter",  # Options: "fiscal_year", "quarter", "month", "field"
-	                                },
-	                                "Item": {
-	                                                                "field": "disabled",
-	                                                                "partition_by": "field",  # Options: "fiscal_year", "quarter", "month", "field"
-	                                },
+	                                                                "Sales Order": {
+	                                                                                                                                "field": "transaction_date",
+	                                                                                                                                "partition_by": "month",  # Options: "fiscal_year", "quarter", "month", "field"
+	                                                                },
+	                                                                "Sales Invoice": {
+	                                                                                                                                "field": "posting_date",
+	                                                                                                                                "partition_by": "quarter",  # Options: "fiscal_year", "quarter", "month", "field"
+	                                                                },
+	                                                                "Item": {
+	                                                                                                                                "field": "disabled",
+	                                                                                                                                "partition_by": "field",  # Options: "fiscal_year", "quarter", "month", "field"
+	                                                                },
 	}
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
@@ -304,8 +316,8 @@ def create_partition():
 						)
 						print(f"Creating partition {partition_name} for {doctype}")
 
-			if not partition_sql:
-				print(f"No data for {doctype}, skipping partitioning.")
+			if not partitions:
+				print(f"No need to create partitions for {doctype}, skipping partitioning.")
 				continue
 
 			partition_sql += ",\n".join(partitions)
