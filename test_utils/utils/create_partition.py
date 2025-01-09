@@ -77,15 +77,17 @@ def populate_partition_fields(doc, event):
 			setattr(row, partition_field, doc.get(partition_field))
 
 
-def populate_partition_fields_for_existing_data():
-	partition_doctypes = frappe.get_hooks("partition_doctypes")
+def populate_partition_fields_for_existing_data(doctype=None, settings=None):
+	if doctype and settings:
+		partition_doctypes = {doctype: settings}
+	else:
+		partition_doctypes = frappe.get_hooks("partition_doctypes")
 
 	for doctype, settings in partition_doctypes.items():
 		partition_field = settings["field"][0]
 		for child_doctype in [
 			df.options for df in frappe.get_meta(doctype).get_table_fields()
 		]:
-			print(f"Child Doctype: {child_doctype}")
 			if not frappe.get_meta(child_doctype)._fields.get(partition_field):
 				continue
 
@@ -206,22 +208,6 @@ def get_date_range(doctype, field):
 
 
 def create_partition():
-	"""
-	partition_doctypes = {
-	                                                                "Sales Order": {
-	                                                                                                                                "field": "transaction_date",
-	                                                                                                                                "partition_by": "month",  # Options: "fiscal_year", "quarter", "month", "field"
-	                                                                },
-	                                                                "Sales Invoice": {
-	                                                                                                                                "field": "posting_date",
-	                                                                                                                                "partition_by": "quarter",  # Options: "fiscal_year", "quarter", "month", "field"
-	                                                                },
-	                                                                "Item": {
-	                                                                                                                                "field": "disabled",
-	                                                                                                                                "partition_by": "field",  # Options: "fiscal_year", "quarter", "month", "field"
-	                                                                },
-	}
-	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
 
 	# Creates the field for child doctypes if it doesn't exists yet
@@ -234,6 +220,8 @@ def create_partition():
 		partition_by = settings.get("partition_by", "fiscal_year")[0]
 
 		modify_primary_key(table_name, partition_field)
+
+		populate_partition_fields_for_existing_data(doctype, settings)
 
 		partitions = []
 		partition_sql = ""
