@@ -51,10 +51,10 @@ def add_custom_field(parent_doctype, partition_field):
 def populate_partition_fields(doc, event):
 	"""
 	doc_events = {
-	        "*": {
-	                "before_insert": "yourapp.utils.populate_partition_fields",
-	                "before_save": "yourapp.utils.populate_partition_fields",
-	        }
+	                "*": {
+	                                "before_insert": "yourapp.utils.populate_partition_fields",
+	                                "before_save": "yourapp.utils.populate_partition_fields",
+	                }
 	}
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
@@ -75,6 +75,36 @@ def populate_partition_fields(doc, event):
 
 		for row in getattr(doc, child_fieldname):
 			setattr(row, partition_field, doc.get(partition_field))
+
+
+def populate_partition_fields_for_existing_data():
+	partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	for doctype, settings in partition_doctypes.items():
+		partition_field = settings["field"][0]
+		for child_doctype in [
+			df.options for df in frappe.get_meta(doctype).get_table_fields()
+		]:
+			print(f"Child Doctype: {child_doctype}")
+			if not frappe.get_meta(child_doctype)._fields.get(partition_field):
+				continue
+
+			try:
+				frappe.db.sql(
+					f"""
+					UPDATE `tab{child_doctype}` child
+					JOIN `tab{doctype}` parent ON child.parent = parent.name
+					SET child.{partition_field} = parent.{partition_field}
+				"""
+				)
+				frappe.db.commit()
+				print(
+					f"Partition field {partition_field} in child table {child_doctype} populated."
+				)
+			except Exception as e:
+				print(
+					f"Error populationg partition field {partition_field} in child table {child_doctype}: {e}"
+				)
 
 
 def primary_key_exists(table_name):
@@ -142,21 +172,32 @@ def get_partition_doctypes_extended():
 	return partition_doctypes_extended
 
 
+def partition_exists(table_name, partition_name):
+	try:
+		result = frappe.db.sql(
+			f"SELECT PARTITION_NAME FROM information_schema.PARTITIONS WHERE TABLE_NAME='{table_name}' AND PARTITION_NAME='{partition_name}'"
+		)
+		return bool(result)
+	except Exception as e:
+		print(f"Error checking partition existence: {e}")
+		return False
+
+
 def create_partition():
 	"""
 	partition_doctypes = {
-	        "Sales Order": {
-	                "field": "transaction_date",
-	                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
-	        },
-	        "Sales Invoice": {
-	                "field": "posting_date",
-	                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
-	        },
-	        "Item": {
-	                "field": "disabled",
-	                "partition_by": "field",  # Options: "fiscal_year", "quarter", "month", "field"
-	        },
+	                "Sales Order": {
+	                                "field": "transaction_date",
+	                                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
+	                },
+	                "Sales Invoice": {
+	                                "field": "posting_date",
+	                                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
+	                },
+	                "Item": {
+	                                "field": "disabled",
+	                                "partition_by": "field",  # Options: "fiscal_year", "quarter", "month", "field"
+	                },
 	}
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
@@ -178,8 +219,10 @@ def create_partition():
 
 		modify_primary_key(table_name, partition_field)
 
+		partitions = []
+		partition_sql = ""
+
 		if partition_by == "field":
-			partitions = []
 			partition_values = frappe.db.sql(
 				f"SELECT DISTINCT `{partition_field}` FROM `{table_name}`", as_dict=True
 			)
@@ -199,25 +242,26 @@ def create_partition():
 			partition_sql += ",\n".join(partitions)
 			partition_sql += ");"
 		else:
-			partitions = []
-			partition_sql = ""
 			for fiscal_year in fiscal_years:
 				year_start = fiscal_year.get("year_start_date").year
 				year_end = fiscal_year.get("year_end_date").year + 1
-				partition_name = f"{frappe.scrub(doctype)}_fiscal_year_{year_start}"
 
 				if partition_by == "fiscal_year":
 					partition_sql = (
 						f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`)) (\n"
 					)
-					for fiscal_year in fiscal_years:
-						partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({year_end}), ")
-						print(f"Creating partition {partition_name} for {doctype}")
+					partition_name = f"{frappe.scrub(doctype)}_fiscal_year_{year_start}"
+					if partition_exists(table_name, partition_name):
+						continue
+					partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({year_end}), ")
+					print(f"Creating partition {partition_name} for {doctype}")
 
 				elif partition_by == "quarter":
 					partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 10 + QUARTER(`{partition_field}`)) (\n"
 					for quarter in range(1, 5):
 						partition_name = f"{frappe.scrub(doctype)}_{year_start}_quarter_{quarter}"
+						if partition_exists(table_name, partition_name):
+							continue
 						quarter_code = year_start * 10 + quarter
 						partitions.append(
 							f"PARTITION {partition_name} VALUES LESS THAN ({quarter_code + 1})"
@@ -228,33 +272,13 @@ def create_partition():
 					partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 100 + MONTH(`{partition_field}`)) (\n"
 					for month in range(1, 13):
 						partition_name = f"{frappe.scrub(doctype)}_{year_start}_month_{month:02d}"
+						if partition_exists(table_name, partition_name):
+							continue
 						month_code = year_start * 100 + month
 						partitions.append(
 							f"PARTITION {partition_name} VALUES LESS THAN ({month_code + 1})"
 						)
 						print(f"Creating partition {partition_name} for {doctype}")
-
-				elif partition_by == "field":
-					field_partitions = []
-					partition_values = frappe.db.sql(
-						f"SELECT DISTINCT `{partition_field}` FROM `{table_name}`", as_dict=True
-					)
-					for value in partition_values:
-						partition_value = value[partition_field]
-						partition_name = f"{frappe.scrub(doctype)}_{partition_field}_{partition_value}"
-						if partition_name not in [p.split()[1] for p in partitions]:
-							field_partitions.append(
-								f"PARTITION {partition_name} VALUES IN ({partition_value})"
-							)
-							print(f"Creating partition {partition_name} for {doctype}")
-
-					if not field_partitions:
-						continue
-
-					partition_sql = (
-						f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
-					)
-					partitions += field_partitions
 
 			if not partition_sql:
 				print(f"No data for {doctype}, skipping partitioning.")
