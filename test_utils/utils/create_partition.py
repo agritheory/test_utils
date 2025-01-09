@@ -51,10 +51,10 @@ def add_custom_field(parent_doctype, partition_field):
 def populate_partition_fields(doc, event):
 	"""
 	doc_events = {
-	                "*": {
-	                                "before_insert": "yourapp.utils.populate_partition_fields",
-	                                "before_save": "yourapp.utils.populate_partition_fields",
-	                }
+	                                "*": {
+	                                                                "before_insert": "yourapp.utils.populate_partition_fields",
+	                                                                "before_save": "yourapp.utils.populate_partition_fields",
+	                                }
 	}
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
@@ -183,30 +183,34 @@ def partition_exists(table_name, partition_name):
 		return False
 
 
+def get_date_range(doctype, field):
+	current_year = frappe.utils.now_datetime().year
+	result = frappe.db.sql(
+		f"SELECT MIN(`{field}`) AS min_date FROM `tab{doctype}`", as_dict=True
+	)
+	if result and result[0].get("min_date"):
+		return result[0]["min_date"].year, current_year
+	return None, None
+
+
 def create_partition():
 	"""
 	partition_doctypes = {
-	                "Sales Order": {
-	                                "field": "transaction_date",
-	                                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
-	                },
-	                "Sales Invoice": {
-	                                "field": "posting_date",
-	                                "partition_by": "fiscal_year",  # Options: "fiscal_year", "quarter", "month", "field"
-	                },
-	                "Item": {
-	                                "field": "disabled",
-	                                "partition_by": "field",  # Options: "fiscal_year", "quarter", "month", "field"
-	                },
+	                                "Sales Order": {
+	                                                                "field": "transaction_date",
+	                                                                "partition_by": "month",  # Options: "fiscal_year", "quarter", "month", "field"
+	                                },
+	                                "Sales Invoice": {
+	                                                                "field": "posting_date",
+	                                                                "partition_by": "quarter",  # Options: "fiscal_year", "quarter", "month", "field"
+	                                },
+	                                "Item": {
+	                                                                "field": "disabled",
+	                                                                "partition_by": "field",  # Options: "fiscal_year", "quarter", "month", "field"
+	                                },
 	}
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
-
-	fiscal_years = frappe.get_all(
-		"Fiscal Year",
-		fields=["name", "year_start_date", "year_end_date"],
-		order_by="year_start_date ASC",
-	)
 
 	# Creates the field for child doctypes if it doesn't exists yet
 	for doctype, settings in partition_doctypes.items():
@@ -221,6 +225,11 @@ def create_partition():
 
 		partitions = []
 		partition_sql = ""
+
+		start_year, end_year = get_date_range(doctype, partition_field)
+		if start_year is None or end_year is None:
+			print(f"No data found for {doctype}, skipping partitioning.")
+			continue
 
 		if partition_by == "field":
 			partition_values = frappe.db.sql(
@@ -241,7 +250,12 @@ def create_partition():
 			)
 			partition_sql += ",\n".join(partitions)
 			partition_sql += ");"
-		else:
+		elif partition_by == "fiscal_year":
+			fiscal_years = frappe.get_all(
+				"Fiscal Year",
+				fields=["name", "year_start_date", "year_end_date"],
+				order_by="year_start_date ASC",
+			)
 			for fiscal_year in fiscal_years:
 				year_start = fiscal_year.get("year_start_date").year
 				year_end = fiscal_year.get("year_end_date").year + 1
@@ -256,7 +270,17 @@ def create_partition():
 					partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({year_end}), ")
 					print(f"Creating partition {partition_name} for {doctype}")
 
-				elif partition_by == "quarter":
+			if not partitions:
+				continue
+
+			partition_sql = (
+				f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
+			)
+			partition_sql += ",\n".join(partitions)
+			partition_sql += ");"
+		else:
+			for year_start in range(start_year, end_year + 1):
+				if partition_by == "quarter":
 					partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 10 + QUARTER(`{partition_field}`)) (\n"
 					for quarter in range(1, 5):
 						partition_name = f"{frappe.scrub(doctype)}_{year_start}_quarter_{quarter}"
