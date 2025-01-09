@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "test_utils"
-version = "0.16.0"
+version = "0.17.0"
 description = "AgriTheory Test Utilities and Fixtures"
 authors = ["AgriTheory <support@agritheory.dev>"]
 readme = "README.md"
@@ -16,6 +16,7 @@ validate_python_dependencies = "test_utils.pre_commit.validate_python_dependenci
 validate_customizations = "test_utils.pre_commit.validate_customizations:main"
 update_pre_commit_config = "test_utils.pre_commit.update_pre_commit_config:main"
 sql_docstring_formatter = "test_utils.pre_commit.sql_formatter:main"
+create_partition = "test_utils.utils.create_partition:create_partition"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
