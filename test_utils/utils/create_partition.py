@@ -27,7 +27,9 @@ def add_custom_field(parent_doctype, partition_field):
 			"Custom Field", filters={"dt": child_doctype, "fieldname": partition_field}
 		):
 			continue
-		print(f"Adding {partition_field} to {child_doctype} for {parent_doctype}")
+		print(
+			f"\033[34mINFO: Adding {partition_field} to {child_doctype} for {parent_doctype}\033[0m"
+		)
 		custom_field = frappe.get_doc(
 			{
 				"doctype": "Custom Field",
@@ -44,7 +46,9 @@ def add_custom_field(parent_doctype, partition_field):
 		try:
 			custom_field.insert()
 		except Exception as e:
-			print(f"Error adding {partition_field} to {child_doctype} for {parent_doctype}: {e}")
+			print(
+				f"\033[31mERROR: error adding {partition_field} to {child_doctype} for {parent_doctype}: {e}\033[0m"
+			)
 			continue
 
 
@@ -101,11 +105,11 @@ def populate_partition_fields_for_existing_data(doctype=None, settings=None):
 				)
 				frappe.db.commit()
 				print(
-					f"Partition field {partition_field} in child table {child_doctype} populated."
+					f"\033[32mSUCCESS: Partition field {partition_field} in child table {child_doctype} populated.\033[0m"
 				)
 			except Exception as e:
 				print(
-					f"Error populationg partition field {partition_field} in child table {child_doctype}: {e}"
+					f"\033[31mERROR: Error populating partition field {partition_field} in child table {child_doctype}: {e}.\033[0m"
 				)
 
 
@@ -121,7 +125,7 @@ def primary_key_exists(table_name):
 		)
 		return result[0][0] > 0
 	except Exception as e:
-		print(f"Error checking primary key existence: {e}")
+		print(f"\033[31mERROR: error checking primary key existence: {e}\033[0m")
 		return False
 
 
@@ -136,7 +140,7 @@ def modify_primary_key(table_name, partition_field):
 
 			if partition_field in current_pk_columns:
 				print(
-					f"Primary key in table {table_name} already includes the partition field `{partition_field}`. No changes needed."
+					f"\033[34mINFO: primary key in table {table_name} already includes the partition field `{partition_field}`. No changes needed.\033[0m"
 				)
 				return
 
@@ -167,9 +171,13 @@ def modify_primary_key(table_name, partition_field):
 			"""
 			frappe.db.sql(add_pk_sql)
 			frappe.db.commit()
-			print(f"Primary key modified in table {table_name} to include columns: {pk_columns}")
+			print(
+				f"\033[32mSUCCESS: Primary key modified in table {table_name} to include columns: {pk_columns}.\033[0m"
+			)
 	except Exception as e:
-		print(f"Error modifying primary key in table {table_name}: {e}")
+		print(
+			f"\033[31mERROR: Error modifying primary key in table {table_name}: {e}.\033[0m"
+		)
 
 
 def get_partition_doctypes_extended():
@@ -193,7 +201,7 @@ def partition_exists(table_name, partition_name):
 		)
 		return bool(result)
 	except Exception as e:
-		print(f"Error checking partition existence: {e}")
+		print(f"\033[31mERROR: Error checking partition existence: {e}.\033[0m")
 		return False
 
 
@@ -228,7 +236,7 @@ def create_partition():
 
 		start_year, end_year = get_date_range(doctype, partition_field)
 		if start_year is None or end_year is None:
-			print(f"No data found for {doctype}, skipping partitioning.")
+			print(f"\033[34mINFO: No data found for {doctype}, skipping partitioning.\033[0m")
 			continue
 
 		if partition_by == "field":
@@ -240,7 +248,7 @@ def create_partition():
 				partition_name = f"{frappe.scrub(doctype)}_{partition_field}_{partition_value}"
 				if partition_name not in [p.split()[1] for p in partitions]:
 					partitions.append(f"PARTITION {partition_name} VALUES IN ({partition_value})")
-					print(f"Creating partition {partition_name} for {doctype}")
+					print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
 
 			if not partitions:
 				continue
@@ -268,7 +276,7 @@ def create_partition():
 					if partition_exists(table_name, partition_name):
 						continue
 					partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({year_end}), ")
-					print(f"Creating partition {partition_name} for {doctype}")
+					print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
 
 			if not partitions:
 				continue
@@ -290,7 +298,7 @@ def create_partition():
 						partitions.append(
 							f"PARTITION {partition_name} VALUES LESS THAN ({quarter_code + 1})"
 						)
-						print(f"Creating partition {partition_name} for {doctype}")
+						print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
 
 				elif partition_by == "month":
 					partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 100 + MONTH(`{partition_field}`)) (\n"
@@ -302,10 +310,12 @@ def create_partition():
 						partitions.append(
 							f"PARTITION {partition_name} VALUES LESS THAN ({month_code + 1})"
 						)
-						print(f"Creating partition {partition_name} for {doctype}")
+						print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
 
 			if not partitions:
-				print(f"No need to create partitions for {doctype}, skipping partitioning.")
+				print(
+					f"\033[34mINFO: No need to create partitions for {doctype}, skipping partitioning.\033[0m"
+				)
 				continue
 
 			partition_sql += ",\n".join(partitions)
@@ -314,6 +324,6 @@ def create_partition():
 		try:
 			frappe.db.sql(partition_sql)
 			frappe.db.commit()
-			print(f"Partitioning for {doctype} completed successfully.")
+			print(f"\033[32mSUCCESS: Partitioning for {doctype} completed successfully.\033[0m")
 		except Exception as e:
-			print(f"Error while partitioning {doctype}: {e}")
+			print(f"\033[31mERROR: Error while partitioning {doctype}: {e}.\033[0m")
