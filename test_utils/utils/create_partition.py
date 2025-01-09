@@ -55,10 +55,10 @@ def add_custom_field(parent_doctype, partition_field):
 def populate_partition_fields(doc, event):
 	"""
 	doc_events = {
-	                                                                "*": {
-	                                                                                                                                "before_insert": "yourapp.utils.populate_partition_fields",
-	                                                                                                                                "before_save": "yourapp.utils.populate_partition_fields",
-	                                                                }
+	                                                                                                                                "*": {
+	                                                                                                                                                                                                                                                                "before_insert": "yourapp.utils.populate_partition_fields",
+	                                                                                                                                                                                                                                                                "before_save": "yourapp.utils.populate_partition_fields",
+	                                                                                                                                }
 	}
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
@@ -93,14 +93,28 @@ def populate_partition_fields_for_existing_data(doctype=None, settings=None):
 			df.options for df in frappe.get_meta(doctype).get_table_fields()
 		]:
 			if not frappe.get_meta(child_doctype)._fields.get(partition_field):
+				print(
+					f"\033[33mWARNING: Field '{partition_field}' does not exist in parent doctype '{doctype}'. Skipping.\033[0m"
+				)
+				continue
+
+			unpopulated_count = frappe.db.count(
+				child_doctype, filters={partition_field: ["is", "null"]}
+			)
+
+			if unpopulated_count == 0:
+				print(
+					f"\033[34mINFO: Partition field '{partition_field}' in child table '{child_doctype}' is already populated. Skipping.\033[0m"
+				)
 				continue
 
 			try:
 				frappe.db.sql(
 					f"""
-					UPDATE `tab{child_doctype}` child
-					JOIN `tab{doctype}` parent ON child.parent = parent.name
+					UPDATE `tab{child_doctype}` AS child
+					INNER JOIN `tab{doctype}` AS parent ON child.parent = parent.name
 					SET child.{partition_field} = parent.{partition_field}
+					WHERE child.{partition_field} IS NULL
 				"""
 				)
 				frappe.db.commit()
