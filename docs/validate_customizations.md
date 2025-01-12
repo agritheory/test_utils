@@ -70,7 +70,7 @@ While Frappe provides a fixtures feature that can export and import DocTypes inc
 
 1. **No Separation of Concerns**
   - Fixtures don't maintain any reference to their source app; all Custom Fields and Property Setters are included
-  - Fixtures are organized into a file for Custom Fields one for Property Setters, without any organization by doctype or module.
+  - Fixtures are organized into a single file for Custom Fields and spearate, single for Property Setters, without any organization by doctype or module
 
 2. **All-or-Nothing Import**
   - Fixtures must be imported in their entirety
