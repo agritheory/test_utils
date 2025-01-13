@@ -59,6 +59,21 @@ files = [
 ]
 
 [[package]]
+name = "sqlglot"
+version = "25.33.0"
+description = "An easily customizable SQL parser and transpiler"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "sqlglot-25.33.0-py3-none-any.whl", hash = "sha256:80a638b1a1af6e6a20693e7f90e046b73700531ce08ca4c6578c3d99a6e62608"},
+    {file = "sqlglot-25.33.0.tar.gz", hash = "sha256:2f6a5cbb20ad6f70d9f3770c2e7e48c2c2469b49252b53d77d8b7ab444f92934"},
+]
+
+[package.extras]
+dev = ["duckdb (>=0.6)", "maturin (>=1.4,<2.0)", "mypy", "pandas", "pandas-stubs", "pdoc", "pre-commit", "python-dateutil", "pytz", "ruff (==0.7.2)", "types-python-dateutil", "types-pytz", "typing-extensions"]
+rs = ["sqlglotrs (==0.3.0)"]
+
+[[package]]
 name = "toml"
 version = "0.10.2"
 description = "Python Library for Tom's Obvious, Minimal Language"
@@ -94,4 +109,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.13"
-content-hash = "4709d1d8fa55be66676bf9d577adde37c8ba4dd855ceebf0b1ec1c0c2ce1d6ad"
+content-hash = "7019ccb644265319495b1dd68ff061babecf66edf8338d61c7b677157aabe540"
