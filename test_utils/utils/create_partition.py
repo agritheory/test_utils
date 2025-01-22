@@ -208,17 +208,6 @@ def get_partition_doctypes_extended(partition_doctypes):
 	return partition_doctypes_extended
 
 
-def partition_exists(table_name, partition_name):
-	try:
-		result = frappe.db.sql(
-			f"SELECT PARTITION_NAME FROM information_schema.PARTITIONS WHERE TABLE_NAME='{table_name}' AND PARTITION_NAME='{partition_name}'"
-		)
-		return bool(result)
-	except Exception as e:
-		print(f"\033[31mERROR: Error checking partition existence: {e}.\033[0m")
-		return False
-
-
 def get_date_range(doctype, field, doc=None):
 	doc_year = None
 	if doc:
@@ -273,26 +262,6 @@ def create_partition(doc=None):
 		populate_partition_fields_for_existing_data(doctype, settings)
 
 		partitions = []
-
-		existing_partitions = frappe.db.sql(
-			f"""
-			SELECT PARTITION_NAME, PARTITION_DESCRIPTION
-			FROM information_schema.PARTITIONS
-			WHERE TABLE_NAME = '{table_name}'
-			AND PARTITION_NAME IS NOT NULL
-			AND TABLE_SCHEMA = DATABASE()
-			""",
-			as_dict=True,
-		)
-
-		existing_descriptions = {
-			int(row["PARTITION_DESCRIPTION"]): row["PARTITION_NAME"]
-			for row in existing_partitions
-		}
-
-		for description, partition_name in sorted(existing_descriptions.items()):
-			partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({description})")
-
 		partition_sql = ""
 
 		start_year, end_year = get_date_range(doctype, partition_field, doc)
@@ -334,8 +303,6 @@ def create_partition(doc=None):
 						f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`)) (\n"
 					)
 					partition_name = f"{frappe.scrub(doctype)}_fiscal_year_{year_start}"
-					if partition_exists(table_name, partition_name):
-						continue
 					partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({year_end}), ")
 					print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
 
@@ -353,8 +320,6 @@ def create_partition(doc=None):
 					partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 10 + QUARTER(`{partition_field}`)) (\n"
 					for quarter in range(1, 5):
 						partition_name = f"{frappe.scrub(doctype)}_{year_start}_quarter_{quarter}"
-						if partition_exists(table_name, partition_name):
-							continue
 
 						if quarter < 4:
 							quarter_code = year_start * 10 + (quarter + 1)
@@ -368,8 +333,7 @@ def create_partition(doc=None):
 					partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 100 + MONTH(`{partition_field}`)) (\n"
 					for month in range(1, 13):
 						partition_name = f"{frappe.scrub(doctype)}_{year_start}_month_{month:02d}"
-						if partition_exists(table_name, partition_name):
-							continue
+
 						if month < 12:
 							month_code = year_start * 100 + month + 1
 						else:
