@@ -56,10 +56,10 @@ def add_custom_field(parent_doctype, partition_field):
 def populate_partition_fields(doc, event):
 	"""
 	doc_events = {
-	        "*": {
-	                "before_insert": "yourapp.utils.populate_partition_fields",
-	                "before_save": "yourapp.utils.populate_partition_fields",
-	        }
+	                "*": {
+	                                "before_insert": "yourapp.utils.populate_partition_fields",
+	                                "before_save": "yourapp.utils.populate_partition_fields",
+	                }
 	}
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
@@ -273,6 +273,26 @@ def create_partition(doc=None):
 		populate_partition_fields_for_existing_data(doctype, settings)
 
 		partitions = []
+
+		existing_partitions = frappe.db.sql(
+			f"""
+			SELECT PARTITION_NAME, PARTITION_DESCRIPTION
+			FROM information_schema.PARTITIONS
+			WHERE TABLE_NAME = '{table_name}'
+			AND PARTITION_NAME IS NOT NULL
+			AND TABLE_SCHEMA = DATABASE()
+			""",
+			as_dict=True,
+		)
+
+		existing_descriptions = {
+			int(row["PARTITION_DESCRIPTION"]): row["PARTITION_NAME"]
+			for row in existing_partitions
+		}
+
+		for description, partition_name in sorted(existing_descriptions.items()):
+			partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({description})")
+
 		partition_sql = ""
 
 		start_year, end_year = get_date_range(doctype, partition_field, doc)
