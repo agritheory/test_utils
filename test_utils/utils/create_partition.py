@@ -194,8 +194,7 @@ def modify_primary_key(table_name, partition_field):
 		)
 
 
-def get_partition_doctypes_extended():
-	partition_doctypes = frappe.get_hooks("partition_doctypes")
+def get_partition_doctypes_extended(partition_doctypes):
 	partition_doctypes_extended = {}
 
 	for doctype, settings in partition_doctypes.items():
@@ -229,14 +228,21 @@ def get_date_range(doctype, field):
 	return None, None
 
 
-def create_partition():
+def create_partition(doctype=None):
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if doctype:
+		if doctype in partition_doctypes:
+			partition_doctypes = {doctype: partition_doctypes.get(doctype)}
+		else:
+			print(f"\033[31mERROR: {doctype} not in partition_doctypes hook.\033[0m")
+			return
 
 	# Creates the field for child doctypes if it doesn't exists yet
 	for doctype, settings in partition_doctypes.items():
 		add_custom_field(doctype, settings.get("field", "posting_date")[0])
 
-	for doctype, settings in get_partition_doctypes_extended().items():
+	for doctype, settings in get_partition_doctypes_extended(partition_doctypes).items():
 		table_name = get_table_name(doctype)
 		partition_field = settings.get("field", "posting_date")[0]
 		partition_by = settings.get("partition_by", "fiscal_year")[0]
