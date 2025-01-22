@@ -1,6 +1,7 @@
 try:
 	import frappe
 	from frappe.utils import get_table_name
+	from datetime import datetime, date
 except Exception as e:
 	raise (e)
 
@@ -25,7 +26,7 @@ def add_custom_field(parent_doctype, partition_field):
 	for child_doctype in [df.options for df in parent_doctype_meta.get_table_fields()]:
 		if frappe.get_all(
 			"Custom Field", filters={"dt": child_doctype, "fieldname": partition_field}
-		):
+		) or frappe.get_meta(child_doctype)._fields.get(partition_field):
 			continue
 		print(
 			f"\033[34mINFO: Adding {partition_field} to {child_doctype} for {parent_doctype}\033[0m"
@@ -55,10 +56,10 @@ def add_custom_field(parent_doctype, partition_field):
 def populate_partition_fields(doc, event):
 	"""
 	doc_events = {
-	                                                                                                                                "*": {
-	                                                                                                                                                                                                                                                                "before_insert": "yourapp.utils.populate_partition_fields",
-	                                                                                                                                                                                                                                                                "before_save": "yourapp.utils.populate_partition_fields",
-	                                                                                                                                }
+	        "*": {
+	                "before_insert": "yourapp.utils.populate_partition_fields",
+	                "before_save": "yourapp.utils.populate_partition_fields",
+	        }
 	}
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
@@ -218,24 +219,44 @@ def partition_exists(table_name, partition_name):
 		return False
 
 
-def get_date_range(doctype, field):
-	current_year = frappe.utils.now_datetime().year
+def get_date_range(doctype, field, doc=None):
+	doc_year = None
+	if doc:
+		doc_year = getattr(doc, field)
+		if isinstance(doc_year, date):
+			doc_year = doc_year.year
+		elif isinstance(doc_year, str):
+			doc_year = datetime.strptime(doc_year, "%Y-%m-%d").year
+
 	result = frappe.db.sql(
-		f"SELECT MIN(`{field}`) AS min_date FROM `tab{doctype}`", as_dict=True
+		f"""
+		SELECT
+		MIN(`{field}`) AS min_date,
+		MAX(`{field}`) AS max_date
+		FROM `tab{doctype}`""",
+		as_dict=True,
 	)
-	if result and result[0].get("min_date"):
-		return result[0]["min_date"].year, current_year
+	if result and result[0].get("min_date") and result[0].get("max_date"):
+		current_year = frappe.utils.now_datetime().year
+		if doc_year:
+			min_year = min(result[0].get("min_date").year, doc_year)
+			max_year = max(result[0].get("max_date").year, doc_year, current_year)
+			return min_year, max_year
+
+		return result[0].get("min_date").year, max(
+			result[0].get("max_date").year, current_year
+		)
 	return None, None
 
 
-def create_partition(doctype=None):
+def create_partition(doc=None):
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
 
-	if doctype:
-		if doctype in partition_doctypes:
-			partition_doctypes = {doctype: partition_doctypes.get(doctype)}
+	if doc:
+		if doc.doctype in partition_doctypes:
+			partition_doctypes = {doc.doctype: partition_doctypes.get(doc.doctype)}
 		else:
-			print(f"\033[31mERROR: {doctype} not in partition_doctypes hook.\033[0m")
+			print(f"\033[31mERROR: {doc.doctype} not in partition_doctypes hook.\033[0m")
 			return
 
 	# Creates the field for child doctypes if it doesn't exists yet
@@ -254,7 +275,7 @@ def create_partition(doctype=None):
 		partitions = []
 		partition_sql = ""
 
-		start_year, end_year = get_date_range(doctype, partition_field)
+		start_year, end_year = get_date_range(doctype, partition_field, doc)
 		if start_year is None or end_year is None:
 			print(f"\033[34mINFO: No data found for {doctype}, skipping partitioning.\033[0m")
 			continue
@@ -314,10 +335,13 @@ def create_partition(doctype=None):
 						partition_name = f"{frappe.scrub(doctype)}_{year_start}_quarter_{quarter}"
 						if partition_exists(table_name, partition_name):
 							continue
-						quarter_code = year_start * 10 + quarter
-						partitions.append(
-							f"PARTITION {partition_name} VALUES LESS THAN ({quarter_code + 1})"
-						)
+
+						if quarter < 4:
+							quarter_code = year_start * 10 + (quarter + 1)
+						else:
+							quarter_code = (year_start + 1) * 10 + 1
+
+						partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({quarter_code})")
 						print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
 
 				elif partition_by == "month":
@@ -326,10 +350,11 @@ def create_partition(doctype=None):
 						partition_name = f"{frappe.scrub(doctype)}_{year_start}_month_{month:02d}"
 						if partition_exists(table_name, partition_name):
 							continue
-						month_code = year_start * 100 + month
-						partitions.append(
-							f"PARTITION {partition_name} VALUES LESS THAN ({month_code + 1})"
-						)
+						if month < 12:
+							month_code = year_start * 100 + month + 1
+						else:
+							month_code = (year_start + 1) * 100 + 1
+						partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({month_code})")
 						print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
 
 			if not partitions:
