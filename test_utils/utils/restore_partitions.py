@@ -481,8 +481,11 @@ def bubble_backup(
 
 	finally:
 		if not keep_temp_db:
+			connection = pymysql.connect(
+				host=mariadb_host, user=mariadb_user, password=mariadb_password
+			)
+			cursor = connection.cursor()
 			cursor.execute(f"DROP DATABASE {temp_db_name};")
+			cursor.close()
+			connection.close()
 			print(f"Temporary database {temp_db_name} deleted.")
-
-		cursor.close()
-		connection.close()
