@@ -136,27 +136,51 @@ def merge_sql_files(schema_dump_path, full_backup_path, backup_dir, compress):
 		print(f"An error occurred: {e}")
 
 
-def restore_database(site, backup_file):
+def restore_database(site, backup_file, bubble_backup):
 	backup_file = uncompress_if_needed(backup_file)
-	try:
-		command = [
-			"bench",
-			"--site",
-			site["name"],
-			"restore",
-			backup_file,
-			"--db-root-password",
-			site["password"],
-		]
-		result = subprocess.run(command, capture_output=True, text=True, check=False)
 
-		if result.returncode != 0:
-			print(f"Error occurred: {result.stderr}")
-			raise Exception(f"Restore failed with return code {result.returncode}")
+	if bubble_backup:
+		try:
+			command = [
+				"mysql",
+				"-u",
+				f"{site['user']}",
+				f"-p{site['password']}",
+				"-h",
+				f"{site['host']}",
+				f"{site['db_name']}",
+				"-e",
+				f"source {backup_file}",
+			]
+			result = subprocess.run(command, capture_output=True, text=True, check=False)
 
-		print("Restore completed successfully.")
-	except Exception as e:
-		print(f"Unexpected error: {e}")
+			if result.returncode != 0:
+				print(f"Error occurred: {result.stderr}")
+				raise Exception(f"Restore failed with return code {result.returncode}")
+
+			print("Restore completed successfully.")
+		except Exception as e:
+			print(f"Unexpected error: {e}")
+	else:
+		try:
+			command = [
+				"bench",
+				"--site",
+				site["name"],
+				"restore",
+				backup_file,
+				"--db-root-password",
+				site["password"],
+			]
+			result = subprocess.run(command, capture_output=True, text=True, check=False)
+
+			if result.returncode != 0:
+				print(f"Error occurred: {result.stderr}")
+				raise Exception(f"Restore failed with return code {result.returncode}")
+
+			print("Restore completed successfully.")
+		except Exception as e:
+			print(f"Unexpected error: {e}")
 
 
 def get_last_n_partitions_for_tables(table_names, n):
@@ -345,9 +369,10 @@ def delete_backup_files(backup_dir):
 
 def restore(
 	from_site,
-	to_site,
 	mariadb_user,
 	mariadb_password,
+	to_site=None,
+	to_database=None,
 	mariadb_host="localhost",
 	backup_dir="/tmp",
 	partitioned_doctypes_to_restore=None,
@@ -355,8 +380,11 @@ def restore(
 	compress=False,
 	delete_files=False,
 ):
+	if not to_site and not to_database:
+		print("Should specify to_site or to_database")
+		return
+
 	from_site_config = get_site_config_data(from_site)
-	to_site_config = get_site_config_data(to_site)
 	from_site_config.update(
 		{
 			"user": mariadb_user,
@@ -366,21 +394,34 @@ def restore(
 			"db": from_site_config["db_name"],
 		}
 	)
-	to_site_config.update(
-		{
+
+	if to_site:
+		to_site_config = get_site_config_data(to_site)
+		to_site_config.update(
+			{
+				"user": mariadb_user,
+				"host": mariadb_host,
+				"name": to_site,
+				"password": mariadb_password,
+				"db": to_site_config["db_name"],
+			}
+		)
+	else:
+		bubble_backup = True
+		to_site_config = {
+			"db_name": to_database,
 			"user": mariadb_user,
 			"host": mariadb_host,
-			"name": to_site,
+			"name": to_database,
 			"password": mariadb_password,
-			"db": to_site_config["db_name"],
+			"db": to_database,
 		}
-	)
 	schema_dump_file = dump_schema_only(from_site_config, backup_dir, compress)
 	full_bkp_file = backup_full_database(from_site_config, backup_dir, compress)
 	schema_and_non_partitioned_data = merge_sql_files(
 		schema_dump_file, full_bkp_file, backup_dir, compress
 	)
-	restore_database(to_site_config, schema_and_non_partitioned_data)
+	restore_database(to_site_config, schema_and_non_partitioned_data, bubble_backup)
 	restore_partitions(
 		from_site_config,
 		to_site_config,
@@ -390,3 +431,58 @@ def restore(
 	)
 	if delete_files:
 		delete_backup_files(backup_dir)
+
+
+def bubble_backup(
+	from_site,
+	mariadb_user,
+	mariadb_password,
+	mariadb_host="localhost",
+	backup_dir="/tmp",
+	partitioned_doctypes_to_restore=None,
+	last_n_partitions=1,
+	compress=False,
+	delete_files=False,
+	keep_temp_db=False,
+):
+	temp_db_name = f"temp_restore_{datetime.datetime.now().strftime('%Y%m%d%H%M')}"
+	connection = pymysql.connect(
+		host=mariadb_host, user=mariadb_user, password=mariadb_password
+	)
+	cursor = connection.cursor()
+
+	try:
+		try:
+			with connection.cursor() as cursor:
+				cursor.execute(f"DROP DATABASE IF EXISTS {temp_db_name}")
+				cursor.execute(f"CREATE DATABASE {temp_db_name}")
+			connection.commit()
+		finally:
+			connection.close()
+			print(f"Temporary database {temp_db_name} created.")
+
+		restore(
+			from_site,
+			mariadb_user,
+			mariadb_password,
+			to_site=None,
+			to_database=temp_db_name,
+			mariadb_host=mariadb_host,
+			backup_dir=backup_dir,
+			partitioned_doctypes_to_restore=partitioned_doctypes_to_restore,
+			last_n_partitions=last_n_partitions,
+			compress=compress,
+			delete_files=delete_files,
+		)
+		bubble_bkp_name = f"./{from_site}/private/backups/bubble_{datetime.datetime.now().strftime('%Y%m%d%H%M')}.sql"
+		dump_command = f"mysqldump -u {mariadb_user} -h {mariadb_host} -p{mariadb_password} {temp_db_name} | gzip > {bubble_bkp_name}.gz"
+		subprocess.run(dump_command, shell=True, check=True)
+		print(f"Backup SQL dump saved to {bubble_bkp_name}")
+
+	finally:
+		if not keep_temp_db:
+			cursor.execute(f"DROP DATABASE {temp_db_name};")
+			print(f"Temporary database {temp_db_name} deleted.")
+
+		cursor.close()
+		connection.close()
