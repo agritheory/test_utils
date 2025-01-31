@@ -434,7 +434,6 @@ def restore(
 
 
 def bubble_backup(
-	from_site,
 	mariadb_user,
 	mariadb_password,
 	mariadb_host="localhost",
@@ -461,8 +460,9 @@ def bubble_backup(
 			connection.close()
 			print(f"Temporary database {temp_db_name} created.")
 
+		from_site = os.path.basename(frappe.get_site_path())
 		restore(
-			from_site,
+			frappe.local.site,
 			mariadb_user,
 			mariadb_password,
 			to_site=None,
