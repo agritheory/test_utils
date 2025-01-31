@@ -54,6 +54,8 @@ create_partition()
 
 ## Restore Partition
 
+Restores a database backup from a given Frappe site to another site including the non-partitioned tables and a given number of partitions for the partitioned tables.
+
 - Dumps only the full schema of the source database.
 - Does a full backup of the source database excluding partitioned tables.
 - Merges the schema dump and full dump in one file.
@@ -70,14 +72,40 @@ from test_utils.utils.restore_partitions import restore
 
 restore(
 	from_site="ultrapro.agritheory.com",
-	to_site="upro-m.agritheory.com",
-	mariadb_user="root",
+    mariadb_user="root",
 	mariadb_password="123",
+	to_site="upro-m.agritheory.com",
+	to_database=None,
 	mariadb_host="localhost",
 	backup_dir="/tmp",
 	partitioned_doctypes_to_restore=None,  # None tp restore all partitioned doctypes or list of DocTypes to restore ["Sales Order", "Sales Invoice"]
 	last_n_partitions=3,  # Number of partitions to restore
 	compress=False,
-	delete_files=False,
+	delete_files=True,
+)
+```
+
+
+## Bubble Backup
+
+Creates a database backup for a Frappe site, including all non-partitioned tables and a specified number of partitions for partitioned tables. The backup is saved in the site's /private/backups/ directory.
+
+### Usage
+```bash
+bench --site XXX console
+```
+
+```python
+from test_utils.utils.restore_partitions import bubble_backup
+
+bubble_backup(
+	mariadb_user="root",
+	mariadb_password="123",
+	mariadb_host="localhost",
+	backup_dir="/tmp",
+	partitioned_doctypes_to_restore=None,
+	last_n_partitions=1,
+	delete_files=True,
+	keep_temp_db=False,
 )
 ```
