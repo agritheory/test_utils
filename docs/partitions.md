@@ -71,10 +71,10 @@ bench --site XXX console
 from test_utils.utils.restore_partitions import restore
 
 restore(
-	from_site="ultrapro.agritheory.com",
+	from_site="demo.agritheory.com",
     mariadb_user="root",
 	mariadb_password="123",
-	to_site="upro-m.agritheory.com",
+	to_site="demo2.agritheory.com",
 	to_database=None,
 	mariadb_host="localhost",
 	backup_dir="/tmp",

@@ -408,6 +408,7 @@ def restore(
 	)
 
 	if to_site:
+		bubble_backup = False
 		to_site_config = get_site_config_data(to_site)
 		to_site_config.update(
 			{
