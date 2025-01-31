@@ -9,19 +9,32 @@ except Exception as e:
 def add_custom_field(parent_doctype, partition_field):
 	# Skip creation of standard fields
 	if partition_field in frappe.model.default_fields:
-		return
-	parent_doctype_meta = frappe.get_meta(parent_doctype)
-	partition_docfield = parent_doctype_meta._fields.get(partition_field)
-	if not partition_docfield:
-		# V13 compatibility
-		partition_docfields = list(
-			filter(lambda x: x.get("fieldname") == partition_field, parent_doctype_meta.fields)
+		if partition_field != "creation":
+			return
+
+		parent_doctype_meta = frappe.get_meta(parent_doctype)
+		partition_docfield = frappe._dict(
+			{
+				"fieldname": "creation",
+				"fieldtype": "Datetime",
+				"label": "Creation",
+				"options": "",
+				"default": "",
+			}
 		)
-		partition_docfield = partition_docfields[0] if partition_docfields else None
-	if not partition_docfield:
-		raise ValueError(
-			f"Partition field {partition_field} does not exist for {parent_doctype}"
-		)
+	else:
+		parent_doctype_meta = frappe.get_meta(parent_doctype)
+		partition_docfield = parent_doctype_meta._fields.get(partition_field)
+		if not partition_docfield:
+			# V13 compatibility
+			partition_docfields = list(
+				filter(lambda x: x.get("fieldname") == partition_field, parent_doctype_meta.fields)
+			)
+			partition_docfield = partition_docfields[0] if partition_docfields else None
+		if not partition_docfield:
+			raise ValueError(
+				f"Partition field {partition_field} does not exist for {parent_doctype}"
+			)
 
 	for child_doctype in [df.options for df in parent_doctype_meta.get_table_fields()]:
 		if frappe.get_all(
@@ -93,9 +106,11 @@ def populate_partition_fields_for_existing_data(doctype=None, settings=None):
 		for child_doctype in [
 			df.options for df in frappe.get_meta(doctype).get_table_fields()
 		]:
-			if not frappe.get_meta(child_doctype)._fields.get(partition_field):
+			if partition_field not in frappe.model.default_fields and not frappe.get_meta(
+				child_doctype
+			)._fields.get(partition_field):
 				print(
-					f"\033[33mWARNING: Field '{partition_field}' does not exist in parent doctype '{doctype}'. Skipping.\033[0m"
+					f"\033[33mWARNING: Field '{partition_field}' does not exist in child doctype '{child_doctype}'. Skipping.\033[0m"
 				)
 				continue
 
