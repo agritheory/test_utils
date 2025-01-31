@@ -71,12 +71,10 @@ bench --site XXX console
 from test_utils.utils.restore_partitions import restore
 
 restore(
-	from_site="demo.agritheory.com",
     mariadb_user="root",
 	mariadb_password="123",
 	to_site="demo2.agritheory.com",
 	to_database=None,
-	mariadb_host="localhost",
 	backup_dir="/tmp",
 	partitioned_doctypes_to_restore=None,  # None tp restore all partitioned doctypes or list of DocTypes to restore ["Sales Order", "Sales Invoice"]
 	last_n_partitions=3,  # Number of partitions to restore
@@ -101,7 +99,6 @@ from test_utils.utils.restore_partitions import bubble_backup
 bubble_backup(
 	mariadb_user="root",
 	mariadb_password="123",
-	mariadb_host="localhost",
 	backup_dir="/tmp",
 	partitioned_doctypes_to_restore=None,
 	last_n_partitions=1,

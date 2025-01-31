@@ -9,7 +9,25 @@ import gzip
 import shutil
 import json
 import sys
+import ipaddress
 import frappe
+
+
+def get_mariadb_host():
+	try:
+		db_host = frappe.conf.db_host
+		if db_host in ["localhost", "127.0.0.1"]:
+			return db_host
+
+		try:
+			ipaddress.ip_address(db_host)
+			return db_host
+		except ValueError:
+			result = subprocess.run(["getent", "hosts", db_host], capture_output=True, text=True)
+			return result.stdout.split()[0] if result.stdout else None
+	except Exception as e:
+		print(f"\033[31mERROR: Error getting MariaDB Host: {e}.\033[0m")
+		return None
 
 
 def get_child_doctypes(doctype):
@@ -380,18 +398,19 @@ def delete_backup_files(backup_dir):
 
 
 def restore(
-	from_site,
 	mariadb_user,
 	mariadb_password,
 	to_site=None,
 	to_database=None,
-	mariadb_host="localhost",
 	backup_dir="/tmp",
 	partitioned_doctypes_to_restore=None,
 	last_n_partitions=1,
 	compress=False,
 	delete_files=True,
 ):
+	from_site = os.path.basename(frappe.get_site_path())
+	mariadb_host = get_mariadb_host()
+
 	if not to_site and not to_database:
 		print("\033[31mERROR: Should specify to_site or to_database.\033[0m")
 		return
@@ -449,13 +468,13 @@ def restore(
 def bubble_backup(
 	mariadb_user,
 	mariadb_password,
-	mariadb_host="localhost",
 	backup_dir="/tmp",
 	partitioned_doctypes_to_restore=None,
 	last_n_partitions=1,
 	delete_files=True,
 	keep_temp_db=False,
 ):
+	mariadb_host = get_mariadb_host()
 	temp_db_name = f"temp_restore_{datetime.datetime.now().strftime('%Y%m%d%H%M')}"
 	connection = pymysql.connect(
 		host=mariadb_host, user=mariadb_user, password=mariadb_password
