@@ -49,3 +49,13 @@
   types: [python]
   exclude: ^tests/
   args: ["--install-types", "--non-interactive", "--ignore-missing-imports"]
+
+- id: sql_docstring_formatter
+  name: sql_docstring_formatter
+  description: "Format SQL statements in Python docstrings"
+  entry: sql_docstring_formatter
+  language: python
+  types: [python]
+  additional_dependencies: ['sqlglot>=16.3.0']
+  args: ['--dialect', 'mysql']
+  require_serial: true
