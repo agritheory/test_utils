@@ -466,8 +466,6 @@ def restore(
 
 
 def bubble_backup(
-	mariadb_user,
-	mariadb_password,
 	backup_dir="/tmp",
 	partitioned_doctypes_to_restore=None,
 	last_n_partitions=1,
@@ -475,9 +473,19 @@ def bubble_backup(
 	keep_temp_db=False,
 ):
 	mariadb_host = get_mariadb_host()
+	mariadb_port = frappe.utils.cint(frappe.conf.db_port) or 3306
+	mariadb_user = frappe.conf.root_login
+	mariadb_password = frappe.conf.root_password
+
+	if not mariadb_user or not mariadb_password:
+		print(
+			"\033[34mINFO: root_login and root_password must be set in common_site_config.json.\033[0m"
+		)
+		return
+
 	temp_db_name = f"temp_restore_{datetime.datetime.now().strftime('%Y%m%d%H%M')}"
 	connection = pymysql.connect(
-		host=mariadb_host, user=mariadb_user, password=mariadb_password
+		host=mariadb_host, port=mariadb_port, user=mariadb_user, password=mariadb_password
 	)
 	cursor = connection.cursor()
 
@@ -493,12 +501,10 @@ def bubble_backup(
 
 		from_site = os.path.basename(frappe.get_site_path())
 		restore(
-			frappe.local.site,
 			mariadb_user,
 			mariadb_password,
 			to_site=None,
 			to_database=temp_db_name,
-			mariadb_host=mariadb_host,
 			backup_dir=backup_dir,
 			partitioned_doctypes_to_restore=partitioned_doctypes_to_restore,
 			last_n_partitions=last_n_partitions,
