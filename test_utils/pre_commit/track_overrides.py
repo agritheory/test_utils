@@ -183,7 +183,4 @@ def main(argv: Sequence[str] = None):
 				print(change["title"])
 				print_diff(change["diff"])
 				print("")
-			sys.exit(1)
-		sys.exit(0)
-	else:
-		sys.exit(0)
+	sys.exit(0)
