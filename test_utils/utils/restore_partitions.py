@@ -15,7 +15,7 @@ import frappe
 
 def get_mariadb_host():
 	try:
-		db_host = frappe.conf.db_host
+		db_host = get_config().db_host
 		if db_host in ["localhost", "127.0.0.1"]:
 			return db_host
 
@@ -465,6 +465,12 @@ def restore(
 		delete_backup_files(backup_dir)
 
 
+def get_config():
+	site_path = os.path.join(os.getcwd(), "common_site_config.json")
+	with open(site_path) as f:
+		return frappe._dict(json.load(f))
+
+
 def bubble_backup(
 	backup_dir="/tmp",
 	partitioned_doctypes_to_restore=None,
@@ -473,9 +479,10 @@ def bubble_backup(
 	keep_temp_db=False,
 ):
 	mariadb_host = get_mariadb_host()
-	mariadb_port = frappe.utils.cint(frappe.conf.db_port) or 3306
-	mariadb_user = frappe.conf.root_login
-	mariadb_password = frappe.conf.root_password
+	config = get_config()
+	mariadb_port = frappe.utils.cint(config.db_port) or 3306
+	mariadb_user = config.root_login
+	mariadb_password = config.root_password
 
 	if not mariadb_user or not mariadb_password:
 		print(
