@@ -172,7 +172,8 @@ def main(argv: Sequence[str] = None):
 	parser.add_argument("--base-branch", action="append", help="An argument for the hook")
 	args = parser.parse_args(argv)
 	app = args.app[0]
-	base_branch = args.app[1]
+	base_branch = args.base_branch[0]
+	print(f"[DEBUG] Parsed args: app={args.app}, base_branch={args.base_branch}")
 	if app and base_branch:
 		changed_methods = check_tracked_methods(app, base_branch)
 		if changed_methods:
