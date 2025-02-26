@@ -9,7 +9,25 @@ import gzip
 import shutil
 import json
 import sys
+import ipaddress
 import frappe
+
+
+def get_mariadb_host():
+	try:
+		db_host = get_config().db_host
+		if db_host in ["localhost", "127.0.0.1"]:
+			return db_host
+
+		try:
+			ipaddress.ip_address(db_host)
+			return db_host
+		except ValueError:
+			result = subprocess.run(["getent", "hosts", db_host], capture_output=True, text=True)
+			return result.stdout.split()[0] if result.stdout else None
+	except Exception as e:
+		print(f"\033[31mERROR: Error getting MariaDB Host: {e}.\033[0m")
+		return None
 
 
 def get_child_doctypes(doctype):
@@ -44,7 +62,7 @@ def dump_schema_only(site, backup_dir, compress):
 				process = subprocess.run(command, shell=True, capture_output=True, check=True)
 				f.write(process.stdout)
 			print(
-				f"Schema dump completed and compressed successfully. File saved as {compressed_file_path}."
+				f"\033[32mSUCCESS: Schema dump completed and compressed successfully. File saved as {compressed_file_path}.\033[0m"
 			)
 			return compressed_file_path
 		else:
@@ -52,12 +70,14 @@ def dump_schema_only(site, backup_dir, compress):
 				subprocess.run(
 					command, shell=True, stdout=f, stderr=subprocess.PIPE, text=True, check=True
 				)
-			print(f"Schema dump completed successfully. File saved as {schema_dump_file}.")
+			print(
+				f"\033[32mSUCCESS: Schema dump completed successfully. File saved as {schema_dump_file}.\033[0m"
+			)
 			return schema_dump_file
 	except subprocess.CalledProcessError as e:
-		print(f"Error during schema dump: {e.stderr}")
+		print(f"\033[31mERROR: Error during schema dump: {e.stderr}.: {e}.\033[0m")
 	except Exception as e:
-		print(f"Unexpected error: {e}")
+		print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
 
 
 def backup_full_database(site, backup_dir, compress):
@@ -88,7 +108,7 @@ def backup_full_database(site, backup_dir, compress):
 			result = subprocess.run(command, capture_output=True, text=True, check=False)
 
 			if result.returncode != 0:
-				print(f"Error occurred: {result.stderr}")
+				print(f"\033[31mERROR: Error occurred: {result.stderr}.\033[0m")
 				raise Exception(f"Backup failed with return code {result.returncode}")
 
 			if compress:
@@ -98,14 +118,16 @@ def backup_full_database(site, backup_dir, compress):
 						f_out.writelines(f_in)
 				os.remove(full_backup_file)
 				print(
-					f"Backup completed and compressed successfully. File saved as {compressed_file_path}."
+					f"\033[32mSUCCESS: Backup completed and compressed successfully. File saved as {compressed_file_path}.\033[0m"
 				)
 				return compressed_file_path
 			else:
-				print(f"Backup completed successfully. File saved as {full_backup_file}.")
+				print(
+					f"\033[32mSUCCESS: Backup completed successfully. File saved as {full_backup_file}.\033[0m"
+				)
 				return full_backup_file
 	except Exception as e:
-		print(f"Unexpected error: {e}")
+		print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
 
 
 def merge_sql_files(schema_dump_path, full_backup_path, backup_dir, compress):
@@ -118,7 +140,7 @@ def merge_sql_files(schema_dump_path, full_backup_path, backup_dir, compress):
 		]
 		result = subprocess.run(command, capture_output=True, text=True, check=False)
 		if result.returncode != 0:
-			print(f"Error occurred: {result.stderr}")
+			print(f"\033[31mERROR: Error occurred: {result.stderr}.\033[0m")
 			raise Exception(f"Merge failed with return code {result.returncode}")
 
 		if compress:
@@ -127,36 +149,62 @@ def merge_sql_files(schema_dump_path, full_backup_path, backup_dir, compress):
 				with gzip.open(compressed_file_path, "wb") as gz_file:
 					shutil.copyfileobj(output_file, gz_file)
 			os.remove(output_path)
-			print(f"Files merged successfully and compressed into {compressed_file_path}.")
+			print(
+				f"\033[32mSUCCESS: Files merged successfully and compressed into {compressed_file_path}.\033[0m"
+			)
 			return compressed_file_path
 		else:
-			print(f"Files merged successfully into {output_path}")
+			print(f"\033[32mSUCCESS: Files merged successfully into {output_path}.\033[0m")
 			return output_path
 	except Exception as e:
-		print(f"An error occurred: {e}")
+		print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
 
 
-def restore_database(site, backup_file):
+def restore_database(site, backup_file, bubble_backup):
 	backup_file = uncompress_if_needed(backup_file)
-	try:
-		command = [
-			"bench",
-			"--site",
-			site["name"],
-			"restore",
-			backup_file,
-			"--db-root-password",
-			site["password"],
-		]
-		result = subprocess.run(command, capture_output=True, text=True, check=False)
 
-		if result.returncode != 0:
-			print(f"Error occurred: {result.stderr}")
-			raise Exception(f"Restore failed with return code {result.returncode}")
+	if bubble_backup:
+		try:
+			command = [
+				"mysql",
+				"-u",
+				f"{site['user']}",
+				f"-p{site['password']}",
+				"-h",
+				f"{site['host']}",
+				f"{site['db_name']}",
+				"-e",
+				f"source {backup_file}",
+			]
+			result = subprocess.run(command, capture_output=True, text=True, check=False)
 
-		print("Restore completed successfully.")
-	except Exception as e:
-		print(f"Unexpected error: {e}")
+			if result.returncode != 0:
+				print(f"\033[31mERROR: Error occurred: {result.stderr}.\033[0m")
+				raise Exception(f"Restore failed with return code {result.returncode}")
+
+			print("\033[32mSUCCESS: Restore completed successfully.\033[0m")
+		except Exception as e:
+			print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
+	else:
+		try:
+			command = [
+				"bench",
+				"--site",
+				site["name"],
+				"restore",
+				backup_file,
+				"--db-root-password",
+				site["password"],
+			]
+			result = subprocess.run(command, capture_output=True, text=True, check=False)
+
+			if result.returncode != 0:
+				print(f"\033[31mERROR: Error occurred: {result.stderr}.\033[0m")
+				raise Exception(f"Restore failed with return code {result.returncode}")
+
+			print("\033[32mSUCCESS: Restore completed successfully.\033[0m")
+		except Exception as e:
+			print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
 
 
 def get_last_n_partitions_for_tables(table_names, n):
@@ -236,19 +284,21 @@ def backup_partition(site, table, current_partition, compress):
 					shutil.copyfileobj(f_in, f_out)
 			os.remove(output_file)
 			print(
-				f"Backup of partition {current_partition} completed and compressed. File saved as {compressed_file_path}."
+				f"\033[32mSUCCESS: Backup of partition {current_partition} completed and compressed. File saved as {compressed_file_path}.\033[0m"
 			)
 			return compressed_file_path
 		else:
 			print(
-				f"Backup of partition {current_partition} completed successfully. File saved as {output_file}."
+				f"\033[32mSUCCESS: Backup of partition {current_partition} completed successfully. File saved as {output_file}.\033[0m"
 			)
 			return output_file
 	except pymysql.MySQLError as e:
-		print(f"Error during backup: {e}")
+		print(
+			f"\033[31mERROR: Error during backup of table {table}, partition {current_partition}: {e}.\033[0m"
+		)
 		return None
 	except Exception as e:
-		print(f"Unexpected error: {e}")
+		print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
 		return None
 
 
@@ -281,11 +331,13 @@ def restore_partition(site, table, partition_bkp_file):
 		connection.commit()
 		cursor.close()
 		connection.close()
-		print(f"Data imported successfully from {partition_bkp_file}.")
+		print(
+			f"\033[32mSUCCESS: Data imported successfully from {partition_bkp_file}.\033[0m"
+		)
 	except pymysql.MySQLError as e:
-		print(f"Error during import {partition_bkp_file}: {e}")
+		print(f"\033[31mERROR: Error during import {partition_bkp_file}: {e}.\033[0m")
 	except Exception as e:
-		print(f"Unexpected error {partition_bkp_file}: {e}")
+		print(f"\033[31mERROR: Unexpected error {partition_bkp_file}: {e}.\033[0m")
 
 
 def restore_partitions(
@@ -328,7 +380,9 @@ def get_site_config_data(site_name):
 		return site_config
 
 	except Exception as e:
-		print(f"Error reading site config for site {site_name}: {str(e)}")
+		print(
+			f"\033[31mERROR: Error reading site config for site {site_name}: {str(e)}.\033[0m"
+		)
 		return None
 
 
@@ -338,25 +392,30 @@ def delete_backup_files(backup_dir):
 			file_path = os.path.join(backup_dir, filename)
 			if any(filename.endswith(ext) for ext in [".sql", ".gz", ".csv"]):
 				os.remove(file_path)
-				print(f"Deleted file: {file_path}")
+				print(f"\033[34mINFO: Deleted file: {file_path}.\033[0m")
 	except Exception as e:
-		print(f"Error while deleting backup files: {str(e)}")
+		print(f"\033[31mERROR: Error while deleting backup files: {str(e)}.\033[0m")
 
 
 def restore(
-	from_site,
-	to_site,
 	mariadb_user,
 	mariadb_password,
-	mariadb_host="localhost",
+	to_site=None,
+	to_database=None,
 	backup_dir="/tmp",
 	partitioned_doctypes_to_restore=None,
 	last_n_partitions=1,
 	compress=False,
-	delete_files=False,
+	delete_files=True,
 ):
+	from_site = os.path.basename(frappe.get_site_path())
+	mariadb_host = get_mariadb_host()
+
+	if not to_site and not to_database:
+		print("\033[31mERROR: Should specify to_site or to_database.\033[0m")
+		return
+
 	from_site_config = get_site_config_data(from_site)
-	to_site_config = get_site_config_data(to_site)
 	from_site_config.update(
 		{
 			"user": mariadb_user,
@@ -366,21 +425,35 @@ def restore(
 			"db": from_site_config["db_name"],
 		}
 	)
-	to_site_config.update(
-		{
+
+	if to_site:
+		bubble_backup = False
+		to_site_config = get_site_config_data(to_site)
+		to_site_config.update(
+			{
+				"user": mariadb_user,
+				"host": mariadb_host,
+				"name": to_site,
+				"password": mariadb_password,
+				"db": to_site_config["db_name"],
+			}
+		)
+	else:
+		bubble_backup = True
+		to_site_config = {
+			"db_name": to_database,
 			"user": mariadb_user,
 			"host": mariadb_host,
-			"name": to_site,
+			"name": to_database,
 			"password": mariadb_password,
-			"db": to_site_config["db_name"],
+			"db": to_database,
 		}
-	)
 	schema_dump_file = dump_schema_only(from_site_config, backup_dir, compress)
 	full_bkp_file = backup_full_database(from_site_config, backup_dir, compress)
 	schema_and_non_partitioned_data = merge_sql_files(
 		schema_dump_file, full_bkp_file, backup_dir, compress
 	)
-	restore_database(to_site_config, schema_and_non_partitioned_data)
+	restore_database(to_site_config, schema_and_non_partitioned_data, bubble_backup)
 	restore_partitions(
 		from_site_config,
 		to_site_config,
@@ -390,3 +463,73 @@ def restore(
 	)
 	if delete_files:
 		delete_backup_files(backup_dir)
+
+
+def get_config():
+	site_path = os.path.join(os.getcwd(), "common_site_config.json")
+	with open(site_path) as f:
+		return frappe._dict(json.load(f))
+
+
+def bubble_backup(
+	backup_dir="/tmp",
+	partitioned_doctypes_to_restore=None,
+	last_n_partitions=1,
+	delete_files=True,
+	keep_temp_db=False,
+):
+	mariadb_host = get_mariadb_host()
+	config = get_config()
+	mariadb_port = frappe.utils.cint(config.db_port) or 3306
+	mariadb_user = config.root_login
+	mariadb_password = config.root_password
+
+	if not mariadb_user or not mariadb_password:
+		print(
+			"\033[34mINFO: root_login and root_password must be set in common_site_config.json.\033[0m"
+		)
+		return
+
+	temp_db_name = f"temp_restore_{datetime.datetime.now().strftime('%Y%m%d%H%M')}"
+	connection = pymysql.connect(
+		host=mariadb_host, port=mariadb_port, user=mariadb_user, password=mariadb_password
+	)
+	cursor = connection.cursor()
+
+	try:
+		try:
+			with connection.cursor() as cursor:
+				cursor.execute(f"DROP DATABASE IF EXISTS {temp_db_name}")
+				cursor.execute(f"CREATE DATABASE {temp_db_name}")
+			connection.commit()
+		finally:
+			connection.close()
+			print(f"\033[32mSUCCESS: Temporary database {temp_db_name} created.\033[0m")
+
+		from_site = os.path.basename(frappe.get_site_path())
+		restore(
+			mariadb_user,
+			mariadb_password,
+			to_site=None,
+			to_database=temp_db_name,
+			backup_dir=backup_dir,
+			partitioned_doctypes_to_restore=partitioned_doctypes_to_restore,
+			last_n_partitions=last_n_partitions,
+			compress=False,
+			delete_files=delete_files,
+		)
+		bubble_bkp_name = f"./{from_site}/private/backups/{datetime.datetime.now().strftime('%Y%m%d%H%M')}_bubble.sql"
+		dump_command = f"mysqldump -u {mariadb_user} -h {mariadb_host} -p{mariadb_password} {temp_db_name} | gzip > {bubble_bkp_name}.gz"
+		subprocess.run(dump_command, shell=True, check=True)
+		print(f"\033[32mSUCCESS: Backup SQL dump saved to {bubble_bkp_name}.\033[0m")
+
+	finally:
+		if not keep_temp_db:
+			connection = pymysql.connect(
+				host=mariadb_host, user=mariadb_user, password=mariadb_password
+			)
+			cursor = connection.cursor()
+			cursor.execute(f"DROP DATABASE {temp_db_name};")
+			cursor.close()
+			connection.close()
+			print(f"\033[34mINFO: Temporary database {temp_db_name} deleted.\033[0m")
