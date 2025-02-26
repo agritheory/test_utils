@@ -16,6 +16,7 @@ validate_python_dependencies = "test_utils.pre_commit.validate_python_dependenci
 validate_customizations = "test_utils.pre_commit.validate_customizations:main"
 update_pre_commit_config = "test_utils.pre_commit.update_pre_commit_config:main"
 create_partition = "test_utils.utils.create_partition:create_partition"
+track_overrides = "test_utils.pre_commit.track_overrides:main"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
