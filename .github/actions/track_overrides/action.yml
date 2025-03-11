@@ -29,7 +29,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
           set -e 
-          changed_methods=$(python ${{ github.action_path }}/src/track_overrides.py ${{ github.workspace }})
+          changed_methods=$(python ./test_utils/.github/actions/track_overrides/src/track_overrides.py ${{ github.workspace }})
 
           # Sanitize the diff content before storing it (escape special characters)
           sanitized_methods=$(echo "$changed_methods" | sed 's/\r//g' | sed 's/\n/\\n/g' | sed 's/\"/\\\"/g')
