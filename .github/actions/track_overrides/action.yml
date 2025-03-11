@@ -26,7 +26,7 @@ runs:
       uses: actions/checkout@v2
       with:
         repository: agritheory/test_utils
-        ref: actions
+        ref: main
         path: test_utils
 
     - name: Run override comparison

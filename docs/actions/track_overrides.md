@@ -54,8 +54,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Checkout test_utils
+        uses: actions/checkout@v2
+        with:
+          repository: agritheory/test_utils
+          ref: main
+          path: test_utils
+
       - name:  Track Overrides
-        uses: diamorafaela/track-overrides@main
+        uses: ./test_utils/.github/actions/track_overrides
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           post-comment: false

@@ -27,8 +27,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Checkout test_utils
+        uses: actions/checkout@v2
+        with:
+          repository: agritheory/test_utils
+          ref: main
+          path: test_utils
+
       - name: Diff Print Formats
-        uses: diamorafaela/diff-print-format@main
+        uses: ./test_utils/.github/actions/diff_print_format
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
