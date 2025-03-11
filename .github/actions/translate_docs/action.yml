@@ -44,6 +44,13 @@ runs:
         pip install google-cloud-translate
         pip install gitpython
         pip install PyGithub
+    
+    - name: Checkout test_utils repository
+      uses: actions/checkout@v2
+      with:
+        repository: agritheory/test_utils
+        ref: actions
+        path: test_utils
 
     - name: Translate Markdown files
       shell: bash
@@ -54,7 +61,7 @@ runs:
         GITHUB_BASE_REF: ${{ inputs.GITHUB_SHA }}
         GITHUB_REF: ${{ inputs.GITHUB_REF }}
       run: |
-        python ${{ github.action_path }}/src/translate_docs.py ${{ github.workspace }}
+        python $GITHUB_WORKSPACE/test_utils/.github/actions/translate_docs/src/translate_docs.py ${{ github.workspace }}
 
     - name: Remove credentials file
       shell: bash
