@@ -21,6 +21,13 @@ runs:
       run: |
         sudo apt-get update
         sudo apt-get install -y jq diffutils
+    
+    - name: Checkout test_utils repository
+      uses: actions/checkout@v2
+      with:
+        repository: agritheory/test_utils
+        ref: actions
+        path: test_utils
 
     - name: Generate diff for print formats
       shell: bash
@@ -76,4 +83,5 @@ runs:
           -H "Authorization: token ${{ inputs.github-token}}" \
           -d '{"body": '"$ESCAPED_COMMENT"'}' \
           "https://api.github.com/repos/${{ github.repository }}/issues/$PR_NUMBER/comments"
+    
     
