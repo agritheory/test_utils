@@ -62,7 +62,7 @@ jobs:
           path: test_utils
 
       - name:  Track Overrides
-        uses: ./test_utils/.github/actions/track_overrides
+        uses: ./test_utils/actions/track_overrides
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           post-comment: false

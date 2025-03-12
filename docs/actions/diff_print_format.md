@@ -35,7 +35,7 @@ jobs:
           path: test_utils
 
       - name: Diff Print Formats
-        uses: ./test_utils/.github/actions/diff_print_format
+        uses: ./test_utils/actions/diff_print_format
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
