@@ -36,7 +36,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
           set -e 
-          changed_methods=$(python $GITHUB_WORKSPACE/test_utils/.github/actions/track_overrides/src/track_overrides.py ${{ github.workspace }})
+          changed_methods=$(python $GITHUB_WORKSPACE/test_utils/actions/src/track_overrides.py ${{ github.workspace }})
 
           # Sanitize the diff content before storing it (escape special characters)
           sanitized_methods=$(echo "$changed_methods" | sed 's/\r//g' | sed 's/\n/\\n/g' | sed 's/\"/\\\"/g')
@@ -92,4 +92,4 @@ runs:
       shell: bash
       run: |
         echo "Cleaning up any orphan processes..."
-        pkill -f $GITHUB_WORKSPACE/test_utils/.github/actions/track_overrides/src/track_overrides.py || true
+        pkill -f $GITHUB_WORKSPACE/test_utils/actions/src/track_overrides.py || true
