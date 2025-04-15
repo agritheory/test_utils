@@ -3,7 +3,7 @@ import datetime
 import os
 import sys
 import tempfile
-from typing import Sequence
+from collections.abc import Sequence
 
 
 def validate_copyright(app, files):

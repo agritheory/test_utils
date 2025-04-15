@@ -1,19 +1,19 @@
-import os
-import sys
-import re
-import difflib
-import subprocess
 import argparse
+import os
 import pathlib
-import requests
-from typing import Sequence
+import re
+import subprocess
+import sys
+from collections.abc import Sequence
 
-sys.path.append(os.path.abspath(".github/actions/track_overrides/src"))
+import requests
 from track_overrides import (
+	compare_method_diff,
 	download_file_from_commit,
 	extract_method,
-	compare_method_diff,
 )
+
+sys.path.append(os.path.abspath(".github/actions/track_overrides/src"))
 
 
 def get_staged_python_files(repo_path):

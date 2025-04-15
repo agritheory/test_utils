@@ -1,10 +1,12 @@
 name: Translate Docs
 description: Translate md files under docs folder.
 author: Francisco Roldan
+
 inputs:
-  GITHUB_TOKENn:
+  GITHUB_TOKEN:
     description: "GitHub Token"
     required: true
+    default: ${{ github.token }}
   GOOGLE_APPLICATION_CREDENTIALS:
     description: "Google application credentials"
     required: true
@@ -17,17 +19,19 @@ inputs:
   GITHUB_REF:
     description: "Github ref"
     required: true
+
 branding:
   icon: alert-circle
   color: blue
+
 runs:
   using: 'composite'
   steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: '3.x'
 
@@ -36,7 +40,7 @@ runs:
       run: echo "$GOOGLE_APPLICATION_CREDENTIALS" > credentials.json
       env:
         GOOGLE_APPLICATION_CREDENTIALS: ${{ inputs.GOOGLE_APPLICATION_CREDENTIALS }}
-    
+
     - name: Install dependencies
       shell: bash
       run: |
@@ -44,9 +48,9 @@ runs:
         pip install google-cloud-translate
         pip install gitpython
         pip install PyGithub
-    
+
     - name: Checkout test_utils repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         repository: agritheory/test_utils
         ref: main

@@ -1,12 +1,13 @@
+import importlib
+import json
 import os
 import re
 import sys
-import json
-import importlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from google.cloud import translate_v2 as translate
+
 from git import Repo
 from github import Github, GithubException
+from google.cloud import translate_v2 as translate
 
 
 def get_languages(app_directory):

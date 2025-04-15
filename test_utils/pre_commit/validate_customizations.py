@@ -1,10 +1,8 @@
 import argparse
-import ast
 import json
 import pathlib
 import sys
-import types
-from typing import Sequence
+from collections.abc import Sequence
 
 
 def scrub(txt: str) -> str:

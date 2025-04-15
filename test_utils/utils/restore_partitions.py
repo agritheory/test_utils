@@ -1,16 +1,17 @@
-import subprocess
-import datetime
-import shlex
-import os
-import importlib.resources
-import pymysql
 import csv
+import datetime
 import gzip
-import shutil
-import json
-import sys
+import importlib.resources
 import ipaddress
+import json
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+
 import frappe
+import pymysql
 
 
 def get_mariadb_host():
@@ -53,7 +54,7 @@ def dump_schema_only(site, backup_dir, compress):
 	try:
 		command = (
 			f"mysqldump -u {site['user']} -p{site['password']} -h {site['host']} {site['db']} "
-			f"--no-data " + " ".join([shlex.quote(table) for table in exclude_tables])
+			f"--no-data " + shlex.join(exclude_tables)
 		)
 
 		if compress:

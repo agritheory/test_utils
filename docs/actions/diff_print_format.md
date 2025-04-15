@@ -23,12 +23,12 @@ jobs:
     name: Diff Print Formats
     steps:
       - name: Checkout the code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Checkout test_utils
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           repository: agritheory/test_utils
           ref: main

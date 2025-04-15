@@ -1,8 +1,9 @@
-import requests
+import difflib
 import os
 import re
 import sys
-import difflib
+
+import requests
 
 
 def download_file_from_commit(repo_url, commit_hash, file_path):
