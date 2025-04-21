@@ -1,12 +1,11 @@
 import argparse
 import copy
-import datetime
 import json
 import os
 import pathlib
 import sys
 import tempfile
-from typing import Sequence
+from collections.abc import Sequence
 
 from test_utils.pre_commit.validate_customizations import scrub
 

@@ -1,7 +1,8 @@
 try:
+	from datetime import date, datetime
+
 	import frappe
 	from frappe.utils import get_table_name
-	from datetime import datetime, date
 except Exception as e:
 	raise (e)
 

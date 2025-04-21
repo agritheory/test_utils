@@ -1,0 +1,85 @@
+name: Track Overrides
+description: Track Changes in Overrides Methods
+author: Francisco Roldan
+
+inputs:
+  post-comment:
+    description: 'Flag to indicate whether to post a comment on the PR (default: true)'
+    required: false
+    default: 'true'
+
+branding:
+  icon: alert-circle
+  color: blue
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Python dependencies for action
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+
+    - name: Run override comparison
+      shell: bash
+      id: track_overrides
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+          set -e
+          echo "Using token for authentication with GitHub API"
+          changed_methods=$(python ${{ github.action_path }}/track_overrides.py ${{ github.workspace }})
+
+          # Sanitize the diff content before storing it (escape special characters)
+          sanitized_methods=$(echo "$changed_methods" | sed 's/\r//g' | sed 's/\n/\\n/g' | sed 's/\"/\\\"/g')
+
+          # Store the sanitized diff in a file
+          echo "$sanitized_methods" > diff_output.txt
+
+          if [[ -n "$changed_methods" ]]; then
+            echo "Override methods have changed in the upstream repository."
+            echo "Changed methods: $changed_methods"
+            echo "has_changes=true" >> $GITHUB_ENV
+          else
+            echo "has_changes=false" >> $GITHUB_ENV
+          fi
+
+    - name: Post comment on PR if overrides changed
+      if: env.has_changes == 'true' && inputs.post-comment == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const diffFilePath = './diff_output.txt';
+
+          if (fs.existsSync(diffFilePath)) {
+            const diffContent = fs.readFileSync(diffFilePath, 'utf8');
+            const commentBody = `The following override methods have changed in the upstream repository:\n\n${diffContent}\n`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody
+            });
+          } else {
+            console.log("No changes to report.");
+          }
+
+    - name: Debug Changed Methods
+      shell: bash
+      run: echo "${{ env.has_changes }}"
+
+    - name: Fail if overrides changed
+      shell: bash
+      if: env.has_changes == 'true'
+      run: |
+        echo "Override methods have changed in the upstream repository."
+        exit 1
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: |
+        echo "Cleaning up any orphan processes..."
+        pkill -f $GITHUB_WORKSPACE/test_utils/actions/src/track_overrides.py || true

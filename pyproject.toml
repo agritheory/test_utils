@@ -1,33 +1,40 @@
-[tool.poetry]
+[project]
 name = "test_utils"
-version = "0.17.0"
 description = "AgriTheory Test Utilities and Fixtures"
-authors = ["AgriTheory <support@agritheory.dev>"]
-readme = "README.md"
-packages = [
-	{include = "test_utils"}
+authors = [
+    { name = "AgriTheory", email = "support@agritheory.dev"}
 ]
+readme = "README.md"
+requires-python = ">=3.10"
+dynamic = ["dependencies", "version"]
 
-[tool.poetry.scripts]
+[project.scripts]
 clean_customized_doctypes = "test_utils.pre_commit.clean_customized_doctypes:main"
+create_partition = "test_utils.utils.create_partition:create_partition"
+track_overrides = "test_utils.pre_commit.track_overrides:main"
+update_pre_commit_config = "test_utils.pre_commit.update_pre_commit_config:main"
 validate_copyright = "test_utils.pre_commit.validate_copyright:main"
+validate_customizations = "test_utils.pre_commit.validate_customizations:main"
 validate_javascript_dependencies = "test_utils.pre_commit.validate_javascript_dependencies:main"
 validate_python_dependencies = "test_utils.pre_commit.validate_python_dependencies:main"
-validate_customizations = "test_utils.pre_commit.validate_customizations:main"
-update_pre_commit_config = "test_utils.pre_commit.update_pre_commit_config:main"
-create_partition = "test_utils.utils.create_partition:create_partition"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+version = "0.17.0"
+packages = [{include = "test_utils"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
-mypy = "^1.10.1"
+mypy = "^1.15.0"
 toml = "^0.10.2"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requests = "^2.32.3"
 
 [tool.codespell]
 skip = "CHANGELOG.md"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:tool.poetry.version"]
+version_variable = ["__init__.py:__version__"]
