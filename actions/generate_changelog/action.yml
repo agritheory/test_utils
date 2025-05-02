@@ -1,0 +1,94 @@
+name: 'Changelog Generator'
+description: 'Analyzes PR changes and generates a draft changelog entry as a comment'
+author: 'agritheory'
+
+inputs:
+  github-token:
+    description: 'GitHub token with permissions to read PRs and create comments'
+    required: true
+  anthropic-api-key:
+    description: 'API key for Anthropic'
+    required: true
+  anthropic-model:
+    description: 'Anthropic model to use for generating the changelog'
+    required: false
+    default: 'claude-3-7-sonnet-latest'
+  prompt-template:
+    description: 'Path to a custom prompt template file for the LLM'
+    required: false
+    default: '.github/changelog-prompt.txt'
+  comment-header:
+    description: 'Header text for the comment that will contain the changelog'
+    required: false
+    default: '## 📝 Draft Changelog Entry'
+  event-name:
+    description: 'Type of event that triggered the action (pull_request, issue_comment)'
+    required: false
+    default: ${{ github.event_name }}
+  event-action:
+    description: 'Action of the event (opened, reopened, deleted)'
+    required: false
+    default: ${{ github.event.action }}
+  comment-body:
+    description: 'Body of the deleted comment (for issue_comment events)'
+    required: false
+    default: ${{ github.event.comment.body }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # For comment deletion events, check if it was a changelog comment
+    - name: Check if deleted comment was a changelog
+      if: ${{ inputs.event-name == 'issue_comment' && inputs.event-action == 'deleted' }}
+      id: check-comment
+      shell: bash
+      run: |
+        if [[ "${{ inputs.comment-body }}" == *"${{ inputs.comment-header }}"* ]]; then
+          echo "is_changelog=true" >> $GITHUB_OUTPUT
+        else
+          echo "is_changelog=false" >> $GITHUB_OUTPUT
+        fi
+
+    # Skip if not PR open/reopen or not a deleted changelog comment
+    - name: Determine if action should run
+      id: should-run
+      shell: bash
+      run: |
+        if [[ "${{ inputs.event-name }}" == "pull_request" && ("${{ inputs.event-action }}" == "opened" || "${{ inputs.event-action }}" == "reopened") ]]; then
+          echo "should_run=true" >> $GITHUB_OUTPUT
+        elif [[ "${{ inputs.event-name }}" == "issue_comment" && "${{ inputs.event-action }}" == "deleted" && "${{ steps.check-comment.outputs.is_changelog }}" == "true" ]]; then
+          echo "should_run=true" >> $GITHUB_OUTPUT
+        else
+          echo "should_run=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Set up Python
+      if: ${{ steps.should-run.outputs.should_run == 'true' }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      if: ${{ steps.should-run.outputs.should_run == 'true' }}
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install anthropic requests
+
+    - name: Generate changelog
+      if: ${{ steps.should-run.outputs.should_run == 'true' }}
+      shell: bash
+      run: python ${{ github.action_path }}/generate_changelog.py
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        PROMPT_TEMPLATE_PATH: ${{ inputs.prompt-template }}
+        COMMENT_HEADER: ${{ inputs.comment-header }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO_FULL_NAME: ${{ github.repository }}
+        MODEL: ${{ inputs.model }}
