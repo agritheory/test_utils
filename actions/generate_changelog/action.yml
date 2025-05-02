@@ -60,7 +60,7 @@ runs:
       shell: bash
       run: |
         python -m pip install --upgrade pip
-        pip install anthropic requests
+        pip install anthropic requests PyGithub
 
     - name: Generate changelog
       if: ${{ steps.should-run.outputs.should_run == 'true' }}

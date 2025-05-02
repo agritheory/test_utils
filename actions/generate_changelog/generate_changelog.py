@@ -2,7 +2,7 @@
 import os
 import sys
 import json
-import requests
+from github import Github
 from anthropic import Anthropic
 
 
@@ -30,7 +30,7 @@ def get_model():
 
 
 def get_pr_data():
-	"""Fetch PR data including commits, description, and comments."""
+	"""Fetch PR data including commits, description, and comments using PyGithub."""
 	token = get_github_token()
 	repo_full_name = os.environ.get("REPO_FULL_NAME")
 	pr_number = os.environ.get("PR_NUMBER")
@@ -39,86 +39,40 @@ def get_pr_data():
 		print("Error: Repository name or PR number not provided")
 		sys.exit(1)
 
-	headers = {
-		"Accept": "application/vnd.github.v3+json",
-		"Authorization": f"token {token}",
-	}
+	try:
+		# Initialize Github client
+		g = Github(token)
+		repo = g.get_repo(repo_full_name)
+		pr = repo.get_pull(int(pr_number))
 
-	# Fetch PR details
-	pr_url = f"https://api.github.com/repos/{repo_full_name}/pulls/{pr_number}"
-	pr_response = requests.get(pr_url, headers=headers)
-	pr_response.raise_for_status()
-	pr_data = pr_response.json()
+		# Get all the data we need
+		commits = list(pr.get_commits())
+		comments = list(pr.get_comments())
+		review_comments = list(pr.get_review_comments())
+		files = list(pr.get_files())
+		issue = repo.get_issue(int(pr_number))
+		issue_comments = list(issue.get_comments())
 
-	# Fetch PR commits
-	commits_url = f"{pr_url}/commits"
-	commits_response = requests.get(commits_url, headers=headers)
-	commits_response.raise_for_status()
-	commits_data = commits_response.json()
+		# Check for existing changelog comment
+		comment_header = os.environ.get("COMMENT_HEADER", "## 📝 Draft Changelog Entry")
+		existing_changelog_comment = None
+		for comment in issue_comments:
+			if comment_header in comment.body:
+				existing_changelog_comment = comment
+				break
 
-	# Fetch PR comments
-	comments_url = f"{pr_url}/comments"
-	comments_response = requests.get(comments_url, headers=headers)
-	comments_response.raise_for_status()
-	comments_data = comments_response.json()
+		return {
+			"pr": pr,
+			"commits": commits,
+			"comments": comments + review_comments,
+			"issue": issue,
+			"files": files,
+			"existing_changelog_comment": existing_changelog_comment,
+		}
 
-	# Fetch PR review comments
-	review_comments_url = f"{pr_url}/comments"
-	review_comments_response = requests.get(review_comments_url, headers=headers)
-	review_comments_response.raise_for_status()
-	review_comments_data = review_comments_response.json()
-
-	# Fetch PR issues
-	issue_url = f"https://api.github.com/repos/{repo_full_name}/issues/{pr_number}"
-	issue_response = requests.get(issue_url, headers=headers)
-	issue_response.raise_for_status()
-	issue_data = issue_response.json()
-
-	# Check for existing changelog comment
-	issue_comments_url = f"{issue_url}/comments"
-	issue_comments_response = requests.get(issue_comments_url, headers=headers)
-	issue_comments_response.raise_for_status()
-	issue_comments = issue_comments_response.json()
-
-	comment_header = os.environ.get("COMMENT_HEADER", "## 📝 Draft Changelog Entry")
-	existing_changelog_comment = None
-	for comment in issue_comments:
-		if comment_header in comment.get("body", ""):
-			existing_changelog_comment = comment
-			break
-
-	# Get changed files
-	files_url = f"{pr_url}/files"
-	files_response = requests.get(files_url, headers=headers)
-	files_response.raise_for_status()
-	files_data = files_response.json()
-
-	return {
-		"pr": pr_data,
-		"commits": commits_data,
-		"comments": comments_data + review_comments_data,
-		"issue": issue_data,
-		"files": files_data,
-		"existing_changelog_comment": existing_changelog_comment,
-	}
-
-
-def check_should_regenerate(existing_comment_id):
-	"""Check if the comment was deleted and we should regenerate."""
-	token = get_github_token()
-	repo_full_name = os.environ.get("REPO_FULL_NAME")
-
-	headers = {
-		"Accept": "application/vnd.github.v3+json",
-		"Authorization": f"token {token}",
-	}
-
-	comment_url = (
-		f"https://api.github.com/repos/{repo_full_name}/issues/comments/{existing_comment_id}"
-	)
-	response = requests.get(comment_url, headers=headers)
-
-	return response.status_code == 404  # Comment was deleted
+	except Exception as e:
+		print(f"Error fetching PR data: {e}")
+		sys.exit(1)
 
 
 def get_custom_prompt_template():
@@ -156,25 +110,29 @@ def get_custom_prompt_template():
 
 def format_pr_data_for_prompt(pr_data):
 	"""Format the PR data for inclusion in the prompt."""
+	pr = pr_data["pr"]
+	commits = pr_data["commits"]
+	files = pr_data["files"]
+
 	formatted_data = {
-		"title": pr_data["pr"]["title"],
-		"description": pr_data["pr"]["body"],
-		"author": pr_data["pr"]["user"]["login"],
+		"title": pr.title,
+		"description": pr.body,
+		"author": pr.user.login,
 		"commits": [
 			{
-				"sha": commit["sha"][:7],
-				"message": commit["commit"]["message"],
-				"author": commit["commit"]["author"]["name"],
+				"sha": commit.sha[:7],
+				"message": commit.commit.message,
+				"author": commit.commit.author.name,
 			}
-			for commit in pr_data["commits"]
+			for commit in commits
 		],
 		"changed_files": [
 			{
-				"filename": file["filename"],
-				"changes": f"+{file.get('additions', 0)}/-{file.get('deletions', 0)}",
-				"status": file["status"],
+				"filename": file.filename,
+				"changes": f"+{file.additions}/-{file.deletions}",
+				"status": file.status,
 			}
-			for file in pr_data["files"]
+			for file in files
 		],
 	}
 
@@ -193,7 +151,7 @@ def generate_changelog_with_anthropic(pr_data):
 
 	try:
 		response = client.messages.create(
-			model=model,  # Use the model from environment variables
+			model=model,
 			max_tokens=1500,
 			temperature=0.2,  # Lower temperature for more factual outputs
 			messages=[{"role": "user", "content": prompt}],
@@ -205,33 +163,18 @@ def generate_changelog_with_anthropic(pr_data):
 		return None
 
 
-def post_or_update_comment(changelog_text, existing_comment=None):
-	"""Post a new comment or update the existing comment with the generated changelog."""
-	token = get_github_token()
-	repo_full_name = os.environ.get("REPO_FULL_NAME")
-	pr_number = os.environ.get("PR_NUMBER")
+def post_comment(changelog_text, pr_data):
+	"""Post a new comment with the generated changelog."""
 	comment_header = os.environ.get("COMMENT_HEADER", "## 📝 Draft Changelog Entry")
-
-	headers = {
-		"Accept": "application/vnd.github.v3+json",
-		"Authorization": f"token {token}",
-	}
-
 	comment_body = f"{comment_header}\n\n{changelog_text}\n\n_This changelog entry was automatically generated by the Changelog Generator Action._"
 
-	if existing_comment:
-		# Update existing comment
-		comment_url = f"https://api.github.com/repos/{repo_full_name}/issues/comments/{existing_comment['id']}"
-		response = requests.patch(comment_url, headers=headers, json={"body": comment_body})
-	else:
-		# Create new comment
-		comments_url = (
-			f"https://api.github.com/repos/{repo_full_name}/issues/{pr_number}/comments"
-		)
-		response = requests.post(comments_url, headers=headers, json={"body": comment_body})
-
-	response.raise_for_status()
-	return response.json()
+	try:
+		issue = pr_data["issue"]
+		issue.create_comment(comment_body)
+		return True
+	except Exception as e:
+		print(f"Error posting comment: {e}")
+		return False
 
 
 def main():
@@ -254,8 +197,12 @@ def main():
 			sys.exit(1)
 
 		# Post the comment
-		comment = post_or_update_comment(changelog_text, None)
-		print("Successfully posted changelog comment")
+		success = post_comment(changelog_text, pr_data)
+		if success:
+			print("Successfully posted changelog comment")
+		else:
+			print("Failed to post changelog comment")
+			sys.exit(1)
 
 	except Exception as e:
 		print(f"Error in changelog generation: {e}")
