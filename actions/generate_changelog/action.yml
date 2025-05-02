@@ -9,10 +9,6 @@ inputs:
   anthropic-api-key:
     description: 'API key for Anthropic'
     required: true
-  anthropic-model:
-    description: 'Anthropic model to use for generating the changelog'
-    required: false
-    default: 'claude-3-7-sonnet-latest'
   prompt-template:
     description: 'Path to a custom prompt template file for the LLM'
     required: false
@@ -22,17 +18,17 @@ inputs:
     required: false
     default: '## 📝 Draft Changelog Entry'
   event-name:
-    description: 'Type of event that triggered the action (pull_request, issue_comment)'
+    description: 'Type of event that triggered the action (pull_request)'
     required: false
     default: ${{ github.event_name }}
   event-action:
-    description: 'Action of the event (opened, reopened, deleted)'
+    description: 'Action of the event (opened, reopened, synchronize)'
     required: false
     default: ${{ github.event.action }}
-  comment-body:
-    description: 'Body of the deleted comment (for issue_comment events)'
+  model:
+    description: 'Anthropic model to use for generating the changelog'
     required: false
-    default: ${{ github.event.comment.body }}
+    default: 'claude-3-haiku-20240307'
 
 runs:
   using: 'composite'
@@ -42,26 +38,12 @@ runs:
       with:
         fetch-depth: 0
 
-    # For comment deletion events, check if it was a changelog comment
-    - name: Check if deleted comment was a changelog
-      if: ${{ inputs.event-name == 'issue_comment' && inputs.event-action == 'deleted' }}
-      id: check-comment
-      shell: bash
-      run: |
-        if [[ "${{ inputs.comment-body }}" == *"${{ inputs.comment-header }}"* ]]; then
-          echo "is_changelog=true" >> $GITHUB_OUTPUT
-        else
-          echo "is_changelog=false" >> $GITHUB_OUTPUT
-        fi
-
-    # Skip if not PR open/reopen or not a deleted changelog comment
+    # Determine if action should run - on PR open/reopen or synchronize (new commits)
     - name: Determine if action should run
       id: should-run
       shell: bash
       run: |
-        if [[ "${{ inputs.event-name }}" == "pull_request" && ("${{ inputs.event-action }}" == "opened" || "${{ inputs.event-action }}" == "reopened") ]]; then
-          echo "should_run=true" >> $GITHUB_OUTPUT
-        elif [[ "${{ inputs.event-name }}" == "issue_comment" && "${{ inputs.event-action }}" == "deleted" && "${{ steps.check-comment.outputs.is_changelog }}" == "true" ]]; then
+        if [[ "${{ inputs.event-name }}" == "pull_request" && ("${{ inputs.event-action }}" == "opened" || "${{ inputs.event-action }}" == "reopened" || "${{ inputs.event-action }}" == "synchronize") ]]; then
           echo "should_run=true" >> $GITHUB_OUTPUT
         else
           echo "should_run=false" >> $GITHUB_OUTPUT

@@ -242,7 +242,7 @@ def main():
 		# Check if there's already a changelog comment
 		existing_comment = pr_data.get("existing_changelog_comment")
 
-		if existing_comment and not check_should_regenerate(existing_comment["id"]):
+		if existing_comment:
 			print("Draft changelog comment already exists. Taking no action.")
 			return
 
@@ -253,9 +253,9 @@ def main():
 			print("Failed to generate changelog text")
 			sys.exit(1)
 
-		# Post or update the comment
-		comment = post_or_update_comment(changelog_text, existing_comment)
-		print(f"Successfully {'updated' if existing_comment else 'posted'} changelog comment")
+		# Post the comment
+		comment = post_or_update_comment(changelog_text, None)
+		print("Successfully posted changelog comment")
 
 	except Exception as e:
 		print(f"Error in changelog generation: {e}")
