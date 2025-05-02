@@ -108,6 +108,8 @@ The action accepts the following inputs:
 | `anthropic-model` | Anthropic model to use for generating the changelog | No | `claude-3-7-sonnet-latest` |
 | `prompt-template` | Path to a custom prompt template file | No | `.github/changelog-prompt.txt` |
 | `comment-header` | Header text for the changelog comment | No | `## 📝 Draft Changelog Entry` |
+| `max_tokens` | Maximum number of tokens to generate in the response | No | `1500` |
+| `temperature` | Temperature for the model response (lower is more analytical) | No | `0.2` |
 
 All event-specific parameters are handled automatically by the action.
 

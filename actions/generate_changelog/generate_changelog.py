@@ -16,6 +16,8 @@ def get_env_vars():
 		"comment_header": os.environ.get("COMMENT_HEADER", "## 📝 Draft Changelog Entry"),
 		"repo_full_name": os.environ.get("REPO_FULL_NAME"),
 		"pr_number": os.environ.get("PR_NUMBER"),
+		"max_tokens": int(os.environ.get("MAX_TOKENS", 1500)),
+		"temperature": float(os.environ.get("TEMPERATURE", 0.2)),
 	}
 
 	missing_vars = []
@@ -34,12 +36,10 @@ def get_env_vars():
 def get_pr_data(env_vars):
 	"""Fetch PR data including commits, description, and comments using PyGithub."""
 	try:
-		# Initialize Github client
 		g = Github(env_vars["github_token"])
 		repo = g.get_repo(env_vars["repo_full_name"])
 		pr = repo.get_pull(int(env_vars["pr_number"]))
 
-		# Get all the data we need
 		commits = list(pr.get_commits())
 		comments = list(pr.get_comments())
 		review_comments = list(pr.get_review_comments())
@@ -47,7 +47,6 @@ def get_pr_data(env_vars):
 		issue = repo.get_issue(int(env_vars["pr_number"]))
 		issue_comments = list(issue.get_comments())
 
-		# Check for existing changelog comment
 		existing_changelog_comment = None
 		for comment in issue_comments:
 			if env_vars["comment_header"] in comment.body:
@@ -62,7 +61,6 @@ def get_pr_data(env_vars):
 			"files": files,
 			"existing_changelog_comment": existing_changelog_comment,
 		}
-
 	except Exception as e:
 		print(f"Error fetching PR data: {e}")
 		sys.exit(1)
@@ -144,8 +142,8 @@ def generate_changelog_with_anthropic(pr_data, env_vars):
 	try:
 		response = client.messages.create(
 			model=env_vars["anthropic_model"],
-			max_tokens=1500,
-			temperature=0.2,  # Lower temperature for more factual outputs
+			max_tokens=env_vars["max_tokens"],
+			temperature=env_vars["temperature"],
 			messages=[{"role": "user", "content": prompt}],
 		)
 
@@ -169,33 +167,26 @@ def post_comment(changelog_text, pr_data, env_vars):
 
 
 def main():
-	"""Main function to generate and post changelog."""
 	try:
 		env_vars = get_env_vars()
 		pr_data = get_pr_data(env_vars)
 
-		# Check if there's already a changelog comment
 		existing_comment = pr_data.get("existing_changelog_comment")
-
 		if existing_comment:
 			print("Draft changelog comment already exists. Taking no action.")
 			return
 
-		# Generate the changelog text
 		changelog_text = generate_changelog_with_anthropic(pr_data, env_vars)
-
 		if not changelog_text:
 			print("Failed to generate changelog text")
 			sys.exit(1)
 
-		# Post the comment
 		success = post_comment(changelog_text, pr_data, env_vars)
 		if success:
 			print("Successfully posted changelog comment")
 		else:
 			print("Failed to post changelog comment")
 			sys.exit(1)
-
 	except Exception as e:
 		print(f"Error in changelog generation: {e}")
 		sys.exit(1)
