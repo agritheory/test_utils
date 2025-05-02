@@ -6,58 +6,51 @@ from github import Github
 from anthropic import Anthropic
 
 
-def get_github_token():
-	"""Retrieve the GitHub token from environment variables."""
-	token = os.environ.get("GITHUB_TOKEN")
-	if not token:
-		print("Error: GITHUB_TOKEN environment variable is not set")
+def get_env_vars():
+	"""Get all required environment variables in one function."""
+	env_vars = {
+		"github_token": os.environ.get("GITHUB_TOKEN"),
+		"anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY"),
+		"anthropic_model": os.environ.get("ANTHROPIC_MODEL", "claude-3-7-sonnet-latest"),
+		"prompt_template_path": os.environ.get("PROMPT_TEMPLATE_PATH"),
+		"comment_header": os.environ.get("COMMENT_HEADER", "## 📝 Draft Changelog Entry"),
+		"repo_full_name": os.environ.get("REPO_FULL_NAME"),
+		"pr_number": os.environ.get("PR_NUMBER"),
+	}
+
+	missing_vars = []
+	if not env_vars["github_token"]:
+		missing_vars.append("GITHUB_TOKEN")
+	if not env_vars["anthropic_api_key"]:
+		missing_vars.append("ANTHROPIC_API_KEY")
+
+	if missing_vars:
+		print(f"Error: Missing required environment variables: {', '.join(missing_vars)}")
 		sys.exit(1)
-	return token
+
+	return env_vars
 
 
-def get_anthropic_api_key():
-	"""Retrieve the Anthropic API key from environment variables."""
-	api_key = os.environ.get("ANTHROPIC_API_KEY")
-	if not api_key:
-		print("Error: ANTHROPIC_API_KEY environment variable is not set")
-		sys.exit(1)
-	return api_key
-
-
-def get_model():
-	"""Retrieve the model from environment variables or use default."""
-	return os.environ.get("MODEL", "claude-3-haiku-20240307")
-
-
-def get_pr_data():
+def get_pr_data(env_vars):
 	"""Fetch PR data including commits, description, and comments using PyGithub."""
-	token = get_github_token()
-	repo_full_name = os.environ.get("REPO_FULL_NAME")
-	pr_number = os.environ.get("PR_NUMBER")
-
-	if not repo_full_name or not pr_number:
-		print("Error: Repository name or PR number not provided")
-		sys.exit(1)
-
 	try:
 		# Initialize Github client
-		g = Github(token)
-		repo = g.get_repo(repo_full_name)
-		pr = repo.get_pull(int(pr_number))
+		g = Github(env_vars["github_token"])
+		repo = g.get_repo(env_vars["repo_full_name"])
+		pr = repo.get_pull(int(env_vars["pr_number"]))
 
 		# Get all the data we need
 		commits = list(pr.get_commits())
 		comments = list(pr.get_comments())
 		review_comments = list(pr.get_review_comments())
 		files = list(pr.get_files())
-		issue = repo.get_issue(int(pr_number))
+		issue = repo.get_issue(int(env_vars["pr_number"]))
 		issue_comments = list(issue.get_comments())
 
 		# Check for existing changelog comment
-		comment_header = os.environ.get("COMMENT_HEADER", "## 📝 Draft Changelog Entry")
 		existing_changelog_comment = None
 		for comment in issue_comments:
-			if comment_header in comment.body:
+			if env_vars["comment_header"] in comment.body:
 				existing_changelog_comment = comment
 				break
 
@@ -75,9 +68,8 @@ def get_pr_data():
 		sys.exit(1)
 
 
-def get_custom_prompt_template():
+def get_custom_prompt_template(env_vars):
 	"""Load custom prompt template if provided."""
-	prompt_path = os.environ.get("PROMPT_TEMPLATE_PATH")
 	default_prompt = """
     You are an expert at analyzing Pull Requests and generating changelog entries.
     Analyze the following PR data and generate a comprehensive, user-friendly changelog entry.
@@ -99,8 +91,10 @@ def get_custom_prompt_template():
     """
 
 	try:
-		if prompt_path and os.path.exists(prompt_path):
-			with open(prompt_path) as f:
+		if env_vars["prompt_template_path"] and os.path.exists(
+			env_vars["prompt_template_path"]
+		):
+			with open(env_vars["prompt_template_path"]) as f:
 				return f.read()
 	except Exception as e:
 		print(f"Warning: Could not load custom prompt template: {e}")
@@ -139,19 +133,17 @@ def format_pr_data_for_prompt(pr_data):
 	return json.dumps(formatted_data, indent=2)
 
 
-def generate_changelog_with_anthropic(pr_data):
+def generate_changelog_with_anthropic(pr_data, env_vars):
 	"""Generate a changelog entry using Anthropic's Claude."""
-	api_key = get_anthropic_api_key()
-	model = get_model()
-	client = Anthropic(api_key=api_key)
+	client = Anthropic(api_key=env_vars["anthropic_api_key"])
 
-	prompt_template = get_custom_prompt_template()
+	prompt_template = get_custom_prompt_template(env_vars)
 	formatted_pr_data = format_pr_data_for_prompt(pr_data)
 	prompt = prompt_template.format(pr_data=formatted_pr_data)
 
 	try:
 		response = client.messages.create(
-			model=model,
+			model=env_vars["anthropic_model"],
 			max_tokens=1500,
 			temperature=0.2,  # Lower temperature for more factual outputs
 			messages=[{"role": "user", "content": prompt}],
@@ -163,10 +155,9 @@ def generate_changelog_with_anthropic(pr_data):
 		return None
 
 
-def post_comment(changelog_text, pr_data):
+def post_comment(changelog_text, pr_data, env_vars):
 	"""Post a new comment with the generated changelog."""
-	comment_header = os.environ.get("COMMENT_HEADER", "## 📝 Draft Changelog Entry")
-	comment_body = f"{comment_header}\n\n{changelog_text}\n\n_This changelog entry was automatically generated by the Changelog Generator Action._"
+	comment_body = f"{env_vars['comment_header']}\n\n{changelog_text}\n\n_This changelog entry was automatically generated by the Changelog Generator Action._"
 
 	try:
 		issue = pr_data["issue"]
@@ -180,7 +171,8 @@ def post_comment(changelog_text, pr_data):
 def main():
 	"""Main function to generate and post changelog."""
 	try:
-		pr_data = get_pr_data()
+		env_vars = get_env_vars()
+		pr_data = get_pr_data(env_vars)
 
 		# Check if there's already a changelog comment
 		existing_comment = pr_data.get("existing_changelog_comment")
@@ -190,14 +182,14 @@ def main():
 			return
 
 		# Generate the changelog text
-		changelog_text = generate_changelog_with_anthropic(pr_data)
+		changelog_text = generate_changelog_with_anthropic(pr_data, env_vars)
 
 		if not changelog_text:
 			print("Failed to generate changelog text")
 			sys.exit(1)
 
 		# Post the comment
-		success = post_comment(changelog_text, pr_data)
+		success = post_comment(changelog_text, pr_data, env_vars)
 		if success:
 			print("Successfully posted changelog comment")
 		else:
