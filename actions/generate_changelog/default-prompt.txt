@@ -3,8 +3,8 @@ Analyze the following PR data and generate a comprehensive, user-friendly change
 
 Focus on:
 - Breaking changes (API modifications, dependency updates)
-- New features vs bug fixes vs performance improvements (use conventional commit categories where applicable)
-- Security-relevant changes (highlight these prominently)
+- New features vs bug fixes vs performance improvements, using conventional commits
+- Security-relevant changes
 - Infrastructure/tooling updates
 - User impact ("Users can now...")
 - Required actions by users ("Requires updating...")

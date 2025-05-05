@@ -67,27 +67,8 @@ def get_pr_data(env_vars):
 
 
 def get_custom_prompt_template(env_vars):
-	"""Load custom prompt template if provided."""
-	default_prompt = """
-    You are an expert at analyzing Pull Requests and generating changelog entries.
-    Analyze the following PR data and generate a comprehensive, user-friendly changelog entry.
-
-    Focus on:
-    - Breaking changes (API modifications, dependency updates)
-    - New features vs bug fixes vs performance improvements, using conventional commits
-    - Security-relevant changes
-    - Infrastructure/tooling updates
-    - User impact ("Users can now...")
-    - Required actions by users ("Requires updating...")
-    - Context for why changes were made
-
-    Format your response as markdown with appropriate sections and bullet points.
-    Be concise but informative.
-
-    PR Data:
-    {pr_data}
-    """
-
+	"""Load custom prompt template if provided, otherwise use the default template file."""
+	# Try to load custom prompt from the path provided in env vars
 	try:
 		if env_vars["prompt_template_path"] and os.path.exists(
 			env_vars["prompt_template_path"]
@@ -97,7 +78,17 @@ def get_custom_prompt_template(env_vars):
 	except Exception as e:
 		print(f"Warning: Could not load custom prompt template: {e}")
 
-	return default_prompt
+	default_prompt_path = os.path.join(os.path.dirname(__file__), "default-prompt.txt")
+	try:
+		with open(default_prompt_path) as f:
+			return f.read()
+	except Exception as e:
+		print(f"Error: Could not load default prompt template: {e}")
+		return """Analyze the PR and generate a changelog entry.
+
+		PR Data:
+		{pr_data}
+		"""
 
 
 def format_pr_data_for_prompt(pr_data):
@@ -149,8 +140,75 @@ def generate_changelog_with_anthropic(pr_data, env_vars):
 
 		return response.content[0].text
 	except Exception as e:
-		print(f"Error generating changelog with Anthropic: {e}")
+		# Per Anthropic docs: https://docs.anthropic.com/en/api/errors
+		error_type = None
+		error_msg = str(e).lower()
+
+		# Try to extract error type from the exception
+		if hasattr(e, "type"):
+			error_type = e.type
+		elif "invalid_request_error" in error_msg:
+			error_type = "invalid_request_error"
+		elif "authentication_error" in error_msg:
+			error_type = "authentication_error"
+		elif "permission_error" in error_msg:
+			error_type = "permission_error"
+		elif "not_found_error" in error_msg:
+			error_type = "not_found_error"
+		elif "rate_limit_error" in error_msg:
+			error_type = "rate_limit_error"
+		elif "api_error" in error_msg:
+			error_type = "api_error"
+
+		# Handle specific error types
+		if error_type == "invalid_request_error" and "credit balance is too low" in error_msg:
+			# Insufficient credits case
+			print("ERROR: Anthropic API account has insufficient credits.")
+			comment = (
+				"## ⚠️ Changelog Generation Error\n\n"
+				"The changelog could not be generated because the Anthropic API account has insufficient credits.\n\n"
+				"Please check your Anthropic account billing status and ensure you have available credits."
+			)
+			post_error_comment(comment, pr_data, env_vars)
+		elif error_type == "rate_limit_error":
+			# Rate limit exceeded
+			print("ERROR: Anthropic API rate limit exceeded.")
+			comment = (
+				"## ⚠️ Changelog Generation Error\n\n"
+				"The changelog could not be generated because the Anthropic API rate limit was exceeded.\n\n"
+				"Please try again later. See https://docs.anthropic.com/en/api/rate-limits for more information."
+			)
+			post_error_comment(comment, pr_data, env_vars)
+		elif error_type == "authentication_error":
+			# Invalid API key
+			print("ERROR: Invalid Anthropic API key.")
+			comment = (
+				"## ⚠️ Changelog Generation Error\n\n"
+				"The changelog could not be generated because the Anthropic API key is invalid or has expired.\n\n"
+				"Please check your API key configuration."
+			)
+			post_error_comment(comment, pr_data, env_vars)
+		else:
+			# Generic error case
+			print(f"Error generating changelog with Anthropic: {e}")
+			comment = (
+				"## ⚠️ Changelog Generation Error\n\n"
+				"The changelog could not be generated due to an error with the Anthropic API.\n\n"
+				f"Error details: {str(e)}"
+			)
+			post_error_comment(comment, pr_data, env_vars)
 		return None
+
+
+def post_error_comment(error_message, pr_data, env_vars):
+	"""Post an error comment explaining why changelog generation failed."""
+	try:
+		issue = pr_data["issue"]
+		issue.create_comment(error_message)
+		return True
+	except Exception as e:
+		print(f"Error posting error comment: {e}")
+		return False
 
 
 def post_comment(changelog_text, pr_data, env_vars):
