@@ -4,12 +4,13 @@ This GitHub Action automatically generates a changelog entry as a PR comment by 
 
 ## Features
 
-- Automatically generates detailed changelog entries when a PR is opened
+- Automatically generates detailed changelog entries when a PR is opened or updated
 - Analyzes PR details including commits, files changed, and PR description
 - Identifies breaking changes, new features, bug fixes, and more
 - Adds context on user impact and required actions
 - Creates changelog as a PR comment that can be edited if needed
-- Regenerates changelog if the comment is deleted
+- Only generates one changelog per PR (no duplicate comments on updates)
+- Provides clear error messages when API issues occur
 - Reuses changelog content for GitHub releases
 
 ## Requirements
@@ -120,9 +121,10 @@ All event-specific parameters are handled automatically by the action.
    - When new commits are pushed to the PR
 2. When triggered, the action:
    - Checks if a changelog comment already exists
-   - If not, analyzes PR title, description, commits, and files
+   - If one exists, takes no action (preserving any manual edits)
+   - If none exists, analyzes PR title, description, commits, and files
    - Generates a comprehensive changelog with Claude AI
    - Posts the changelog as a PR comment
 3. The comment can be edited manually if needed
-4. When new commits are added to the PR, the action checks for an existing comment before generating a new one
+4. If API errors occur (like insufficient credits), the action posts a clear error comment
 5. When the PR is merged, the release workflow (if configured) finds the changelog comment and uses its content for the release notes
