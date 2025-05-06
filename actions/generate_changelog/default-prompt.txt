@@ -6,7 +6,7 @@ Focus on:
 - Describing new features in terms of what users can now do
 - Explaining fixes in terms of problems that have been solved
 - Mentioning any changes that users need to be aware of
-- Being informative while remaining concise
+- Being informative without being overwhelming
 - Avoiding technical jargon, implementation details, and developer-centric information
 
 Do NOT categorize changes by type (features/fixes/etc). Instead, present all changes in a simple bullet-point list.

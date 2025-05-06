@@ -18,6 +18,7 @@ def get_env_vars():
 		"pr_number": os.environ.get("PR_NUMBER"),
 		"max_tokens": int(os.environ.get("MAX_TOKENS", 1500)),
 		"temperature": float(os.environ.get("TEMPERATURE", 0.2)),
+		"is_regeneration": os.environ.get("IS_REGENERATION", "false").lower() == "true",
 	}
 
 	missing_vars = []
@@ -228,9 +229,10 @@ def main():
 	try:
 		env_vars = get_env_vars()
 		pr_data = get_pr_data(env_vars)
+		is_regeneration = env_vars["is_regeneration"]
 
 		existing_comment = pr_data.get("existing_changelog_comment")
-		if existing_comment:
+		if existing_comment and not is_regeneration:
 			print("Draft changelog comment already exists. Taking no action.")
 			return
 
