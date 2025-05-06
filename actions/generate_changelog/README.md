@@ -9,9 +9,10 @@ This GitHub Action automatically generates a changelog entry as a PR comment by 
 - Identifies breaking changes, new features, bug fixes, and more
 - Adds context on user impact and required actions
 - Creates changelog as a PR comment that can be edited if needed
-- Only generates one changelog per PR (no duplicate comments on updates)
+- Only auto-generates one changelog per PR (no duplicate comments on updates)
 - Provides clear error messages when API issues occur
 - Reuses changelog content for GitHub releases
+- Allows generating changelogs on demand with a simple comment command
 
 ## Requirements
 
@@ -59,31 +60,7 @@ jobs:
 
 That's it! The action automatically handles different event types and determines when to run.
 
-### 3. (Optional) Create a Custom Prompt Template
-
-Create a file `.github/changelog-prompt.txt` to customize the prompt sent to the AI model:
-
-```
-You are an expert at analyzing Pull Requests and generating changelog entries.
-Analyze the following PR data and generate a comprehensive, user-friendly changelog entry.
-
-Focus on:
-- Breaking changes (API modifications, dependency updates)
-- New features vs bug fixes vs performance improvements
-- Security-relevant changes
-- Infrastructure/tooling updates
-- User impact ("Users can now...")
-- Required actions by users ("Requires updating...")
-- Context for why changes were made
-
-Format your response as markdown with appropriate sections and bullet points.
-Be concise but informative.
-
-PR Data:
-{pr_data}
-```
-
-### 4. Set Up Release Integration (Optional)
+### 3. Set Up Release Integration (Optional)
 
 For integrating with release workflows, see the [Release Integration Guide](./docs/release-integration.md).
 
@@ -97,7 +74,9 @@ This covers:
 Once installed and configured:
 
 1. When a PR is opened, the action will automatically generate a changelog entry as a comment.
-2. If the PR is updated, you can delete the comment to regenerate it with updated content.
+2. To regenerate the changelog at any time, add a comment to the PR with exactly: `/regenerate-changelog`
+   - This will delete the existing changelog comment and generate a new one based on the current PR state
+   - Use this when you've made changes to the PR and want to update the changelog
 3. When the PR is merged, the release workflow (if configured) will use the changelog content for the release notes.
 
 ## Configuration Options
@@ -121,9 +100,11 @@ All event-specific parameters are handled automatically by the action.
 1. The action automatically detects relevant events:
    - When a PR is opened or reopened
    - When new commits are pushed to the PR
+   - When someone comments /regenerate-changelog on a PR
 2. When triggered, the action:
    - Checks if a changelog comment already exists
-   - If one exists, takes no action (preserving any manual edits)
+   - If one exists and the trigger is not a regeneration command, takes no action (preserving any manual edits)
+   - If one exists and the trigger is a regeneration command, deletes the existing comment and generates a new one
    - If none exists, analyzes PR title, description, commits, and files
    - Generates a comprehensive changelog with Claude AI
    - Posts the changelog as a PR comment
