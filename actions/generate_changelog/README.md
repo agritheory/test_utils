@@ -35,6 +35,8 @@ name: Generate Changelog
 on:
   pull_request:
     types: [opened, reopened, synchronize]
+  issue_comment:
+    types: [created]
 
 jobs:
   generate-changelog:
