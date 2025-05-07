@@ -21,5 +21,6 @@ Use the pull request's commits, linked issues, description and related comments 
 Ensure the following formatting in the changelog:
 - Format your response as Github-flavoured markdown.
 - Explain the user impact ("Users can now...")
-- Do NOT categorize changes by type (features/fixes/etc). Instead, present all changes in a simple bullet-point list.
+- Do NOT categorize changes by type (features/fixes/etc).
+- Present all changes as analytical, thoughtful, journalistic prose without bulleted lists, subheadings or emojis.
 </formatting>
