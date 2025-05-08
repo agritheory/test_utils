@@ -13,14 +13,17 @@ Use the pull request's commits, linked issues, description and related comments 
 - Explaining fixes in terms of problems that have been solved
 - Mentioning any changes that users need to be aware of
 - Document any actions that may be required by the users
-- Being informative without being overwhelming
+- Being concise and factual
 - Avoiding technical jargon, implementation details, and developer-centric information
 </instructions>
 
 <formatting>
-Ensure the following formatting in the changelog:
+Ensure the following considerations for generating the changelog:
 - Format your response as Github-flavoured markdown.
-- Explain the user impact ("Users can now...")
 - Do NOT categorize changes by type (features/fixes/etc).
-- Present all changes as analytical, thoughtful, journalistic prose without bulleted lists, subheadings or emojis.
+- Present information factually ("This update adds...", "Fixed an issue where...")
+- Use straightforward, objective language without marketing or promotional tone
+- Avoid subjective qualifiers like "improved", "enhanced", "better" unless quantifiable
+- Present changes as analytical, thoughtful, journalistic prose without bulleted lists, subheadings or emojis.
+- Avoid phrases that use second-person language like "you will now be able to..."
 </formatting>
