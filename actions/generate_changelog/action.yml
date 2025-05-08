@@ -1,0 +1,86 @@
+name: 'Changelog Generator'
+description: 'Analyzes PR changes and generates a draft changelog entry as a comment'
+author: 'agritheory'
+
+inputs:
+  github-token:
+    description: 'GitHub token with permissions to read PRs and create comments'
+    required: true
+  anthropic-api-key:
+    description: 'API key for Anthropic'
+    required: true
+  anthropic-model:
+    description: 'Anthropic model to use for generating the changelog'
+    required: false
+    default: 'claude-3-7-sonnet-latest'
+  prompt-template:
+    description: 'Path to a custom prompt template file for the LLM'
+    required: false
+    default: '.github/changelog-prompt.txt'
+  comment-header:
+    description: 'Header text for the comment that will contain the changelog'
+    required: false
+    default: '## 📝 Draft Changelog Entry'
+  max_tokens:
+    description: 'Maximum number of tokens to generate in the response'
+    required: false
+    default: '1500'
+  temperature:
+    description: 'Temperature for the model response (lower is more deterministic)'
+    required: false
+    default: '0.2'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Determine if action should run - on PR open/reopen or synchronize (new commits) or comment with regenerate command
+    - name: Determine if action should run
+      id: should-run
+      shell: bash
+      run: |
+        if [[ "${{ github.event_name }}" == "pull_request" && ("${{ github.event.action }}" == "opened" || "${{ github.event.action }}" == "reopened" || "${{ github.event.action }}" == "synchronize") ]]; then
+          echo "should_run=true" >> $GITHUB_OUTPUT
+          echo "is_regeneration=false" >> $GITHUB_OUTPUT
+          echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.event_name }}" == "issue_comment" && "${{ github.event.action }}" == "created" && "${{ github.event.comment.body }}" == "/regenerate-changelog" && "${{ github.event.issue.pull_request }}" != "" ]]; then
+          echo "should_run=true" >> $GITHUB_OUTPUT
+          echo "is_regeneration=true" >> $GITHUB_OUTPUT
+          echo "pr_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+        else
+          echo "should_run=false" >> $GITHUB_OUTPUT
+          echo "is_regeneration=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Set up Python
+      if: ${{ steps.should-run.outputs.should_run == 'true' }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      if: ${{ steps.should-run.outputs.should_run == 'true' }}
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install anthropic requests PyGithub
+
+    - name: Generate changelog
+      if: ${{ steps.should-run.outputs.should_run == 'true' }}
+      shell: bash
+      run: python ${{ github.action_path }}/generate_changelog.py
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        ANTHROPIC_MODEL: ${{ inputs.anthropic-model }}
+        PROMPT_TEMPLATE_PATH: ${{ inputs.prompt-template }}
+        COMMENT_HEADER: ${{ inputs.comment-header }}
+        PR_NUMBER: ${{ steps.should-run.outputs.pr_number }}
+        REPO_FULL_NAME: ${{ github.repository }}
+        MAX_TOKENS: ${{ inputs.max_tokens }}
+        TEMPERATURE: ${{ inputs.temperature }}
+        IS_REGENERATION: ${{ steps.should-run.outputs.is_regeneration }}
