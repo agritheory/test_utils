@@ -1,3 +1,11 @@
+import argparse
+import datetime
+import os
+import sys
+import tempfile
+from collections.abc import Sequence
+
+
 def validate_copyright(app, files):
 	year = datetime.datetime.now().year
 	app_publisher = ""
@@ -38,3 +46,35 @@ def validate_copyright(app, files):
 
 		elif file.endswith(".sql"):
 			validate_and_write_file(file, initial_sql_string, copyright_sql_string)
+
+
+def validate_and_write_file(file, initial_string, copyright_string):
+	# using tempfile to avoid issues while reading large files
+	temp_file_path = tempfile.mktemp()
+	with open(file) as original_file, open(temp_file_path, "w") as temp_file:
+		first_line = original_file.readline()
+		if not first_line.startswith(initial_string):
+			temp_file.write(copyright_string)
+			temp_file.write(first_line)
+			temp_file.writelines(original_file)
+
+			# Replace the original file with the temp file
+			os.replace(temp_file_path, file)
+
+
+def main(argv: Sequence[str] = None):
+	parser = argparse.ArgumentParser()
+	parser.add_argument("filenames", nargs="*")
+	parser.add_argument("--app", action="append", help="An argument for the hook")
+	args = parser.parse_args(argv)
+
+	app = args.app[0]
+	files = args.filenames
+	if files:
+		validate_copyright(app, files)
+
+	sys.exit(0)
+
+
+if __name__ == "__main__":
+	main()
