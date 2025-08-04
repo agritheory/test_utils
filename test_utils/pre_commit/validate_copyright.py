@@ -22,7 +22,9 @@ def validate_copyright(app, files):
 		# Dictionary input: extract app_publisher directly
 		app_publisher = app.get("app_publisher", "")
 	else:
-		raise ValueError("app must be either a string (app path) or dictionary with 'app_publisher' key")
+		raise ValueError(
+			"app must be either a string (app path) or dictionary with 'app_publisher' key"
+		)
 
 	initial_js_string = "// Copyright (c) "
 	initial_py_string = "# Copyright (c) "
