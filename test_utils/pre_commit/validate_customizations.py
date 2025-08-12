@@ -235,6 +235,38 @@ def validate_customizations_on_own_doctypes(customized_doctypes):
 	return exceptions
 
 
+def validate_email_literals(customized_doctypes):
+	this_app = pathlib.Path().resolve().stem
+	for doctype, customize_files in customized_doctypes.items():
+		for customize_file in customize_files:
+			file_contents = json.loads(customize_file.read_text())
+			modified = False
+
+			if file_contents.get("custom_fields"):
+				for cf in file_contents.get("custom_fields"):
+					if cf.get("owner") and "@" in cf.get("owner"):
+						cf["owner"] = "Administrator"
+						modified = True
+
+					if cf.get("modified_by") and "@" in cf.get("modified_by"):
+						cf["modified_by"] = "Administrator"
+						modified = True
+
+			if file_contents.get("property_setters"):
+				for ps in file_contents.get("property_setters"):
+					if ps.get("owner") and "@" in ps.get("owner"):
+						ps["owner"] = "Administrator"
+						modified = True
+
+					if ps.get("modified_by") and "@" in ps.get("modified_by"):
+						ps["modified_by"] = "Administrator"
+						modified = True
+
+			if modified:
+				customize_file.write_text(json.dumps(file_contents, indent="\t"))
+				print(f"Updated owner/modified_by fields in {customize_file} to 'Administrator'")
+
+
 def validate_customizations():
 	customized_doctypes = get_customized_doctypes()
 	exceptions = validate_no_custom_perms(customized_doctypes)
@@ -242,6 +274,7 @@ def validate_customizations():
 	exceptions += validate_system_generated(customized_doctypes)
 	exceptions += validate_customizations_on_own_doctypes(customized_doctypes)
 	exceptions += validate_duplicate_customizations(customized_doctypes)
+	validate_email_literals(customized_doctypes)
 	return exceptions
 
 
