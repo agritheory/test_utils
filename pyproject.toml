@@ -20,10 +20,6 @@ validate_python_dependencies = "test_utils.pre_commit.validate_python_dependenci
 validate_customizations = "test_utils.pre_commit.validate_customizations:main"
 add_translations = "test_utils.pre_commit.add_translations:main"
 
-[tool.poetry.dependencies]
-python = ">=3.10,<3.13"
-toml = "^0.10.2"
-
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
