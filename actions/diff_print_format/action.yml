@@ -1,0 +1,89 @@
+name: Diff Print Formats
+description: Diff Print Formats.
+author: Francisco Roldan
+
+inputs:
+  github-token:
+    description: "GitHub Token"
+    required: true
+    default: ${{ github.token }}
+
+branding:
+  icon: alert-circle
+  color: blue
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout the code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq diffutils
+
+    - name: Checkout test_utils repository
+      uses: actions/checkout@v4
+      with:
+        repository: agritheory/test_utils
+        ref: main
+        path: test_utils
+
+    - name: Generate diff for print formats
+      shell: bash
+      id: generate-diff
+      run: |
+        # Compare the current PR's code with the base branch
+        git fetch origin ${{ github.event.pull_request.base.ref }}
+        git diff origin/${{ github.event.pull_request.base.ref }}...HEAD --name-only | grep 'print_format/.*\.json' > changed_files.txt || true
+
+        # Check if there are changes
+        if [ -s changed_files.txt ]; then
+          echo "Found changes in print format files:"
+          cat changed_files.txt
+
+          # Prepare formatted output
+          echo "### Print Format Changes Diff" > print_format_diff.txt
+
+          # Generate diffs for the 'html' key in each JSON file
+          while IFS= read -r file; do
+            echo "Processing $file"
+
+            # Extract old and new 'html' values using jq
+            old_html=$(git show origin/${{ github.event.pull_request.base.ref }}:$file | jq -r '.html' || echo "")
+            new_html=$(cat $file | jq -r '.html' || echo "")
+
+            # Output the diff
+            diff_output=$(diff -u <(echo "$old_html") <(echo "$new_html") || true)
+
+            if [ -n "$diff_output" ]; then
+              echo "**Diff for $file:**" >> print_format_diff.txt
+              echo '```diff' >> print_format_diff.txt
+              echo "$diff_output" >> print_format_diff.txt
+              echo '```' >> print_format_diff.txt
+            fi
+          done < changed_files.txt
+          echo "::set-output name=has_changes::true"
+        else
+          echo "::set-output name=has_changes::false"
+        fi
+
+    - name: Comment diff on PR
+      shell: bash
+      if: steps.generate-diff.outputs.has_changes == 'true'
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        COMMENT_BODY=$(<print_format_diff.txt)
+        ESCAPED_COMMENT=$(echo "$COMMENT_BODY" | jq -R -s '.')
+
+        PR_NUMBER=${{ github.event.pull_request.number }}
+
+        curl -s -X POST \
+          -H "Authorization: token ${{ inputs.github-token}}" \
+          -d '{"body": '"$ESCAPED_COMMENT"'}' \
+          "{{ GITHUB_API_URL }}/repos/${{ github.repository }}/issues/$PR_NUMBER/comments"

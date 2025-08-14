@@ -2,7 +2,7 @@ import argparse
 import json
 import pathlib
 import sys
-from typing import Sequence
+from collections.abc import Sequence
 
 
 def get_package_json(app):
@@ -38,10 +38,7 @@ def get_mismatched_versions():
 				if app == app2:
 					continue
 
-				if (
-					package in app2_packages
-					and app2_packages[package] != package_version
-				):
+				if package in app2_packages and app2_packages[package] != package_version:
 					# Check if exception already exists
 					existing_exception = next(
 						(exception for exception in exceptions if package in exception),
@@ -67,4 +64,5 @@ def main(argv: Sequence[str] = None):
 				print(f"\nVersion mismatch for {package} in:")
 				for app, version in apps.items():
 					print(f"{app}: {version}")
-		sys.exit(1)
+
+	sys.exit(1) if exceptions else sys.exit(0)

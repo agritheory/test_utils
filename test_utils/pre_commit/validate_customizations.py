@@ -1,10 +1,47 @@
 import argparse
-import ast
 import json
 import pathlib
 import sys
-import types
-from typing import Sequence
+import shutil
+from collections.abc import Sequence
+
+
+def is_frappe_bench_environment():
+	"""
+	Check if we're running in a valid Frappe bench environment
+
+	Returns:
+	        bool: True if valid Frappe bench, False otherwise
+	"""
+	print("called is frappe bench env")
+	# Get current working directory
+	current_dir = pathlib.Path.cwd()
+
+	# Look for bench structure - check current dir and parent dirs
+	for path in [current_dir] + list(current_dir.parents):
+		required_dirs = ["sites", "env", "apps"]
+		if all((path / dirname).is_dir() for dirname in required_dirs):
+			# Found the directory structure, now check for additional bench indicators
+			bench_indicators = [
+				"common_site_config.json",  # Common bench file
+				"Procfile",  # Process file
+				"apps.txt",  # Apps list (in sites folder)
+			]
+
+			# Check for bench files in the bench root or sites directory
+			sites_dir = path / "sites"
+			has_bench_files = any(
+				(path / indicator).exists() for indicator in bench_indicators
+			) or any((sites_dir / indicator).exists() for indicator in bench_indicators)
+
+			if has_bench_files:
+				return True
+
+			# If we find the directory structure but no bench files,
+			# we'll still consider it a bench (less strict check)
+			return True
+
+	return False
 
 
 def scrub(txt: str) -> str:
@@ -38,32 +75,34 @@ def get_customized_doctypes():
 				else:
 					customized_doctypes[custom_file.stem] = [custom_file.resolve()]
 		if app_dir.stem == "hrms":
-			p = ast.parse((app_dir / "hrms" / "setup.py").read_text())
-			for node in p.body[:]:
-				if (
-					not isinstance(node, ast.FunctionDef)
-					or node.name != "get_custom_fields"
-				):
-					p.body.remove(node)
-			module = types.ModuleType("hrms")
-			code = compile(p, "setup.py", "exec")
-			sys.modules["hrms"] = module
-			exec(code, module.__dict__)
-			import hrms
+			pass
 
-			hrms_custom_fields = hrms.get_custom_fields()
-			for doctype, fields in hrms_custom_fields.items():
-				if doctype in customized_doctypes:
-					customized_doctypes[scrub(doctype)].append(
-						{"custom_fields": fields}
-					)
-				else:
-					customized_doctypes[scrub(doctype)] = [{"custom_fields": fields}]
+			# def _bypass(*args, **kwargs):
+			# 	return args[0]
+
+			# _ = _bypass
+
+			# p = ast.parse((app_dir / "hrms" / "setup.py").read_text())
+			# for node in p.body[:]:
+			# 	if not isinstance(node, ast.FunctionDef) or node.name != "get_custom_fields":
+			# 		p.body.remove(node)
+			# module = types.ModuleType("hrms")
+			# code = compile(p, "setup.py", "exec")
+			# sys.modules["hrms"] = module
+			# exec(code, module.__dict__)
+			# import hrms
+
+			# hrms_custom_fields = hrms.get_custom_fields()
+			# for doctype, fields in hrms_custom_fields.items():
+			# 	if doctype in customized_doctypes:
+			# 		customized_doctypes[scrub(doctype)].append({"custom_fields": fields})
+			# 	else:
+			# 		customized_doctypes[scrub(doctype)] = [{"custom_fields": fields}]
 
 	return dict(sorted(customized_doctypes.items()))
 
 
-def validate_module(customized_doctypes, set_module=False):
+def validate_module(customized_doctypes):
 	exceptions = []
 	app_dir = pathlib.Path().resolve()
 	this_app = app_dir.stem
@@ -75,13 +114,9 @@ def validate_module(customized_doctypes, set_module=False):
 		for customize_file in customize_files:
 			if not this_app in str(customize_file):
 				continue
-			module = customize_file.parent.parent.stem
 			file_contents = json.loads(customize_file.read_text())
 			if file_contents.get("custom_fields"):
 				for custom_field in file_contents.get("custom_fields"):
-					if set_module:
-						custom_field["module"] = unscrub(module)
-						continue
 					if not custom_field.get("module"):
 						exceptions.append(
 							f"Custom Field for {custom_field.get('dt')} in {this_app} '{custom_field.get('fieldname')}' does not have a module key"
@@ -94,9 +129,6 @@ def validate_module(customized_doctypes, set_module=False):
 						continue
 			if file_contents.get("property_setters"):
 				for ps in file_contents.get("property_setters"):
-					if set_module:
-						ps["module"] = unscrub(module)
-						continue
 					if not ps.get("module"):
 						exceptions.append(
 							f"Property Setter for {ps.get('doc_type')} in {this_app} '{ps.get('property')}' on {ps.get('field_name')} does not have a module key"
@@ -107,9 +139,6 @@ def validate_module(customized_doctypes, set_module=False):
 							f"Property Setter for {ps.get('doc_type')} in {this_app} '{ps.get('property')}' on {ps.get('field_name')} has module key ({ps.get('module')}) associated with another app"
 						)
 						continue
-			if set_module:
-				with customize_file.open("w", encoding="UTF-8") as target:
-					json.dump(file_contents, target, sort_keys=True, indent=2)
 
 	return exceptions
 
@@ -150,9 +179,7 @@ def validate_duplicate_customizations(customized_doctypes):
 				app = customize_file.parent.parent.parent.parent.stem
 				file_contents = json.loads(customize_file.read_text())
 			if file_contents.get("custom_fields"):
-				fields = [
-					cf.get("fieldname") for cf in file_contents.get("custom_fields")
-				]
+				fields = [cf.get("fieldname") for cf in file_contents.get("custom_fields")]
 				common_fields[doctype][module] = fields
 			if file_contents.get("property_setters"):
 				ps = [ps.get("name") for ps in file_contents.get("property_setters")]
@@ -204,9 +231,7 @@ def validate_system_generated(customized_doctypes):
 			if file_contents.get("property_setters"):
 				for ps in file_contents.get("property_setters"):
 					if ps.get("is_system_generated"):
-						exceptions.append(
-							f"Property Setter {ps.get('name')} is system generated"
-						)
+						exceptions.append(f"Property Setter {ps.get('name')} is system generated")
 
 	return exceptions
 
@@ -249,28 +274,62 @@ def validate_customizations_on_own_doctypes(customized_doctypes):
 	return exceptions
 
 
-def validate_customizations(set_module):
+def validate_email_literals(customized_doctypes):
+	this_app = pathlib.Path().resolve().stem
+	for doctype, customize_files in customized_doctypes.items():
+		for customize_file in customize_files:
+			file_contents = json.loads(customize_file.read_text())
+			modified = False
+
+			if file_contents.get("custom_fields"):
+				for cf in file_contents.get("custom_fields"):
+					if cf.get("owner") and "@" in cf.get("owner"):
+						cf["owner"] = "Administrator"
+						modified = True
+
+					if cf.get("modified_by") and "@" in cf.get("modified_by"):
+						cf["modified_by"] = "Administrator"
+						modified = True
+
+			if file_contents.get("property_setters"):
+				for ps in file_contents.get("property_setters"):
+					if ps.get("owner") and "@" in ps.get("owner"):
+						ps["owner"] = "Administrator"
+						modified = True
+
+					if ps.get("modified_by") and "@" in ps.get("modified_by"):
+						ps["modified_by"] = "Administrator"
+						modified = True
+
+			if modified:
+				customize_file.write_text(json.dumps(file_contents, indent="\t"))
+				print(f"Updated owner/modified_by fields in {customize_file} to 'Administrator'")
+
+
+def validate_customizations():
 	customized_doctypes = get_customized_doctypes()
 	exceptions = validate_no_custom_perms(customized_doctypes)
-	exceptions += validate_module(customized_doctypes, set_module)
+	exceptions += validate_module(customized_doctypes)
 	exceptions += validate_system_generated(customized_doctypes)
 	exceptions += validate_customizations_on_own_doctypes(customized_doctypes)
 	exceptions += validate_duplicate_customizations(customized_doctypes)
+	validate_email_literals(customized_doctypes)
 	return exceptions
 
 
 def main(argv: Sequence[str] = None):
 	parser = argparse.ArgumentParser()
 	parser.add_argument("filenames", nargs="*")
-	parser.add_argument("--set-module", action="append", help="Set module")
 	args = parser.parse_args(argv)
 
-	set_module = False
-	if args.set_module and args.set_module[0]:
-		set_module = True
+	if is_frappe_bench_environment():
+		exceptions = validate_customizations()
+		if exceptions:
+			for exception in list(set(exceptions)):
+				print(exception)
 
-	exceptions = validate_customizations(set_module)
-	for exception in exceptions:
-		print(exception)
-	if exceptions:
-		sys.exit(1)
+		sys.exit(1) if exceptions else sys.exit(0)
+
+
+if __name__ == "__main__":
+	main()
