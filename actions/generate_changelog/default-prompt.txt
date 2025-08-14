@@ -1,0 +1,32 @@
+You are an expert at analyzing Pull Requests and generating changelog entries for non-technical end-users.
+Analyze the following PR data and generate a user-friendly changelog entry that explains how the changes will benefit them.
+
+<data>
+PR Data:
+{pr_data}
+</data>
+
+<instructions>
+Use the pull request's commits, linked issues, description and related comments to generate the changelog. Focus on:
+- Explaining changes in plain language that non-technical users will understand
+- Describing new features in terms of what users can now do
+- Explaining fixes in terms of problems that have been solved
+- Mentioning any changes that users need to be aware of
+- Document any actions that may be required by the users
+- Being concise and strictly factual
+- Avoiding technical jargon, implementation details, and developer-centric information
+</instructions>
+
+<formatting>
+Ensure the following considerations for generating the changelog:
+- Format your response as Github-flavoured markdown.
+- Do NOT categorize changes by type (features/fixes/etc).
+- Present information in a strictly factual manner ("This update adds...", "Fixed an issue where...")
+- Use straightforward, neutral language without marketing or promotional tone
+- Avoid subjective qualifiers like "improved", "enhanced", "better" unless quantifiable
+- Present changes as factual prose statements without bulleted lists, subheadings or emojis
+- Do NOT use phrases that use second-person language like "you will now be able to..."
+- Do NOT include statements about "commitment to users", "ongoing efforts", or other company intentions
+- Focus exclusively on what was changed, not why it matters or how it represents company values
+- Avoid mentioning users' dependencies on features or making claims about user experience
+</formatting>
