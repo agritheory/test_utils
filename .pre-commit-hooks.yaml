@@ -50,6 +50,20 @@
   exclude: ^tests/
   args: ["--install-types", "--non-interactive", "--ignore-missing-imports"]
 
+- id: track_overrides
+  name: track_overrides
+  description: "Track overrides"
+  entry: track_overrides
+  language: python
+  require_serial: true
+
+- id: add_translations
+  name: add_translations
+  description: "Get untranslated strings in app and translate them to the language specified"
+  entry: add_translations
+  language: python
+  require_serial: true
+
 - id: sql_docstring_formatter
   name: sql_docstring_formatter
   description: "Format SQL statements in Python docstrings"
@@ -58,4 +72,3 @@
   types: [python]
   additional_dependencies: ['sqlglot>=16.3.0']
   args: ['--dialect', 'mysql']
-  require_serial: true
