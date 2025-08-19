@@ -5,6 +5,7 @@ import os
 import pathlib
 import sys
 import tempfile
+import shutil
 from collections.abc import Sequence
 
 from test_utils.pre_commit.validate_customizations import scrub
@@ -56,7 +57,8 @@ def validate_and_clean_customized_doctypes(customized_doctypes):
 
 				if file_contents != original_content:
 					temp_file.write(json.dumps(file_contents, indent="\t", sort_keys=True))
-					os.replace(temp_file_path, customize_file)
+					shutil.move(temp_file_path, customize_file)
+
 					modified_files.append(customize_file)
 				else:
 					os.remove(temp_file_path)
