@@ -70,5 +70,23 @@
   entry: sql_docstring_formatter
   language: python
   types: [python]
-  additional_dependencies: ['sqlglot>=16.3.0']
+  additional_dependencies: ['sqlglot>=25.0.0']
   args: ['--dialect', 'mysql']
+
+- id: sql_registry
+  name: SQL Registry
+  entry: sql_registry
+  language: python
+  files: '\.py'
+  require_serial: true
+  additional_dependencies: ['sqlglot>=25.0.0']
+
+- id: sql_rewriter
+  name: SQL Rewriter CLI
+  description: "Interactive tool for converting SQL calls to Query Builder"
+  entry: sql_rewriter
+  language: python
+  pass_filenames: false
+  always_run: true
+  require_serial: true
+  additional_dependencies: ['sqlglot>=25.0.0']
