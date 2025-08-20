@@ -7,8 +7,7 @@ import tempfile
 from collections.abc import Sequence
 
 import frappe
-from frappe.core.doctype.customize_form.customize_form import strip_default_fields
-
+from frappe.utils.export_file import strip_default_fields
 
 def get_customized_doctypes_to_clean(app: str):
 	customized_doctypes = {}
