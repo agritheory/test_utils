@@ -9,6 +9,7 @@ from collections.abc import Sequence
 import frappe
 from frappe.utils.export_file import strip_default_fields
 
+
 def get_customized_doctypes_to_clean(app: str):
 	customized_doctypes = {}
 
