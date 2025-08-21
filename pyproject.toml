@@ -18,7 +18,7 @@ validate_customizations = "test_utils.pre_commit.validate_customizations:main"
 validate_javascript_dependencies = "test_utils.pre_commit.validate_javascript_dependencies:main"
 validate_python_dependencies = "test_utils.pre_commit.validate_python_dependencies:main"
 add_translations = "test_utils.pre_commit.add_translations:main"
-sql_registry = "test_utils.pre_commit.sql_registry:main"
+sql_registry = "test_utils.utils.sql_registry:main"
 sql_rewriter = "test_utils.pre_commit.sql_registry:main" 
 
 [build-system]

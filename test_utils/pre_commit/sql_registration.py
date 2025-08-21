@@ -2,12 +2,8 @@ import argparse
 import sys
 from pathlib import Path
 from collections.abc import Sequence
-
-try:
-	from test_utils.utils.sql_registry import SQLRegistry
-except ImportError:
-	sys.path.append(str(Path(__file__).parent.parent / "utils"))
-	from sql_registry import SQLRegistry
+from test_utils.pre_commit.sql_rewriter_functions import SQLRewriter
+from test_utils.utils.sql_registry import SQLRegistry
 
 
 def main(argv: Sequence[str] = None):
@@ -54,9 +50,6 @@ def main(argv: Sequence[str] = None):
 	)
 	rewrite_parser.add_argument(
 		"--apply", action="store_true", help="Apply changes to file"
-	)
-	rewrite_parser.add_argument(
-		"--no-backup", action="store_true", help="Skip backup creation"
 	)
 
 	# Report command
@@ -212,18 +205,10 @@ def main(argv: Sequence[str] = None):
 		return 0
 
 	elif args.command == "rewrite":
-		try:
-			from sql_rewriter_functions import SQLRewriter
-		except ImportError:
-			# Try alternative import path
-			sys.path.append(str(Path(__file__).parent))
-			from sql_rewriter_functions import SQLRewriter
-
 		rewriter = SQLRewriter(args.registry)
 		dry_run = not getattr(args, "apply", False)
-		backup = not getattr(args, "no_backup", False)
 
-		success = rewriter.rewrite_sql(args.call_id, dry_run, backup)
+		success = rewriter.rewrite_sql(args.call_id, dry_run)
 		return 0 if success else 1
 
 	elif args.command == "report":
