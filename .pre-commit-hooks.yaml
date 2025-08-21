@@ -75,16 +75,18 @@
 
 - id: sql_registry
   name: SQL Registry
-  entry: sql_registry
+  description: "Register SQL operations for tracking and potential rewriting"
+  entry: sql_registration
   language: python
-  files: '\.py'
+  files: '\.py$'
   require_serial: true
   additional_dependencies: ['sqlglot>=25.0.0']
+  args: ['scan']
 
 - id: sql_rewriter
   name: SQL Rewriter CLI
   description: "Interactive tool for converting SQL calls to Query Builder"
-  entry: sql_rewriter
+  entry: sql_registration
   language: python
   pass_filenames: false
   always_run: true

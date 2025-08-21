@@ -11,159 +11,233 @@ except ImportError:
 
 
 def main(argv: Sequence[str] = None):
-	"""Pre-commit hook entry point for SQL registry tracking"""
-	script_name = Path(sys.argv[0]).name if sys.argv else ""
-	is_rewriter_mode = (
-		script_name == "sql_rewriter_cli"
-		or (argv and "--rewriter-mode" in argv)
-		or any("rewriter" in str(arg) for arg in (argv or []))
-	)
+	"""Pre-commit hook entry point for SQL registry operations"""
 
-	parser = argparse.ArgumentParser(
-		description="Track database operations for long-term stability"
-	)
-	parser.add_argument(
+	parser = argparse.ArgumentParser(description="SQL Operations Registry")
+
+	subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+	# Scan command
+	scan_parser = subparsers.add_parser("scan", help="Scan for SQL operations")
+	scan_parser.add_argument(
 		"filenames", nargs="*", help="Files to check (provided by pre-commit)"
 	)
-	parser.add_argument(
+	scan_parser.add_argument(
 		"--registry", default=".sql_registry.pkl", help="Registry file path"
 	)
-	parser.add_argument("--directory", help="Directory to scan (overrides filenames)")
-	parser.add_argument(
-		"--scan-all",
-		action="store_true",
-		help="Scan entire repository instead of just provided filenames",
+	scan_parser.add_argument("--directory", help="Directory to scan (overrides filenames)")
+	scan_parser.add_argument(
+		"--scan-all", action="store_true", help="Scan entire repository"
 	)
 
-	# Rewriter mode arguments
-	if is_rewriter_mode:
-		parser.add_argument(
-			"--rewriter-mode", action="store_true", help="Enable rewriter CLI functionality"
-		)
-		parser.add_argument("--list", action="store_true", help="List SQL calls")
-		parser.add_argument("--show", help="Show details for call ID")
-		parser.add_argument("--rewrite", help="Rewrite SQL call by ID")
-		parser.add_argument("--apply", action="store_true", help="Apply rewrite changes")
-		parser.add_argument("--no-backup", action="store_true", help="Skip backup creation")
-		parser.add_argument("--file-filter", help="Filter by file path")
+	# List command
+	list_parser = subparsers.add_parser("list", help="List SQL calls")
+	list_parser.add_argument(
+		"--registry", default=".sql_registry.pkl", help="Registry file path"
+	)
+	list_parser.add_argument("--file-filter", help="Filter by file path")
+
+	# Show command
+	show_parser = subparsers.add_parser("show", help="Show details for specific call")
+	show_parser.add_argument("call_id", help="Call ID to show details for")
+	show_parser.add_argument(
+		"--registry", default=".sql_registry.pkl", help="Registry file path"
+	)
+
+	# Rewrite command
+	rewrite_parser = subparsers.add_parser(
+		"rewrite", help="Rewrite SQL call to Query Builder"
+	)
+	rewrite_parser.add_argument("call_id", help="Call ID to rewrite")
+	rewrite_parser.add_argument(
+		"--registry", default=".sql_registry.pkl", help="Registry file path"
+	)
+	rewrite_parser.add_argument(
+		"--apply", action="store_true", help="Apply changes to file"
+	)
+	rewrite_parser.add_argument(
+		"--no-backup", action="store_true", help="Skip backup creation"
+	)
+
+	# Report command
+	report_parser = subparsers.add_parser("report", help="Generate usage report")
+	report_parser.add_argument(
+		"--registry", default=".sql_registry.pkl", help="Registry file path"
+	)
+	report_parser.add_argument("--output", help="Output file for report")
 
 	args = parser.parse_args(argv)
 
-	# Check if we're in rewriter mode
-	if is_rewriter_mode or getattr(args, "rewriter_mode", False):
+	if not args.command:
+		print("Available commands: scan, list, show, rewrite, report")
+		print("\nExamples:")
+		print("  pre-commit run sql_registry -- scan")
+		print("  pre-commit run sql_registry -- list --file-filter myfile.py")
+		print("  pre-commit run sql_registry -- show abc123")
+		print("  pre-commit run sql_registry -- rewrite abc123 --apply")
+		return 0
+
+	registry = SQLRegistry(args.registry)
+
+	if args.command == "scan":
+		# Determine what to scan
+		files_to_scan = []
+
+		if hasattr(args, "scan_all") and args.scan_all:
+			# Scan entire repository
+			current_dir = Path.cwd()
+			files_to_scan = list(current_dir.glob("**/*.py"))
+			print(f"Scanning all Python files in repository ({len(files_to_scan)} files)")
+		elif hasattr(args, "directory") and args.directory:
+			# Scan entire directory
+			directory_path = Path(args.directory)
+			files_to_scan = list(directory_path.glob("**/*.py"))
+			print(f"Scanning directory {args.directory} ({len(files_to_scan)} files)")
+		else:
+			# Only scan provided filenames that are Python files
+			files_to_scan = [
+				Path(f)
+				for f in getattr(args, "filenames", [])
+				if f.endswith(".py") and Path(f).exists()
+			]
+
+		if not files_to_scan:
+			print("No Python files to scan")
+			return 0
+
+		# Register database operations in files
+		new_operations = 0
+		for file_path in files_to_scan:
+			try:
+				# Count operations before scanning
+				old_operations = [
+					c for c in registry.data["calls"].values() if c.file_path == str(file_path)
+				]
+				old_count = len(old_operations)
+
+				file_new_ops = registry._scan_file(file_path)
+
+				file_operations = [
+					c for c in registry.data["calls"].values() if c.file_path == str(file_path)
+				]
+				new_count = len(file_operations)
+
+				operations_added = new_count - old_count
+				new_operations += operations_added
+
+			except Exception as e:
+				print(f"Error scanning {file_path}: {e}")
+				continue
+
+		# Save registry if we found new operations
+		if new_operations > 0:
+			registry.save_registry()
+			print(f"📊 Registered {new_operations} new SQL operations")
+
+		print("✅ SQL operations scan completed")
+		return 0
+
+	elif args.command == "list":
+		calls = registry.data["calls"]
+		if not calls:
+			print("No SQL calls found in registry. Run scan first.")
+			return 0
+
+		filtered_calls = []
+		for call in calls.values():
+			if (
+				hasattr(args, "file_filter")
+				and args.file_filter
+				and not call.file_path.endswith(args.file_filter)
+			):
+				continue
+			filtered_calls.append(call)
+
+		if not filtered_calls:
+			print("No SQL calls match the specified criteria.")
+			return 0
+
+		print(f"\n📋 Found {len(filtered_calls)} SQL calls:")
+		print("=" * 80)
+
+		for call in sorted(filtered_calls, key=lambda x: (x.file_path, x.line_number)):
+			file_name = Path(call.file_path).name
+			print(f"\n{call.call_id[:8]}  {file_name}:{call.line_number}")
+			print(f"   Function: {call.function_context}")
+			print(f"   SQL: {call.sql_query[:100]}{'...' if len(call.sql_query) > 100 else ''}")
+
+		return 0
+
+	elif args.command == "show":
+		# Find call by ID (support partial IDs)
+		matching_calls = [
+			call
+			for call in registry.data["calls"].values()
+			if call.call_id.startswith(args.call_id)
+		]
+
+		if not matching_calls:
+			print(f"No SQL call found with ID starting with '{args.call_id}'")
+			return 1
+
+		if len(matching_calls) > 1:
+			print(f"Multiple calls match '{args.call_id}'. Please be more specific:")
+			for call in matching_calls:
+				print(f"  {call.call_id[:12]} - {Path(call.file_path).name}:{call.line_number}")
+			return 1
+
+		call = matching_calls[0]
+		print(f"\n📝 SQL Call Details: {call.call_id}")
+		print("=" * 60)
+		print(f"File: {call.file_path}")
+		print(f"Line: {call.line_number}")
+		print(f"Function: {call.function_context}")
+		print(f"Implementation: {call.implementation_type}")
+		print(f"Created: {call.created_at}")
+		print(f"Updated: {call.updated_at}")
+
+		print("\n🔍 Original SQL:")
+		print("-" * 40)
+		print(call.sql_query)
+
+		print("\n🏗️ Query Builder Equivalent:")
+		print("-" * 40)
+		print(call.query_builder_equivalent)
+
+		if call.notes:
+			print("\n📋 Notes:")
+			print("-" * 40)
+			print(call.notes)
+
+		return 0
+
+	elif args.command == "rewrite":
 		try:
 			from sql_rewriter_functions import SQLRewriter
 		except ImportError:
-			# Try alternative import path - don't re-import sys
+			# Try alternative import path
 			sys.path.append(str(Path(__file__).parent))
 			from sql_rewriter_functions import SQLRewriter
 
 		rewriter = SQLRewriter(args.registry)
+		dry_run = not getattr(args, "apply", False)
+		backup = not getattr(args, "no_backup", False)
 
-		if args.list:
-			rewriter.list_sql_calls(args.file_filter, args.complex_only)
-			return 0
-		elif args.show:
-			rewriter.show_sql_details(args.show)
-			return 0
-		elif args.rewrite:
-			dry_run = not args.apply
-			backup = not args.no_backup
-			success = rewriter.rewrite_sql(args.rewrite, dry_run, backup)
-			return 0 if success else 1
+		success = rewriter.rewrite_sql(args.call_id, dry_run, backup)
+		return 0 if success else 1
+
+	elif args.command == "report":
+		report = registry.generate_report()
+		if hasattr(args, "output") and args.output:
+			Path(args.output).write_text(report)
+			print(f"Report saved to {args.output}")
 		else:
-			print("Rewriter mode requires --list, --show, or --rewrite")
-			print("\nExamples:")
-			print("  pre-commit run sql_rewriter -- --list")
-			print("  pre-commit run sql_rewriter -- --show abc123")
-			print("  pre-commit run sql_rewriter -- --rewrite abc123 --apply")
-			return 1
-
-	registry = SQLRegistry(args.registry)
-
-	# Determine what to scan
-	files_to_scan = []
-
-	if args.scan_all:
-		# Scan entire repository
-		current_dir = Path.cwd()
-		files_to_scan = list(current_dir.glob("**/*.py"))
-		print(f"Scanning all Python files in repository ({len(files_to_scan)} files)")
-	elif args.directory:
-		# Scan entire directory
-		directory_path = Path(args.directory)
-		files_to_scan = list(directory_path.glob("**/*.py"))
-	else:
-		# Only scan provided filenames that are Python files
-		files_to_scan = [
-			Path(f) for f in args.filenames if f.endswith(".py") and Path(f).exists()
-		]
-
-	if not files_to_scan:
-		print("No Python files to scan")
+			print(report)
 		return 0
 
-	# Register database operations in files
-	new_operations = 0
-	high_complexity_operations = []
-
-	for file_path in files_to_scan:
-		try:
-			# Count operations before scanning
-			old_operations = [
-				c for c in registry.data["calls"].values() if c.file_path == str(file_path)
-			]
-			old_count = len(old_operations)
-
-			file_new_ops = registry._scan_file(file_path)
-
-			file_operations = [
-				c for c in registry.data["calls"].values() if c.file_path == str(file_path)
-			]
-			new_count = len(file_operations)
-
-			operations_added = new_count - old_count
-			new_operations += operations_added
-
-			# Check for high complexity operations
-			for op in file_operations:
-				if op.complexity_score > 0.7:
-					high_complexity_operations.append(
-						(str(file_path), op.line_number, op.complexity_score)
-					)
-
-		except Exception as e:
-			print(f"Error scanning {file_path}: {e}")
-			continue
-
-	# Save registry if we found new operations
-	if new_operations > 0:
-		registry.save_registry()
-		print(f"📊 Registered {new_operations} new database operations")
-
-	# Handle complexity warnings/failures
-	if high_complexity_operations:
-		if args.warn_complex or args.fail_on_complex:
-			print(f"⚠️  Found {len(high_complexity_operations)} high-complexity operations:")
-			for file_path, line, complexity in high_complexity_operations:
-				rel_path = (
-					Path(file_path).relative_to(Path.cwd())
-					if Path(file_path).is_absolute()
-					else file_path
-				)
-				print(f"   {rel_path}:{line} (complexity: {complexity:.2f})")
-
-			if args.fail_on_complex:
-				print("❌ Failing due to high-complexity database operations")
-				print("   Consider reviewing these for potential optimization or simplification")
-				return 1
-			else:
-				print("   Consider reviewing these for potential optimization or simplification")
-
-	if new_operations > 0:
-		print("✅ Database operations registered for stability tracking")
-
-	return 0
+	else:
+		print(f"Unknown command: {args.command}")
+		return 1
 
 
 if __name__ == "__main__":

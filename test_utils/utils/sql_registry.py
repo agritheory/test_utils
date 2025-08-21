@@ -30,14 +30,13 @@ class SQLCall:
 	query_builder_equivalent: str
 	implementation_type: str  # frappe_db_sql|query_builder|mixed
 	semantic_signature: str
-	complexity_score: float
 	notes: str | None
 	created_at: datetime
 	updated_at: datetime
 
 
 class SQLRegistry:
-	"""Comprehensive registry for all SQL operations to ensure long-term database stability"""
+	"""Registry for SQL operations to enable programmatic rewriting and tracking"""
 
 	def __init__(self, registry_file: str = ".sql_registry.pkl"):
 		self.registry_file = Path(registry_file)
@@ -81,7 +80,7 @@ class SQLRegistry:
 			if "github.com" in url:
 				return url.split("github.com")[-1].strip("/:").replace(".git", "")
 			return "unknown/repo"
-		except Exception as e:
+		except Exception:
 			return "unknown/repo"
 
 	def _get_commit_hash(self) -> str:
@@ -91,7 +90,7 @@ class SQLRegistry:
 				["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True
 			)
 			return result.stdout.strip()[:7]
-		except Exception as e:
+		except Exception:
 			return "unknown"
 
 	def save_registry(self):
@@ -123,7 +122,7 @@ class SQLRegistry:
 			return call_id
 
 		# Analyze SQL
-		ast_str, semantic_sig, qb_equivalent, complexity = self._analyze_sql(sql_query)
+		ast_str, semantic_sig, qb_equivalent = self._analyze_sql(sql_query)
 
 		sql_call = SQLCall(
 			call_id=call_id,
@@ -136,7 +135,6 @@ class SQLRegistry:
 			query_builder_equivalent=qb_equivalent,
 			implementation_type="frappe_db_sql",  # Default, can be updated
 			semantic_signature=semantic_sig,
-			complexity_score=complexity,
 			notes=None,
 			created_at=datetime.now(),
 			updated_at=datetime.now(),
@@ -145,7 +143,7 @@ class SQLRegistry:
 		self.data["calls"][call_id] = sql_call
 		return call_id
 
-	def _analyze_sql(self, sql_query: str) -> tuple[str, str, str, float]:
+	def _analyze_sql(self, sql_query: str) -> tuple[str, str, str]:
 		"""Analyze SQL query to generate semantic signature and Query Builder equivalent"""
 		try:
 			# Clean and parse SQL
@@ -153,7 +151,7 @@ class SQLRegistry:
 			parsed = sqlglot.parse(sql_cleaned, dialect="mysql")
 
 			if not parsed or not parsed[0]:
-				return "", "UNPARSABLE", "# Could not parse SQL", 1.0
+				return "", "UNPARSABLE", "# Could not parse SQL"
 
 			ast_object = parsed[0]
 
@@ -163,13 +161,10 @@ class SQLRegistry:
 			# Convert to Query Builder equivalent for reference
 			qb_equivalent = self._ast_to_query_builder(ast_object, replacements)
 
-			# Calculate complexity score for risk assessment
-			complexity = self._calculate_complexity_score(ast_object, replacements)
-
-			return str(ast_object), semantic_sig, qb_equivalent, complexity
+			return str(ast_object), semantic_sig, qb_equivalent
 
 		except Exception as e:
-			return "", f"ERROR: {str(e)}", f"# Error analyzing SQL: {str(e)}", 1.0
+			return "", f"ERROR: {str(e)}", f"# Error analyzing SQL: {str(e)}"
 
 	def _replace_sql_patterns(self, sql: str) -> tuple[str, list[tuple[str, str]]]:
 		"""Replace Python format patterns with placeholders"""
@@ -191,7 +186,7 @@ class SQLRegistry:
 		return sql, replacements
 
 	def _generate_semantic_signature(self, ast_object: sqlglot.Expression) -> str:
-		"""Generate semantic signature for long-term stability tracking"""
+		"""Generate semantic signature for tracking"""
 		try:
 			# Create a semantic fingerprint that captures query structure
 			normalized = ast_object.copy()
@@ -206,7 +201,7 @@ class SQLRegistry:
 
 			# Create signature from normalized structure
 			return str(normalized).replace(" ", "_").replace("(", "").replace(")", "")[:80]
-		except Exception as e:
+		except Exception:
 			return "UNKNOWN_SIGNATURE"
 
 	def _ast_to_query_builder(
@@ -336,31 +331,6 @@ doc.insert()"""
 		"""Convert DELETE to Query Builder"""
 		return "# DELETE: Use frappe.delete_doc() for single records or qb.delete() for bulk"
 
-	def _calculate_complexity_score(
-		self, ast_object: sqlglot.Expression, replacements: list[tuple[str, str]]
-	) -> float:
-		"""Calculate complexity score for risk assessment (0.0 = simple, 1.0 = complex)"""
-		complexity = 0.0
-
-		# Base complexity factors
-		if ast_object.find_all(exp.Join):
-			complexity += 0.3
-
-		if ast_object.find_all(exp.Subquery):
-			complexity += 0.4
-
-		if ast_object.find_all(exp.Union):
-			complexity += 0.3
-
-		if len(replacements) > 5:
-			complexity += 0.2
-
-		# Complex functions increase risk
-		complex_functions = ast_object.find_all(exp.Anonymous)
-		complexity += min(len(complex_functions) * 0.1, 0.3)
-
-		return min(1.0, complexity)
-
 	def scan_directory(self, directory: Path, pattern: str = "**/*.py") -> int:
 		"""Scan directory for SQL calls"""
 		count = 0
@@ -389,7 +359,7 @@ doc.insert()"""
 							self.register_sql_call(str(file_path), node.lineno, sql_query, function_context)
 							count += 1
 
-			# Also scan for SQL in docstrings (from existing functionality)
+			# Also scan for SQL in docstrings
 			sql_strings = self._find_sql_docstrings(content)
 			for line_num, sql_query in sql_strings:
 				function_context = f"docstring at line {line_num}"
@@ -414,7 +384,7 @@ doc.insert()"""
 				):
 					return True
 			return False
-		except Exception as e:
+		except Exception:
 			return False
 
 	def _extract_sql_from_call(self, node: ast.Call) -> str | None:
@@ -424,7 +394,7 @@ doc.insert()"""
 				first_arg = node.args[0]
 				if isinstance(first_arg, ast.Constant) and isinstance(first_arg.value, str):
 					return first_arg.value
-		except Exception as e:
+		except Exception:
 			pass
 		return None
 
@@ -444,7 +414,7 @@ doc.insert()"""
 		return False
 
 	def _find_sql_docstrings(self, content: str) -> list[tuple[int, str]]:
-		"""Find SQL in docstrings (from existing code)"""
+		"""Find SQL in docstrings"""
 		sql_strings = []
 		try:
 			tree = ast.parse(content)
@@ -452,7 +422,7 @@ doc.insert()"""
 				if isinstance(node, ast.Constant) and isinstance(node.value, str):
 					if self._is_likely_sql(node.value):
 						sql_strings.append((node.lineno, node.value))
-		except Exception as e:
+		except Exception:
 			pass
 		return sql_strings
 
@@ -463,50 +433,35 @@ doc.insert()"""
 		keyword_count = sum(1 for keyword in sql_keywords if keyword in text_upper)
 		return keyword_count >= 2 and any(char in text for char in ";(),")
 
-	def generate_stability_report(self) -> str:
-		"""Generate comprehensive database stability and SQL usage report"""
+	def generate_report(self) -> str:
+		"""Generate SQL usage report"""
 		metadata = self.data["metadata"]
 		calls = self.data["calls"]
 
 		# Calculate statistics
 		total = len(calls)
 		by_type = {}
-		by_complexity = {"simple": 0, "moderate": 0, "complex": 0}
 
 		for call in calls.values():
 			impl_type = call.implementation_type
 			by_type[impl_type] = by_type.get(impl_type, 0) + 1
 
-			if call.complexity_score <= 0.3:
-				by_complexity["simple"] += 1
-			elif call.complexity_score <= 0.7:
-				by_complexity["moderate"] += 1
-			else:
-				by_complexity["complex"] += 1
-
 		# Generate report
-		report = f"""# Database Operations Registry & Stability Report
+		report = f"""# SQL Operations Registry Report
 
 **Repository**: {metadata.get('repository', 'N/A')}
 **Last Updated**: {metadata.get('last_scan', 'Never')}
 **Commit**: {metadata.get('commit_hash', 'N/A')}
-**Total Database Operations**: {total}
+**Total SQL Operations**: {total}
 
 ## Implementation Distribution
-| Type | Count | Percentage | Description |
-|------|-------|------------|-------------|
-| frappe_db_sql | {by_type.get('frappe_db_sql', 0)} | {(by_type.get('frappe_db_sql', 0) / max(total, 1) * 100):.1f}% | Raw SQL operations |
-| query_builder | {by_type.get('query_builder', 0)} | {(by_type.get('query_builder', 0) / max(total, 1) * 100):.1f}% | Query Builder operations |
-| mixed | {by_type.get('mixed', 0)} | {(by_type.get('mixed', 0) / max(total, 1) * 100):.1f}% | Mixed implementation |
+| Type | Count | Percentage |
+|------|-------|------------|
+| frappe_db_sql | {by_type.get('frappe_db_sql', 0)} | {(by_type.get('frappe_db_sql', 0) / max(total, 1) * 100):.1f}% |
+| query_builder | {by_type.get('query_builder', 0)} | {(by_type.get('query_builder', 0) / max(total, 1) * 100):.1f}% |
+| mixed | {by_type.get('mixed', 0)} | {(by_type.get('mixed', 0) / max(total, 1) * 100):.1f}% |
 
-## Complexity Analysis
-| Level | Count | Risk Assessment |
-|--------|-------|-----------------|
-| Simple (≤30%) | {by_complexity['simple']} | Low maintenance risk |
-| Moderate (31-70%) | {by_complexity['moderate']} | Regular review recommended |
-| Complex (>70%) | {by_complexity['complex']} | High attention required |
-
-## Database Operations by File
+## Operations by File
 """
 
 		# Group by file
@@ -518,65 +473,160 @@ doc.insert()"""
 			by_file[file_path].append(call)
 
 		for file_path, file_calls in sorted(by_file.items()):
-			complex_calls = sum(1 for c in file_calls if c.complexity_score > 0.7)
 			total_file = len(file_calls)
-
-			report += f"\n**{Path(file_path).name}**: {total_file} operations"
-			if complex_calls > 0:
-				report += f", {complex_calls} complex"
-			report += "\n"
+			report += f"\n**{Path(file_path).name}**: {total_file} operations\n"
 
 		report += f"""
-
 ## Summary
-- **Semantic Signatures**: {len(set(c.semantic_signature for c in calls.values()))} unique query patterns tracked
-- **Risk Assessment**: {by_complexity['complex']} high-complexity operations require attention
-- **Stability Score**: {((by_complexity['simple'] + by_complexity['moderate'] * 0.5) / max(total, 1) * 100):.1f}% operations are low-to-moderate risk
-
----
-*This registry enables proactive database stability management by cataloging all SQL operations and their complexity patterns.*
+- **Unique Query Patterns**: {len(set(c.semantic_signature for c in calls.values()))}
+- **Total Operations Tracked**: {total}
 """
 
 		return report
 
 
 def main():
-	parser = argparse.ArgumentParser(
-		description="Database Operations Registry & Stability Tracker"
-	)
-	parser.add_argument("command", choices=["scan", "report", "status"])
-	parser.add_argument("--directory", default=".", help="Directory to scan")
-	parser.add_argument(
+	parser = argparse.ArgumentParser(description="SQL Operations Registry")
+
+	subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+	# Scan command
+	scan_parser = subparsers.add_parser("scan", help="Scan directory for SQL operations")
+	scan_parser.add_argument("--directory", default=".", help="Directory to scan")
+	scan_parser.add_argument(
 		"--registry", default=".sql_registry.pkl", help="Registry file path"
 	)
-	parser.add_argument("--output", help="Output file for report")
+
+	# Report command
+	report_parser = subparsers.add_parser("report", help="Generate usage report")
+	report_parser.add_argument(
+		"--registry", default=".sql_registry.pkl", help="Registry file path"
+	)
+	report_parser.add_argument("--output", help="Output file for report")
+
+	# List command
+	list_parser = subparsers.add_parser("list", help="List SQL calls")
+	list_parser.add_argument(
+		"--registry", default=".sql_registry.pkl", help="Registry file path"
+	)
+	list_parser.add_argument("--file-filter", help="Filter by file path")
+
+	# Show command
+	show_parser = subparsers.add_parser("show", help="Show details for specific call")
+	show_parser.add_argument("call_id", help="Call ID to show details for")
+	show_parser.add_argument(
+		"--registry", default=".sql_registry.pkl", help="Registry file path"
+	)
+
+	# Rewrite command
+	rewrite_parser = subparsers.add_parser(
+		"rewrite", help="Rewrite SQL call to Query Builder"
+	)
+	rewrite_parser.add_argument("call_id", help="Call ID to rewrite")
+	rewrite_parser.add_argument(
+		"--registry", default=".sql_registry.pkl", help="Registry file path"
+	)
+	rewrite_parser.add_argument(
+		"--apply", action="store_true", help="Apply changes to file"
+	)
+	rewrite_parser.add_argument(
+		"--no-backup", action="store_true", help="Skip backup creation"
+	)
 
 	args = parser.parse_args()
+
+	if not args.command:
+		parser.print_help()
+		return
 
 	registry = SQLRegistry(args.registry)
 
 	if args.command == "scan":
-		print("Scanning for database operations...")
+		print("Scanning for SQL operations...")
 		count = registry.scan_directory(Path(args.directory))
 		registry.save_registry()
-		print(f"Found and registered {count} database operations")
+		print(f"Found and registered {count} SQL operations")
 
 	elif args.command == "report":
-		report = registry.generate_stability_report()
+		report = registry.generate_report()
 		if args.output:
 			Path(args.output).write_text(report)
-			print(f"Stability report saved to {args.output}")
+			print(f"Report saved to {args.output}")
 		else:
 			print(report)
 
-	elif args.command == "status":
-		total = len(registry.data["calls"])
-		complex_ops = sum(
-			1 for c in registry.data["calls"].values() if c.complexity_score > 0.7
-		)
-		print(
-			f"Registry: {total} total operations, {complex_ops} complex operations requiring attention"
-		)
+	elif args.command == "list":
+		calls = registry.data["calls"]
+		if not calls:
+			print("No SQL calls found in registry.")
+			return
+
+		filtered_calls = []
+		for call in calls.values():
+			if args.file_filter and not call.file_path.endswith(args.file_filter):
+				continue
+			filtered_calls.append(call)
+
+		print(f"\n📋 Found {len(filtered_calls)} SQL calls:")
+		print("=" * 80)
+
+		for call in sorted(filtered_calls, key=lambda x: (x.file_path, x.line_number)):
+			file_name = Path(call.file_path).name
+			print(f"\n{call.call_id[:8]}  {file_name}:{call.line_number}")
+			print(f"   Function: {call.function_context}")
+			print(f"   SQL: {call.sql_query[:100]}{'...' if len(call.sql_query) > 100 else ''}")
+
+	elif args.command == "show":
+		# Find call by ID (support partial IDs)
+		matching_calls = [
+			call
+			for call in registry.data["calls"].values()
+			if call.call_id.startswith(args.call_id)
+		]
+
+		if not matching_calls:
+			print(f"No SQL call found with ID starting with '{args.call_id}'")
+			return
+
+		if len(matching_calls) > 1:
+			print(f"Multiple calls match '{args.call_id}'. Please be more specific:")
+			for call in matching_calls:
+				print(f"  {call.call_id[:12]} - {Path(call.file_path).name}:{call.line_number}")
+			return
+
+		call = matching_calls[0]
+		print(f"\n📝 SQL Call Details: {call.call_id}")
+		print("=" * 60)
+		print(f"File: {call.file_path}")
+		print(f"Line: {call.line_number}")
+		print(f"Function: {call.function_context}")
+		print(f"Implementation: {call.implementation_type}")
+		print(f"Created: {call.created_at}")
+		print(f"Updated: {call.updated_at}")
+
+		print("\n🔍 Original SQL:")
+		print("-" * 40)
+		print(call.sql_query)
+
+		print("\n🏗️ Query Builder Equivalent:")
+		print("-" * 40)
+		print(call.query_builder_equivalent)
+
+		if call.notes:
+			print("\n📋 Notes:")
+			print("-" * 40)
+			print(call.notes)
+
+	elif args.command == "rewrite":
+		from sql_rewriter_functions import SQLRewriter
+
+		rewriter = SQLRewriter(args.registry)
+		dry_run = not args.apply
+		backup = not args.no_backup
+
+		success = rewriter.rewrite_sql(args.call_id, dry_run, backup)
+		if not success:
+			sys.exit(1)
 
 
 if __name__ == "__main__":
