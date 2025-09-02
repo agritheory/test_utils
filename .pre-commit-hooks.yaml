@@ -63,3 +63,10 @@
   entry: add_translations
   language: python
   require_serial: true
+
+- id: bylines
+  name: bylines
+  description: "Add byline <div> in markdown files with authors from git history"
+  entry: bylines
+  language: python
+  require_serial: true

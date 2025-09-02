@@ -18,6 +18,7 @@ validate_customizations = "test_utils.pre_commit.validate_customizations:main"
 validate_javascript_dependencies = "test_utils.pre_commit.validate_javascript_dependencies:main"
 validate_python_dependencies = "test_utils.pre_commit.validate_python_dependencies:main"
 add_translations = "test_utils.pre_commit.add_translations:main"
+bylines = "test_utils.pre_commit.bylines:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
