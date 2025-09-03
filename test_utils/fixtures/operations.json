@@ -1,158 +1,158 @@
 [
-	{
-		"alternative_workstations": [
-			{
-				"workstation": "Food Prep Table 2"
-			}
-		],
-		"batch_size": 5,
-		"description": "- Remove fruit and butter from refrigerator\n\t- Remove sugar and cornstarch\n\t- Get water from sink\n\t- Measure ingredients and place in pot, excluding 1/4 of fruit and butter",
-		"name": "Gather Pie Filling Ingredients",
-		"workstation": "Food Prep Table 1"
-	},
-	{
-		"alternative_workstations": [
-			{
-				"workstation": "Food Prep Table 1"
-			},
-			{
-				"workstation": "Assemble Pie Station"
-			}
-		],
-		"batch_size": 5,
-		"description": "- Use fresh pie filling or remove from refrigerator\n\t- Remove rolled pie crusts from refrigerator\n\t- Fill bottom crust with filling\n\t- Create decorative cut out for top crust\n\t- Layer top crust over bottom crust / filling and create a crimped seal",
-		"name": "Assemble Pie Op",
-		"workstation": "Food Prep Table 2"
-	},
-	{
-		"alternative_workstations": [],
-		"batch_size": 5,
-		"description": "- Bring ingredients to simmer and cook for 15 minutes\n\t- Remove from heat and mix in remaining 1/4 berries and butter\n\t- Store in refrigerator if not using immediately",
-		"name": "Cook Pie Filling Operation",
-		"workstation": "Range Station"
-	},
-	{
-		"alternative_workstations": [],
-		"batch_size": 5,
-		"description": "- Place pie into box for sale",
-		"name": "Box Pie Op",
-		"workstation": "Packaging Station"
-	},
-	{
-		"alternative_workstations": [
-			{
-				"workstation": "Baking Station"
-			}
-		],
-		"batch_size": 1,
-		"description": "- Place assembled pies into oven\n\t- Bake at 375F for 50 minutes\n\t- Remove from oven",
-		"name": "Bake Op",
-		"workstation": "Oven Station"
-	},
-	{
-		"alternative_workstations": [
-			{
-				"workstation": "Cooling Station"
-			},
-			{
-				"workstation": "Refrigerator Station"
-			}
-		],
-		"batch_size": 1,
-		"description": "Cool baked pies for at least 30 minutes before boxing",
-		"name": "Cool Pie Op",
-		"workstation": "Cooling Racks Station"
-	},
-	{
-		"alternative_workstations": [],
-		"batch_size": 5,
-		"description": "- Fold 3 poppers into dough pocket",
-		"name": "Assemble Pocket Op",
-		"workstation": "Food Prep Table 1"
-	},
-	{
-		"alternative_workstations": [],
-		"batch_size": 5,
-		"description": "- Top dough bite with fruit",
-		"name": "Assemble Popper Op",
-		"workstation": "Food Prep Table 1"
-	},
-	{
-		"alternative_workstations": [],
-		"batch_size": 5,
-		"description": "- Tower: package one pie and one pocket, and one popper\n    - Pocketful of Bay: package one pocket with two poppers",
-		"name": "Assemble Combination Product",
-		"workstation": "Food Prep Table 1"
-	},
-	{
-		"alternative_workstations": [],
-		"batch_size": 5,
-		"description": "- Combine flour, butter, salt, and ice water in mixer\n\t- Pulse for 30 seconds\n\t- Divide into equal-sized portions, one portion for each pie crust being made\n\t- Put in refrigerator",
-		"name": "Mix Pie Crust Op",
-		"workstation": "Mixer Station"
-	},
-	{
-		"alternative_workstations": [
-			{
-				"workstation": "Food Prep Table 1"
-			}
-		],
-		"batch_size": 5,
-		"description": "- Remove flour, salt, and a pie tins from store room\n\t- Remove butter and ice water from refrigerator\n\t- Place ingredients at workstation\n\t- Measure amounts for batch size into mixing bowl",
-		"name": "Gather Pie Crust Ingredients",
-		"workstation": "Food Prep Table 2"
-	},
-	{
-		"alternative_workstations": [
-			{
-				"workstation": "Mix Pie Crust Station"
-			},
-			{
-				"workstation": "Mix Pie Filling Station"
-			}
-		],
-		"batch_size": 5,
-		"description": "- Combine flour, butter, salt, and ice water in mixer\n\t- Pulse for 30 seconds\n\t- Divide into equal-sized portions, one portion for each pie crust being made\n\t- Put in refrigerator",
-		"name": "Mix Dough Op",
-		"workstation": "Mixer Station"
-	},
-	{
-		"alternative_workstations": [
-			{
-				"workstation": "Food Prep Table 1"
-			},
-			{
-				"workstation": "Roll Pie Crust Station"
-			}
-		],
-		"batch_size": 5,
-		"description": "- Remove chilled pie crust portions from refrigerator\n\t- Separate each portion into two (one for bottom crust, one for top)\n\t- Flour board and roll out each portion into a circle\n\t- Place bottom crust into pie tin, then layer a piece of parchment paper, followed by the top crust",
-		"name": "Roll Pie Crust Op",
-		"workstation": "Food Prep Table 2"
-	},
-	{
-		"alternative_workstations": [
-			{
-				"workstation": "Food Prep Table 1"
-			}
-		],
-		"batch_size": 1,
-		"description": "Divide Dough Op",
-		"name": "Divide Dough Op",
-		"workstation": "Food Prep Table 2"
-	},
-	{
-		"alternative_workstations": [
-			{
-				"workstation": "Cooling Station"
-			},
-			{
-				"workstation": "Cooling Racks Station"
-			}
-		],
-		"batch_size": 1,
-		"description": "- Chill pie crust for at least 30 minutes",
-		"name": "Chill Pie Crust Op",
-		"workstation": "Refrigerator Station"
-	}
+  {
+    "alternative_workstations": [
+      {
+        "workstation": "Food Prep Table 2"
+      }
+    ],
+    "batch_size": 5,
+    "description": "- Remove fruit and butter from refrigerator\n\t- Remove sugar and cornstarch\n\t- Get water from sink\n\t- Measure ingredients and place in pot, excluding 1/4 of fruit and butter",
+    "name": "Gather Pie Filling Ingredients",
+    "workstation": "Food Prep Table 1"
+  },
+  {
+    "alternative_workstations": [
+      {
+        "workstation": "Food Prep Table 1"
+      },
+      {
+        "workstation": "Assemble Pie Station"
+      }
+    ],
+    "batch_size": 5,
+    "description": "- Use fresh pie filling or remove from refrigerator\n\t- Remove rolled pie crusts from refrigerator\n\t- Fill bottom crust with filling\n\t- Create decorative cut out for top crust\n\t- Layer top crust over bottom crust / filling and create a crimped seal",
+    "name": "Assemble Pie Op",
+    "workstation": "Food Prep Table 2"
+  },
+  {
+    "alternative_workstations": [],
+    "batch_size": 5,
+    "description": "- Bring ingredients to simmer and cook for 15 minutes\n\t- Remove from heat and mix in remaining 1/4 berries and butter\n\t- Store in refrigerator if not using immediately",
+    "name": "Cook Pie Filling Operation",
+    "workstation": "Range Station"
+  },
+  {
+    "alternative_workstations": [],
+    "batch_size": 5,
+    "description": "- Place pie into box for sale",
+    "name": "Box Pie Op",
+    "workstation": "Packaging Station"
+  },
+  {
+    "alternative_workstations": [
+      {
+        "workstation": "Baking Station"
+      }
+    ],
+    "batch_size": 1,
+    "description": "- Place assembled pies into oven\n\t- Bake at 375F for 50 minutes\n\t- Remove from oven",
+    "name": "Bake Op",
+    "workstation": "Oven Station"
+  },
+  {
+    "alternative_workstations": [
+      {
+        "workstation": "Cooling Station"
+      },
+      {
+        "workstation": "Refrigerator Station"
+      }
+    ],
+    "batch_size": 1,
+    "description": "Cool baked pies for at least 30 minutes before boxing",
+    "name": "Cool Pie Op",
+    "workstation": "Cooling Racks Station"
+  },
+  {
+    "alternative_workstations": [],
+    "batch_size": 5,
+    "description": "- Fold 3 poppers into dough pocket",
+    "name": "Assemble Pocket Op",
+    "workstation": "Food Prep Table 1"
+  },
+  {
+    "alternative_workstations": [],
+    "batch_size": 5,
+    "description": "- Top dough bite with fruit",
+    "name": "Assemble Popper Op",
+    "workstation": "Food Prep Table 1"
+  },
+  {
+    "alternative_workstations": [],
+    "batch_size": 5,
+    "description": "- Tower: package one pie and one pocket, and one popper\n    - Pocketful of Bay: package one pocket with two poppers",
+    "name": "Assemble Combination Product",
+    "workstation": "Food Prep Table 1"
+  },
+  {
+    "alternative_workstations": [],
+    "batch_size": 5,
+    "description": "- Combine flour, butter, salt, and ice water in mixer\n\t- Pulse for 30 seconds\n\t- Divide into equal-sized portions, one portion for each pie crust being made\n\t- Put in refrigerator",
+    "name": "Mix Pie Crust Op",
+    "workstation": "Mixer Station"
+  },
+  {
+    "alternative_workstations": [
+      {
+        "workstation": "Food Prep Table 1"
+      }
+    ],
+    "batch_size": 5,
+    "description": "- Remove flour, salt, and a pie tins from store room\n\t- Remove butter and ice water from refrigerator\n\t- Place ingredients at workstation\n\t- Measure amounts for batch size into mixing bowl",
+    "name": "Gather Pie Crust Ingredients",
+    "workstation": "Food Prep Table 2"
+  },
+  {
+    "alternative_workstations": [
+      {
+        "workstation": "Mix Pie Crust Station"
+      },
+      {
+        "workstation": "Mix Pie Filling Station"
+      }
+    ],
+    "batch_size": 5,
+    "description": "- Combine flour, butter, salt, and ice water in mixer\n\t- Pulse for 30 seconds\n\t- Divide into equal-sized portions, one portion for each pie crust being made\n\t- Put in refrigerator",
+    "name": "Mix Dough Op",
+    "workstation": "Mixer Station"
+  },
+  {
+    "alternative_workstations": [
+      {
+        "workstation": "Food Prep Table 1"
+      },
+      {
+        "workstation": "Roll Pie Crust Station"
+      }
+    ],
+    "batch_size": 5,
+    "description": "- Remove chilled pie crust portions from refrigerator\n\t- Separate each portion into two (one for bottom crust, one for top)\n\t- Flour board and roll out each portion into a circle\n\t- Place bottom crust into pie tin, then layer a piece of parchment paper, followed by the top crust",
+    "name": "Roll Pie Crust Op",
+    "workstation": "Food Prep Table 2"
+  },
+  {
+    "alternative_workstations": [
+      {
+        "workstation": "Food Prep Table 1"
+      }
+    ],
+    "batch_size": 1,
+    "description": "Divide Dough Op",
+    "name": "Divide Dough Op",
+    "workstation": "Food Prep Table 2"
+  },
+  {
+    "alternative_workstations": [
+      {
+        "workstation": "Cooling Station"
+      },
+      {
+        "workstation": "Cooling Racks Station"
+      }
+    ],
+    "batch_size": 1,
+    "description": "- Chill pie crust for at least 30 minutes",
+    "name": "Chill Pie Crust Op",
+    "workstation": "Refrigerator Station"
+  }
 ]

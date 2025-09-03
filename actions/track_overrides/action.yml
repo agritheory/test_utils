@@ -4,16 +4,16 @@ author: Francisco Roldan
 
 inputs:
   post-comment:
-    description: 'Flag to indicate whether to post a comment on the PR (default: true)'
+    description: "Flag to indicate whether to post a comment on the PR (default: true)"
     required: false
-    default: 'true'
+    default: "true"
 
 branding:
   icon: alert-circle
   color: blue
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Install Python dependencies for action
       shell: bash
@@ -27,23 +27,23 @@ runs:
       env:
         GITHUB_TOKEN: ${{ github.token }}
       run: |
-          set -e
-          echo "Using token for authentication with GitHub API"
-          changed_methods=$(python ${{ github.action_path }}/track_overrides.py ${{ github.workspace }})
+        set -e
+        echo "Using token for authentication with GitHub API"
+        changed_methods=$(python ${{ github.action_path }}/track_overrides.py ${{ github.workspace }})
 
-          # Sanitize the diff content before storing it (escape special characters)
-          sanitized_methods=$(echo "$changed_methods" | sed 's/\r//g' | sed 's/\n/\\n/g' | sed 's/\"/\\\"/g')
+        # Sanitize the diff content before storing it (escape special characters)
+        sanitized_methods=$(echo "$changed_methods" | sed 's/\r//g' | sed 's/\n/\\n/g' | sed 's/\"/\\\"/g')
 
-          # Store the sanitized diff in a file
-          echo "$sanitized_methods" > diff_output.txt
+        # Store the sanitized diff in a file
+        echo "$sanitized_methods" > diff_output.txt
 
-          if [[ -n "$changed_methods" ]]; then
-            echo "Override methods have changed in the upstream repository."
-            echo "Changed methods: $changed_methods"
-            echo "has_changes=true" >> $GITHUB_ENV
-          else
-            echo "has_changes=false" >> $GITHUB_ENV
-          fi
+        if [[ -n "$changed_methods" ]]; then
+          echo "Override methods have changed in the upstream repository."
+          echo "Changed methods: $changed_methods"
+          echo "has_changes=true" >> $GITHUB_ENV
+        else
+          echo "has_changes=false" >> $GITHUB_ENV
+        fi
 
     - name: Post comment on PR if overrides changed
       if: env.has_changes == 'true' && inputs.post-comment == 'true'

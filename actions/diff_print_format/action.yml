@@ -13,7 +13,7 @@ branding:
   color: blue
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Checkout the code
       uses: actions/checkout@v4

@@ -1,7 +1,7 @@
 [
-	{
-		"enabled": 1,
-		"mode_of_payment": "ACH/EFT",
-		"type": "Electronic"
-	}
+  {
+    "enabled": 1,
+    "mode_of_payment": "ACH/EFT",
+    "type": "Electronic"
+  }
 ]

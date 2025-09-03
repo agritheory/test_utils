@@ -2,7 +2,6 @@
 
 This GitHub Action helps automate the process of comparing changes made to print formats in a Frappe app. It checks for changes in .json files within the print_format directory, compares them to the base branch, and then comments the diff on the pull request.
 
-
 ## Usage
 
 To use the `diff-print-format` GitHub Action in your workflow, follow these steps:

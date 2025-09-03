@@ -6,7 +6,7 @@ Add this to your .pre-commit-config.yaml
 
 ### Validate Copyright - `validate_copyright`
 
-Check all *.js, *.ts, *.py, and *.md files and add copyright in these files if copyright doesn't exist.
+Check all _.js, _.ts, _.py, and _.md files and add copyright in these files if copyright doesn't exist.
 
 ```
   - repo: https://github.com/agritheory/test_utils/

@@ -1,4 +1,4 @@
-exclude: '.git'
+exclude: ".git"
 default_stages: [pre-commit]
 fail_fast: false
 
@@ -7,11 +7,11 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-        files: 'test_utils.*'
-        exclude: '.*json$|.*txt$|.*csv|.*md|.*svg'
+        files: "test_utils.*"
+        exclude: ".*json$|.*txt$|.*csv|.*md|.*svg"
       - id: check-yaml
       - id: no-commit-to-branch
-        args: ['--branch', 'develop']
+        args: ["--branch", "develop"]
       - id: check-merge-conflict
       - id: check-ast
       - id: check-json
@@ -30,13 +30,13 @@ repos:
   - repo: https://github.com/ikamensh/flynt/
     rev: 1.0.1
     hooks:
-    -   id: flynt
+      - id: flynt
 
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.19.1
     hooks:
       - id: pyupgrade
-        args: ['--py310-plus']
+        args: ["--py310-plus"]
 
   - repo: https://github.com/agritheory/black
     rev: 951ccf4d5bb0d692b457a5ebc4215d755618eb68
@@ -47,8 +47,15 @@ repos:
     rev: 7.2.0
     hooks:
       - id: flake8
-        additional_dependencies: ['flake8-bugbear']
+        additional_dependencies: ["flake8-bugbear"]
 
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier
+        entry: npx prettier --write
+        language: system
+        files: \.(js|jsx|ts|tsx|json|yaml|yml|md)$
   # - repo: https://github.com/pre-commit/mirrors-mypy
   #   rev: v1.5.1
   #   hooks:
