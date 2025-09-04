@@ -1,22 +1,15 @@
 import argparse
 import sys
+from typing import Sequence
 from collections.abc import Sequence
 
 
 def is_frappe_environment():
-	"""
-	Check if the current environment is a Frappe environment.
-
-	Returns:
-	        bool: True if Frappe is available, False otherwise
-	"""
 	try:
 		import frappe
-
 		return True
 	except ImportError:
 		return False
-
 
 def add_translations(lang, app):
 	try:
@@ -35,7 +28,6 @@ def add_translations(lang, app):
 	except Exception as e:
 		print(f"An error occurred while translating for lang '{lang}' and app '{app}': {e}")
 		sys.exit(1)
-
 
 def main(argv: Sequence[str] = None):
 	parser = argparse.ArgumentParser()
