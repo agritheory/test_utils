@@ -1,5 +1,4 @@
 import argparse
-import copy
 import json
 import os
 import pathlib
@@ -7,59 +6,55 @@ import sys
 import tempfile
 from collections.abc import Sequence
 
-from test_utils.pre_commit.validate_customizations import scrub
+import frappe
+from frappe.utils.export_file import strip_default_fields
 
-DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 
-
-def get_customized_doctypes_to_clean(app):
+def get_customized_doctypes_to_clean(app: str):
 	customized_doctypes = {}
 
-	app_dir = pathlib.Path(app).resolve().parent
+	app_dir = pathlib.Path(frappe.get_app_path(app)).resolve()
 	if not app_dir.is_dir():
 		return customized_doctypes
 
-	modules = (app_dir / app / "modules.txt").read_text().split("\n")
+	modules_txt = app_dir / "modules.txt"
+	if not modules_txt.exists():
+		return customized_doctypes
+
+	modules = modules_txt.read_text().splitlines()
 	for module in modules:
-		if not (app_dir / app / scrub(module) / "custom").exists():
+		custom_dir = app_dir / frappe.scrub(module) / "custom"
+		if not custom_dir.exists():
 			continue
 
-		for custom_file in list((app_dir / app / scrub(module) / "custom").glob("**/*.json")):
-			if custom_file.stem in customized_doctypes:
-				customized_doctypes[custom_file.stem].append(custom_file.resolve())
-			else:
-				customized_doctypes[custom_file.stem] = [custom_file.resolve()]
+		for custom_file in custom_dir.glob("**/*.json"):
+			customized_doctypes.setdefault(custom_file.stem, []).append(custom_file.resolve())
 
 	return customized_doctypes
 
 
-def validate_and_clean_customized_doctypes(customized_doctypes):
+def validate_and_clean_customized_doctypes(
+	customized_doctypes: dict[str, list[pathlib.Path]]
+):
 	modified_files = []
 	for doctype, customize_files in customized_doctypes.items():
 		for customize_file in customize_files:
-			temp_file_path = tempfile.mktemp()
-			with open(customize_file) as f, open(temp_file_path, "w") as temp_file:
+			with open(customize_file) as f:
 				file_contents = json.load(f)
-				original_content = copy.deepcopy(file_contents)
-				for key, value in list(file_contents.items()):
-					if isinstance(value, list):
-						for item in value:
-							for item_key, item_value in list(item.items()):
-								if item_value is None and item_key not in [
-									"default",
-									"value",
-								]:
-									del item[item_key]
 
-					elif value is None and key not in ["default", "value"]:
-						del file_contents[key]
+			original_content = json.dumps(file_contents, sort_keys=True, indent=2)
 
-				if file_contents != original_content:
-					temp_file.write(json.dumps(file_contents, indent="\t", sort_keys=True))
-					os.replace(temp_file_path, customize_file)
-					modified_files.append(customize_file)
-				else:
-					os.remove(temp_file_path)
+			cleaned = strip_default_fields(file_contents)
+
+			new_content = json.dumps(cleaned, sort_keys=True, indent=2)
+
+			if new_content != original_content:
+				with tempfile.NamedTemporaryFile("w", delete=False) as temp_file:
+					temp_file.write(new_content)
+					temp_path = temp_file.name
+
+				os.replace(temp_path, customize_file)
+				modified_files.append(str(customize_file))
 
 	return modified_files
 
@@ -67,14 +62,22 @@ def validate_and_clean_customized_doctypes(customized_doctypes):
 def main(argv: Sequence[str] = None):
 	parser = argparse.ArgumentParser()
 	parser.add_argument("filenames", nargs="*")
-	parser.add_argument("--app", action="append", help="An argument for the hook")
+	parser.add_argument("--app", action="append", help="Target app to clean")
 	args = parser.parse_args(argv)
 
+	if not args.app:
+		print("No app specified. Use --app <app_name>")
+		sys.exit(1)
+
 	app = args.app[0]
-	if app:
-		customized_doctypes = get_customized_doctypes_to_clean(app)
-		modified_files = validate_and_clean_customized_doctypes(customized_doctypes)
-		for modified_file in modified_files:
-			print(f"File cleaned: {modified_file}")
+	customized_doctypes = get_customized_doctypes_to_clean(app)
+	modified_files = validate_and_clean_customized_doctypes(customized_doctypes)
+
+	for modified_file in modified_files:
+		print(f"File cleaned: {modified_file}")
 
 	sys.exit(0)
+
+
+if __name__ == "__main__":
+	main()

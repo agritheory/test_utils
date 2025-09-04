@@ -63,3 +63,10 @@
   entry: track_overrides
   language: python
   require_serial: true
+
+- id: add_translations
+  name: add_translations
+  description: "Get untranslated strings in app and translate them to the language specified"
+  entry: add_translations
+  language: python
+  require_serial: true
