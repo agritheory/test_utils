@@ -5,7 +5,6 @@ It automatically detects the base branch from the pull request that triggers the
 
 This comparison is performed using the commit hash associated with each method. If the overridden method and the upstream method have different commit hashes, the action will indicate that the overridden method has changed. This seamless comparison capability enables efficient tracking of method overrides across different branches and repositories.
 
-
 ## Method Annotation
 
 To track the overrides, the methods must have a comment with the following structure:
@@ -20,6 +19,7 @@ METHOD: <method_name>
 ```
 
 ### Example
+
 ```python
 def is_system_manager_disabled(user):
     """

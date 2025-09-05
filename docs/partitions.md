@@ -31,7 +31,6 @@ The `exclude_tables` hook specifies the tables that should be ignored during a f
 exclude_tables = ["__global_search", "tabAccess Log", "tabActivity Log", "tabData Import"]
 ```
 
-
 ## Create Partition
 
 The **Create Partition** utility uses the `partition_doctypes` hook to perform several actions:
@@ -56,7 +55,6 @@ from test_utils.utils.create_partition import create_partition
 create_partition()
 ```
 
-
 ## Restore Partition
 
 The **Restore Partition** utility facilitates restoring a database backup from one Frappe site to another. It handles both non-partitioned and partitioned tables by performing the following steps:
@@ -66,7 +64,6 @@ The **Restore Partition** utility facilitates restoring a database backup from o
 - **Merge Files:** Combines the schema dump and full backup into a single file.
 - **Restore Target:** Restores the merged file into the target database.
 - **Partitioned Data:** Backs up and restores the partitioned data into the target database.
-
 
 ### Usage
 
@@ -94,7 +91,6 @@ restore(
 )
 ```
 
-
 ## Bubble Backup
 
 The Bubble Backup utility creates a comprehensive backup of a Frappe site's database. It includes:
@@ -104,7 +100,7 @@ The Bubble Backup utility creates a comprehensive backup of a Frappe site's data
 
 The backup is saved in the site's **/private/backups/** directory.
 
-### Configuration 
+### Configuration
 
 Before using `bubble_backup`, ensure that your site's `common_site_config.json` contains the necessary database credentials. Specifically, you must define:
 

@@ -1,948 +1,948 @@
 [
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Pie Crust",
-		"items": [
-			{
-				"item_code": "Flour",
-				"qty": 4.25,
-				"qty_consumed_per_unit": 0.85,
-				"rate": 0.66
-			},
-			{
-				"item_code": "Butter",
-				"qty": 2.5,
-				"qty_consumed_per_unit": 0.5,
-				"rate": 4.5
-			},
-			{
-				"item_code": "Ice Water",
-				"qty": 2.5,
-				"qty_consumed_per_unit": 0.5,
-				"rate": 0.01
-			},
-			{
-				"item_code": "Salt",
-				"qty": 0.05,
-				"qty_consumed_per_unit": 0.01,
-				"rate": 0.36
-			},
-			{
-				"item_code": "Parchment Paper",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 0.02
-			},
-			{
-				"item_code": "Pie Tin",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 0.18
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Gather Pie Crust Ingredients",
-				"time_in_mins": 5,
-				"workstation": "Food Prep Table 2"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Mix Dough Op",
-				"time_in_mins": 5,
-				"workstation": "Mixer Station"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Divide Dough Op",
-				"time_in_mins": 2,
-				"workstation": "Food Prep Table 2"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Chill Pie Crust Op",
-				"time_in_mins": 30,
-				"workstation": "Refrigerator Station"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Roll Pie Crust Op",
-				"time_in_mins": 10,
-				"workstation": "Food Prep Table 2"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 5,
-		"rm_cost_as_per": "Price List",
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 0,
-		"is_subcontracted": 1,
-		"item": "Pie Crust",
-		"items": [
-			{
-				"item_code": "Flour",
-				"qty": 4.25,
-				"qty_consumed_per_unit": 0.85,
-				"rate": 0.66
-			},
-			{
-				"item_code": "Butter",
-				"qty": 2.5,
-				"qty_consumed_per_unit": 0.5,
-				"rate": 4.5
-			},
-			{
-				"item_code": "Salt",
-				"qty": 0.05,
-				"qty_consumed_per_unit": 0.01,
-				"rate": 0.36
-			},
-			{
-				"item_code": "Parchment Paper",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 0.02
-			},
-			{
-				"item_code": "Pie Tin",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 0.18
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 5,
-		"rm_cost_as_per": "Price List",
-		"with_operations": 0
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Ambrosia Pie Filling",
-		"items": [
-			{
-				"item_code": "Sugar",
-				"qty": 0.5,
-				"qty_consumed_per_unit": 0.025,
-				"rate": 0.6
-			},
-			{
-				"item_code": "Cornstarch",
-				"qty": 0.1,
-				"qty_consumed_per_unit": 0.005,
-				"rate": 0.52
-			},
-			{
-				"item_code": "Butter",
-				"qty": 0.313,
-				"qty_consumed_per_unit": 0.01565,
-				"rate": 4.5
-			},
-			{
-				"item_code": "Hairless Rambutan",
-				"qty": 5,
-				"qty_consumed_per_unit": 0.25,
-				"rate": 0.5
-			},
-			{
-				"item_code": "Tayberry",
-				"qty": 2.5,
-				"qty_consumed_per_unit": 0.125,
-				"rate": 0.85
-			},
-			{
-				"item_code": "Cloudberry",
-				"qty": 7.5,
-				"qty_consumed_per_unit": 0.375,
-				"rate": 0.65
-			},
-			{
-				"item_code": "Water",
-				"qty": 1.25,
-				"qty_consumed_per_unit": 0.0625,
-				"rate": 0.05
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Gather Pie Filling Ingredients",
-				"time_in_mins": 5,
-				"workstation": "Food Prep Table 1"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Cook Pie Filling Operation",
-				"time_in_mins": 15,
-				"workstation": "Range Station"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 20,
-		"rm_cost_as_per": "Price List",
-		"transfer_material_against": "Work Order",
-		"uom": "Cup",
-		"web_long_description": null,
-		"website_image": null,
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Gooseberry Pie Filling",
-		"items": [
-			{
-				"item_code": "Sugar",
-				"qty": 0.5,
-				"qty_consumed_per_unit": 0.025,
-				"rate": 0.6
-			},
-			{
-				"item_code": "Cornstarch",
-				"qty": 0.1,
-				"qty_consumed_per_unit": 0.005,
-				"rate": 0.52
-			},
-			{
-				"item_code": "Water",
-				"qty": 1.25,
-				"qty_consumed_per_unit": 0.0625,
-				"rate": 0.05
-			},
-			{
-				"item_code": "Butter",
-				"qty": 0.313,
-				"qty_consumed_per_unit": 0.01565,
-				"rate": 4.5
-			},
-			{
-				"item_code": "Gooseberry",
-				"qty": 15,
-				"qty_consumed_per_unit": 0.75,
-				"rate": 0.99
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Gather Pie Filling Ingredients",
-				"time_in_mins": 5,
-				"workstation": "Food Prep Table 1"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Cook Pie Filling Operation",
-				"time_in_mins": 15,
-				"workstation": "Range Station"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 20,
-		"rm_cost_as_per": "Price List",
-		"transfer_material_against": "Work Order",
-		"uom": "Cup",
-		"web_long_description": null,
-		"website_image": null,
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Kaduka Key Lime Pie Filling",
-		"items": [
-			{
-				"item_code": "Sugar",
-				"qty": 0.5,
-				"qty_consumed_per_unit": 0.025,
-				"rate": 0.6
-			},
-			{
-				"item_code": "Cornstarch",
-				"qty": 0.1,
-				"qty_consumed_per_unit": 0.005,
-				"rate": 0.52
-			},
-			{
-				"item_code": "Water",
-				"qty": 1.25,
-				"qty_consumed_per_unit": 0.0625,
-				"rate": 0.05
-			},
-			{
-				"item_code": "Butter",
-				"qty": 0.313,
-				"qty_consumed_per_unit": 0.01565,
-				"rate": 4.5
-			},
-			{
-				"item_code": "Kaduka Lime",
-				"qty": 10,
-				"qty_consumed_per_unit": 0.5,
-				"rate": 0.89
-			},
-			{
-				"item_code": "Limequat",
-				"qty": 5,
-				"qty_consumed_per_unit": 0.25,
-				"rate": 0.75
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Gather Pie Filling Ingredients",
-				"time_in_mins": 5,
-				"workstation": "Food Prep Table 1"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Cook Pie Filling Operation",
-				"time_in_mins": 15,
-				"workstation": "Range Station"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 20,
-		"rm_cost_as_per": "Price List",
-		"transfer_material_against": "Work Order",
-		"uom": "Cup",
-		"web_long_description": null,
-		"website_image": null,
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Double Plum Pie Filling",
-		"items": [
-			{
-				"item_code": "Sugar",
-				"qty": 0.5,
-				"qty_consumed_per_unit": 0.025,
-				"rate": 0.6
-			},
-			{
-				"item_code": "Cornstarch",
-				"qty": 0.1,
-				"qty_consumed_per_unit": 0.005,
-				"rate": 0.52
-			},
-			{
-				"item_code": "Water",
-				"qty": 1.25,
-				"qty_consumed_per_unit": 0.0625,
-				"rate": 0.05
-			},
-			{
-				"item_code": "Butter",
-				"qty": 0.313,
-				"qty_consumed_per_unit": 0.01565,
-				"rate": 4.5
-			},
-			{
-				"item_code": "Cocoplum",
-				"qty": 7.5,
-				"qty_consumed_per_unit": 0.375,
-				"rate": 0.35
-			},
-			{
-				"item_code": "Damson Plum",
-				"qty": 7.5,
-				"qty_consumed_per_unit": 0.375,
-				"rate": 0.85
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Gather Pie Filling Ingredients",
-				"time_in_mins": 5,
-				"workstation": "Food Prep Table 1"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Cook Pie Filling Operation",
-				"time_in_mins": 15,
-				"workstation": "Range Station"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 20,
-		"rm_cost_as_per": "Price List",
-		"transfer_material_against": "Work Order",
-		"uom": "Cup",
-		"web_long_description": null,
-		"website_image": null,
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Bayberry Pie Filling",
-		"items": [
-			{
-				"item_code": "Sugar",
-				"qty": 0.5,
-				"qty_consumed_per_unit": 0.025,
-				"rate": 0.6
-			},
-			{
-				"item_code": "Cornstarch",
-				"qty": 0.1,
-				"qty_consumed_per_unit": 0.005,
-				"rate": 0.52
-			},
-			{
-				"item_code": "Water",
-				"qty": 1.25,
-				"qty_consumed_per_unit": 0.0625,
-				"rate": 0.05
-			},
-			{
-				"item_code": "Butter",
-				"qty": 0.313,
-				"qty_consumed_per_unit": 0.01565,
-				"rate": 4.5
-			},
-			{
-				"item_code": "Bayberry",
-				"qty": 15,
-				"qty_consumed_per_unit": 0.75,
-				"rate": 0.45
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Gather Pie Filling Ingredients",
-				"time_in_mins": 5,
-				"workstation": "Food Prep Table 1"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Cook Pie Filling Operation",
-				"time_in_mins": 15,
-				"workstation": "Range Station"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 20,
-		"rm_cost_as_per": "Price List",
-		"transfer_material_against": "Work Order",
-		"uom": "Cup",
-		"web_long_description": null,
-		"website_image": null,
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Ambrosia Pie",
-		"items": [
-			{
-				"item_code": "Pie Crust",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 3.0146
-			},
-			{
-				"item_code": "Ambrosia Pie Filling",
-				"qty": 20,
-				"qty_consumed_per_unit": 4,
-				"rate": 0.81615
-			},
-			{
-				"item_code": "Pie Box",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 0.4
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Assemble Pie Op",
-				"time_in_mins": 10,
-				"workstation": "Food Prep Table 2"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Bake Op",
-				"time_in_mins": 50,
-				"workstation": "Oven Station"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Cool Pie Op",
-				"time_in_mins": 30,
-				"workstation": "Cooling Racks Station"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Box Pie Op",
-				"time_in_mins": 5,
-				"workstation": "Packaging Station"
-			}
-		],
-		"overproduction_percentage_for_work_order": 100,
-		"quantity": 5,
-		"rm_cost_as_per": "Price List",
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Gooseberry Pie",
-		"items": [
-			{
-				"item_code": "Pie Crust",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 3.0146
-			},
-			{
-				"item_code": "Gooseberry Pie Filling",
-				"qty": 20,
-				"qty_consumed_per_unit": 4,
-				"rate": 1.08365
-			},
-			{
-				"item_code": "Pie Box",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 0.4
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Assemble Pie Op",
-				"time_in_mins": 10,
-				"workstation": "Food Prep Table 2"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Bake Op",
-				"time_in_mins": 50,
-				"workstation": "Oven Station"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Cool Pie Op",
-				"time_in_mins": 30,
-				"workstation": "Cooling Racks Station"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Box Pie Op",
-				"time_in_mins": 5,
-				"workstation": "Packaging Station"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 5,
-		"rm_cost_as_per": "Price List",
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Kaduka Key Lime Pie",
-		"items": [
-			{
-				"item_code": "Pie Crust",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 3.0146
-			},
-			{
-				"item_code": "Kaduka Key Lime Pie Filling",
-				"qty": 20,
-				"qty_consumed_per_unit": 4,
-				"rate": 0.97365
-			},
-			{
-				"item_code": "Pie Box",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 0.4
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Assemble Pie Op",
-				"time_in_mins": 10,
-				"workstation": "Food Prep Table 2"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Bake Op",
-				"time_in_mins": 50,
-				"workstation": "Oven Station"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Cool Pie Op",
-				"time_in_mins": 30,
-				"workstation": "Cooling Racks Station"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Box Pie Op",
-				"time_in_mins": 5,
-				"workstation": "Packaging Station"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 5,
-		"rm_cost_as_per": "Price List",
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Double Plum Pie",
-		"items": [
-			{
-				"item_code": "Pie Crust",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 3.0146
-			},
-			{
-				"item_code": "Double Plum Pie Filling",
-				"qty": 20,
-				"qty_consumed_per_unit": 4,
-				"rate": 0.79115
-			},
-			{
-				"item_code": "Pie Box",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 0.4
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Assemble Pie Op",
-				"time_in_mins": 10,
-				"workstation": "Food Prep Table 2"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Bake Op",
-				"time_in_mins": 50,
-				"workstation": "Oven Station"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Cool Pie Op",
-				"time_in_mins": 30,
-				"workstation": "Cooling Racks Station"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Box Pie Op",
-				"time_in_mins": 5,
-				"workstation": "Packaging Station"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 5,
-		"rm_cost_as_per": "Price List",
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Bayberry Pie",
-		"items": [
-			{
-				"item_code": "Pie Crust",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 3.0146
-			},
-			{
-				"item_code": "Bayberry Pie Filling",
-				"qty": 20,
-				"qty_consumed_per_unit": 4,
-				"rate": 0.67865
-			},
-			{
-				"item_code": "Pie Box",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 0.4
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Assemble Pie Op",
-				"time_in_mins": 10,
-				"workstation": "Food Prep Table 2"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Bake Op",
-				"time_in_mins": 50,
-				"workstation": "Oven Station"
-			},
-			{
-				"batch_size": 1,
-				"operation": "Cool Pie Op",
-				"time_in_mins": 30,
-				"workstation": "Cooling Racks Station"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Box Pie Op",
-				"time_in_mins": 5,
-				"workstation": "Packaging Station"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 5,
-		"rm_cost_as_per": "Price List",
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Bayberry Popper",
-		"items": [
-			{
-				"item_code": "Flour",
-				"qty": 0.5,
-				"qty_consumed_per_unit": 0.1,
-				"rate": 0.66
-			},
-			{
-				"item_code": "Butter",
-				"qty": 0.25,
-				"qty_consumed_per_unit": 0.05,
-				"rate": 4.5
-			},
-			{
-				"item_code": "Sugar",
-				"qty": 0.05,
-				"qty_consumed_per_unit": 0.01,
-				"rate": 0.6
-			},
-			{
-				"item_code": "Bayberry",
-				"qty": 1,
-				"qty_consumed_per_unit": 0.2,
-				"rate": 0.45
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Mix Dough Op",
-				"time_in_mins": 5,
-				"workstation": "Mixer Station"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Assemble Popper Op",
-				"time_in_mins": 1,
-				"workstation": "Food Prep Table 1"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 5,
-		"rm_cost_as_per": "Price List",
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Bayberry Pocket",
-		"items": [
-			{
-				"item_code": "Flour",
-				"qty": 1.5,
-				"qty_consumed_per_unit": 0.3,
-				"rate": 0.66
-			},
-			{
-				"item_code": "Butter",
-				"qty": 0.75,
-				"qty_consumed_per_unit": 0.15,
-				"rate": 4.5
-			},
-			{
-				"item_code": "Sugar",
-				"qty": 0.1,
-				"qty_consumed_per_unit": 0.02,
-				"rate": 0.6
-			},
-			{
-				"item_code": "Bayberry Popper",
-				"qty": 15,
-				"qty_consumed_per_unit": 3,
-				"rate": 0.687
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Mix Dough Op",
-				"time_in_mins": 5,
-				"workstation": "Mixer Station"
-			},
-			{
-				"batch_size": 5,
-				"operation": "Assemble Pocket Op",
-				"time_in_mins": 2,
-				"workstation": "Food Prep Table 1"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 5,
-		"rm_cost_as_per": "Price List",
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Pocketful of Bay",
-		"items": [
-			{
-				"item_code": "Bayberry Pocket",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 3.305
-			},
-			{
-				"item_code": "Bayberry Popper",
-				"qty": 10,
-				"qty_consumed_per_unit": 2,
-				"rate": 0.687
-			},
-			{
-				"item_code": "Pie Box",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 0.4
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Assemble Combination Product",
-				"time_in_mins": 2,
-				"workstation": "Food Prep Table 1"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 5,
-		"rm_cost_as_per": "Price List",
-		"with_operations": 1
-	},
-	{
-		"buying_price_list": "Bakery Buying",
-		"company": "Ambrosia Pie Company",
-		"currency": "USD",
-		"is_active": 1,
-		"is_default": 1,
-		"item": "Tower of Bay-bel",
-		"items": [
-			{
-				"item_code": "Bayberry Pie",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 10.88
-			},
-			{
-				"item_code": "Bayberry Pocket",
-				"qty": 5,
-				"qty_consumed_per_unit": 1,
-				"rate": 3.305
-			}
-		],
-		"operating_cost_per_bom_quantity": 0,
-		"operations": [
-			{
-				"batch_size": 5,
-				"operation": "Assemble Combination Product",
-				"time_in_mins": 2,
-				"workstation": "Food Prep Table 1"
-			}
-		],
-		"overproduction_percentage_for_work_order": 0,
-		"quantity": 5,
-		"rm_cost_as_per": "Price List",
-		"with_operations": 1
-	}
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Pie Crust",
+    "items": [
+      {
+        "item_code": "Flour",
+        "qty": 4.25,
+        "qty_consumed_per_unit": 0.85,
+        "rate": 0.66
+      },
+      {
+        "item_code": "Butter",
+        "qty": 2.5,
+        "qty_consumed_per_unit": 0.5,
+        "rate": 4.5
+      },
+      {
+        "item_code": "Ice Water",
+        "qty": 2.5,
+        "qty_consumed_per_unit": 0.5,
+        "rate": 0.01
+      },
+      {
+        "item_code": "Salt",
+        "qty": 0.05,
+        "qty_consumed_per_unit": 0.01,
+        "rate": 0.36
+      },
+      {
+        "item_code": "Parchment Paper",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 0.02
+      },
+      {
+        "item_code": "Pie Tin",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 0.18
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Gather Pie Crust Ingredients",
+        "time_in_mins": 5,
+        "workstation": "Food Prep Table 2"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Mix Dough Op",
+        "time_in_mins": 5,
+        "workstation": "Mixer Station"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Divide Dough Op",
+        "time_in_mins": 2,
+        "workstation": "Food Prep Table 2"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Chill Pie Crust Op",
+        "time_in_mins": 30,
+        "workstation": "Refrigerator Station"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Roll Pie Crust Op",
+        "time_in_mins": 10,
+        "workstation": "Food Prep Table 2"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 5,
+    "rm_cost_as_per": "Price List",
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 0,
+    "is_subcontracted": 1,
+    "item": "Pie Crust",
+    "items": [
+      {
+        "item_code": "Flour",
+        "qty": 4.25,
+        "qty_consumed_per_unit": 0.85,
+        "rate": 0.66
+      },
+      {
+        "item_code": "Butter",
+        "qty": 2.5,
+        "qty_consumed_per_unit": 0.5,
+        "rate": 4.5
+      },
+      {
+        "item_code": "Salt",
+        "qty": 0.05,
+        "qty_consumed_per_unit": 0.01,
+        "rate": 0.36
+      },
+      {
+        "item_code": "Parchment Paper",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 0.02
+      },
+      {
+        "item_code": "Pie Tin",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 0.18
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 5,
+    "rm_cost_as_per": "Price List",
+    "with_operations": 0
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Ambrosia Pie Filling",
+    "items": [
+      {
+        "item_code": "Sugar",
+        "qty": 0.5,
+        "qty_consumed_per_unit": 0.025,
+        "rate": 0.6
+      },
+      {
+        "item_code": "Cornstarch",
+        "qty": 0.1,
+        "qty_consumed_per_unit": 0.005,
+        "rate": 0.52
+      },
+      {
+        "item_code": "Butter",
+        "qty": 0.313,
+        "qty_consumed_per_unit": 0.01565,
+        "rate": 4.5
+      },
+      {
+        "item_code": "Hairless Rambutan",
+        "qty": 5,
+        "qty_consumed_per_unit": 0.25,
+        "rate": 0.5
+      },
+      {
+        "item_code": "Tayberry",
+        "qty": 2.5,
+        "qty_consumed_per_unit": 0.125,
+        "rate": 0.85
+      },
+      {
+        "item_code": "Cloudberry",
+        "qty": 7.5,
+        "qty_consumed_per_unit": 0.375,
+        "rate": 0.65
+      },
+      {
+        "item_code": "Water",
+        "qty": 1.25,
+        "qty_consumed_per_unit": 0.0625,
+        "rate": 0.05
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Gather Pie Filling Ingredients",
+        "time_in_mins": 5,
+        "workstation": "Food Prep Table 1"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Cook Pie Filling Operation",
+        "time_in_mins": 15,
+        "workstation": "Range Station"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 20,
+    "rm_cost_as_per": "Price List",
+    "transfer_material_against": "Work Order",
+    "uom": "Cup",
+    "web_long_description": null,
+    "website_image": null,
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Gooseberry Pie Filling",
+    "items": [
+      {
+        "item_code": "Sugar",
+        "qty": 0.5,
+        "qty_consumed_per_unit": 0.025,
+        "rate": 0.6
+      },
+      {
+        "item_code": "Cornstarch",
+        "qty": 0.1,
+        "qty_consumed_per_unit": 0.005,
+        "rate": 0.52
+      },
+      {
+        "item_code": "Water",
+        "qty": 1.25,
+        "qty_consumed_per_unit": 0.0625,
+        "rate": 0.05
+      },
+      {
+        "item_code": "Butter",
+        "qty": 0.313,
+        "qty_consumed_per_unit": 0.01565,
+        "rate": 4.5
+      },
+      {
+        "item_code": "Gooseberry",
+        "qty": 15,
+        "qty_consumed_per_unit": 0.75,
+        "rate": 0.99
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Gather Pie Filling Ingredients",
+        "time_in_mins": 5,
+        "workstation": "Food Prep Table 1"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Cook Pie Filling Operation",
+        "time_in_mins": 15,
+        "workstation": "Range Station"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 20,
+    "rm_cost_as_per": "Price List",
+    "transfer_material_against": "Work Order",
+    "uom": "Cup",
+    "web_long_description": null,
+    "website_image": null,
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Kaduka Key Lime Pie Filling",
+    "items": [
+      {
+        "item_code": "Sugar",
+        "qty": 0.5,
+        "qty_consumed_per_unit": 0.025,
+        "rate": 0.6
+      },
+      {
+        "item_code": "Cornstarch",
+        "qty": 0.1,
+        "qty_consumed_per_unit": 0.005,
+        "rate": 0.52
+      },
+      {
+        "item_code": "Water",
+        "qty": 1.25,
+        "qty_consumed_per_unit": 0.0625,
+        "rate": 0.05
+      },
+      {
+        "item_code": "Butter",
+        "qty": 0.313,
+        "qty_consumed_per_unit": 0.01565,
+        "rate": 4.5
+      },
+      {
+        "item_code": "Kaduka Lime",
+        "qty": 10,
+        "qty_consumed_per_unit": 0.5,
+        "rate": 0.89
+      },
+      {
+        "item_code": "Limequat",
+        "qty": 5,
+        "qty_consumed_per_unit": 0.25,
+        "rate": 0.75
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Gather Pie Filling Ingredients",
+        "time_in_mins": 5,
+        "workstation": "Food Prep Table 1"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Cook Pie Filling Operation",
+        "time_in_mins": 15,
+        "workstation": "Range Station"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 20,
+    "rm_cost_as_per": "Price List",
+    "transfer_material_against": "Work Order",
+    "uom": "Cup",
+    "web_long_description": null,
+    "website_image": null,
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Double Plum Pie Filling",
+    "items": [
+      {
+        "item_code": "Sugar",
+        "qty": 0.5,
+        "qty_consumed_per_unit": 0.025,
+        "rate": 0.6
+      },
+      {
+        "item_code": "Cornstarch",
+        "qty": 0.1,
+        "qty_consumed_per_unit": 0.005,
+        "rate": 0.52
+      },
+      {
+        "item_code": "Water",
+        "qty": 1.25,
+        "qty_consumed_per_unit": 0.0625,
+        "rate": 0.05
+      },
+      {
+        "item_code": "Butter",
+        "qty": 0.313,
+        "qty_consumed_per_unit": 0.01565,
+        "rate": 4.5
+      },
+      {
+        "item_code": "Cocoplum",
+        "qty": 7.5,
+        "qty_consumed_per_unit": 0.375,
+        "rate": 0.35
+      },
+      {
+        "item_code": "Damson Plum",
+        "qty": 7.5,
+        "qty_consumed_per_unit": 0.375,
+        "rate": 0.85
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Gather Pie Filling Ingredients",
+        "time_in_mins": 5,
+        "workstation": "Food Prep Table 1"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Cook Pie Filling Operation",
+        "time_in_mins": 15,
+        "workstation": "Range Station"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 20,
+    "rm_cost_as_per": "Price List",
+    "transfer_material_against": "Work Order",
+    "uom": "Cup",
+    "web_long_description": null,
+    "website_image": null,
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Bayberry Pie Filling",
+    "items": [
+      {
+        "item_code": "Sugar",
+        "qty": 0.5,
+        "qty_consumed_per_unit": 0.025,
+        "rate": 0.6
+      },
+      {
+        "item_code": "Cornstarch",
+        "qty": 0.1,
+        "qty_consumed_per_unit": 0.005,
+        "rate": 0.52
+      },
+      {
+        "item_code": "Water",
+        "qty": 1.25,
+        "qty_consumed_per_unit": 0.0625,
+        "rate": 0.05
+      },
+      {
+        "item_code": "Butter",
+        "qty": 0.313,
+        "qty_consumed_per_unit": 0.01565,
+        "rate": 4.5
+      },
+      {
+        "item_code": "Bayberry",
+        "qty": 15,
+        "qty_consumed_per_unit": 0.75,
+        "rate": 0.45
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Gather Pie Filling Ingredients",
+        "time_in_mins": 5,
+        "workstation": "Food Prep Table 1"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Cook Pie Filling Operation",
+        "time_in_mins": 15,
+        "workstation": "Range Station"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 20,
+    "rm_cost_as_per": "Price List",
+    "transfer_material_against": "Work Order",
+    "uom": "Cup",
+    "web_long_description": null,
+    "website_image": null,
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Ambrosia Pie",
+    "items": [
+      {
+        "item_code": "Pie Crust",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 3.0146
+      },
+      {
+        "item_code": "Ambrosia Pie Filling",
+        "qty": 20,
+        "qty_consumed_per_unit": 4,
+        "rate": 0.81615
+      },
+      {
+        "item_code": "Pie Box",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 0.4
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Assemble Pie Op",
+        "time_in_mins": 10,
+        "workstation": "Food Prep Table 2"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Bake Op",
+        "time_in_mins": 50,
+        "workstation": "Oven Station"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Cool Pie Op",
+        "time_in_mins": 30,
+        "workstation": "Cooling Racks Station"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Box Pie Op",
+        "time_in_mins": 5,
+        "workstation": "Packaging Station"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 100,
+    "quantity": 5,
+    "rm_cost_as_per": "Price List",
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Gooseberry Pie",
+    "items": [
+      {
+        "item_code": "Pie Crust",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 3.0146
+      },
+      {
+        "item_code": "Gooseberry Pie Filling",
+        "qty": 20,
+        "qty_consumed_per_unit": 4,
+        "rate": 1.08365
+      },
+      {
+        "item_code": "Pie Box",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 0.4
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Assemble Pie Op",
+        "time_in_mins": 10,
+        "workstation": "Food Prep Table 2"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Bake Op",
+        "time_in_mins": 50,
+        "workstation": "Oven Station"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Cool Pie Op",
+        "time_in_mins": 30,
+        "workstation": "Cooling Racks Station"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Box Pie Op",
+        "time_in_mins": 5,
+        "workstation": "Packaging Station"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 5,
+    "rm_cost_as_per": "Price List",
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Kaduka Key Lime Pie",
+    "items": [
+      {
+        "item_code": "Pie Crust",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 3.0146
+      },
+      {
+        "item_code": "Kaduka Key Lime Pie Filling",
+        "qty": 20,
+        "qty_consumed_per_unit": 4,
+        "rate": 0.97365
+      },
+      {
+        "item_code": "Pie Box",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 0.4
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Assemble Pie Op",
+        "time_in_mins": 10,
+        "workstation": "Food Prep Table 2"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Bake Op",
+        "time_in_mins": 50,
+        "workstation": "Oven Station"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Cool Pie Op",
+        "time_in_mins": 30,
+        "workstation": "Cooling Racks Station"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Box Pie Op",
+        "time_in_mins": 5,
+        "workstation": "Packaging Station"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 5,
+    "rm_cost_as_per": "Price List",
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Double Plum Pie",
+    "items": [
+      {
+        "item_code": "Pie Crust",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 3.0146
+      },
+      {
+        "item_code": "Double Plum Pie Filling",
+        "qty": 20,
+        "qty_consumed_per_unit": 4,
+        "rate": 0.79115
+      },
+      {
+        "item_code": "Pie Box",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 0.4
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Assemble Pie Op",
+        "time_in_mins": 10,
+        "workstation": "Food Prep Table 2"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Bake Op",
+        "time_in_mins": 50,
+        "workstation": "Oven Station"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Cool Pie Op",
+        "time_in_mins": 30,
+        "workstation": "Cooling Racks Station"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Box Pie Op",
+        "time_in_mins": 5,
+        "workstation": "Packaging Station"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 5,
+    "rm_cost_as_per": "Price List",
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Bayberry Pie",
+    "items": [
+      {
+        "item_code": "Pie Crust",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 3.0146
+      },
+      {
+        "item_code": "Bayberry Pie Filling",
+        "qty": 20,
+        "qty_consumed_per_unit": 4,
+        "rate": 0.67865
+      },
+      {
+        "item_code": "Pie Box",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 0.4
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Assemble Pie Op",
+        "time_in_mins": 10,
+        "workstation": "Food Prep Table 2"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Bake Op",
+        "time_in_mins": 50,
+        "workstation": "Oven Station"
+      },
+      {
+        "batch_size": 1,
+        "operation": "Cool Pie Op",
+        "time_in_mins": 30,
+        "workstation": "Cooling Racks Station"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Box Pie Op",
+        "time_in_mins": 5,
+        "workstation": "Packaging Station"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 5,
+    "rm_cost_as_per": "Price List",
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Bayberry Popper",
+    "items": [
+      {
+        "item_code": "Flour",
+        "qty": 0.5,
+        "qty_consumed_per_unit": 0.1,
+        "rate": 0.66
+      },
+      {
+        "item_code": "Butter",
+        "qty": 0.25,
+        "qty_consumed_per_unit": 0.05,
+        "rate": 4.5
+      },
+      {
+        "item_code": "Sugar",
+        "qty": 0.05,
+        "qty_consumed_per_unit": 0.01,
+        "rate": 0.6
+      },
+      {
+        "item_code": "Bayberry",
+        "qty": 1,
+        "qty_consumed_per_unit": 0.2,
+        "rate": 0.45
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Mix Dough Op",
+        "time_in_mins": 5,
+        "workstation": "Mixer Station"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Assemble Popper Op",
+        "time_in_mins": 1,
+        "workstation": "Food Prep Table 1"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 5,
+    "rm_cost_as_per": "Price List",
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Bayberry Pocket",
+    "items": [
+      {
+        "item_code": "Flour",
+        "qty": 1.5,
+        "qty_consumed_per_unit": 0.3,
+        "rate": 0.66
+      },
+      {
+        "item_code": "Butter",
+        "qty": 0.75,
+        "qty_consumed_per_unit": 0.15,
+        "rate": 4.5
+      },
+      {
+        "item_code": "Sugar",
+        "qty": 0.1,
+        "qty_consumed_per_unit": 0.02,
+        "rate": 0.6
+      },
+      {
+        "item_code": "Bayberry Popper",
+        "qty": 15,
+        "qty_consumed_per_unit": 3,
+        "rate": 0.687
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Mix Dough Op",
+        "time_in_mins": 5,
+        "workstation": "Mixer Station"
+      },
+      {
+        "batch_size": 5,
+        "operation": "Assemble Pocket Op",
+        "time_in_mins": 2,
+        "workstation": "Food Prep Table 1"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 5,
+    "rm_cost_as_per": "Price List",
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Pocketful of Bay",
+    "items": [
+      {
+        "item_code": "Bayberry Pocket",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 3.305
+      },
+      {
+        "item_code": "Bayberry Popper",
+        "qty": 10,
+        "qty_consumed_per_unit": 2,
+        "rate": 0.687
+      },
+      {
+        "item_code": "Pie Box",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 0.4
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Assemble Combination Product",
+        "time_in_mins": 2,
+        "workstation": "Food Prep Table 1"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 5,
+    "rm_cost_as_per": "Price List",
+    "with_operations": 1
+  },
+  {
+    "buying_price_list": "Bakery Buying",
+    "company": "Ambrosia Pie Company",
+    "currency": "USD",
+    "is_active": 1,
+    "is_default": 1,
+    "item": "Tower of Bay-bel",
+    "items": [
+      {
+        "item_code": "Bayberry Pie",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 10.88
+      },
+      {
+        "item_code": "Bayberry Pocket",
+        "qty": 5,
+        "qty_consumed_per_unit": 1,
+        "rate": 3.305
+      }
+    ],
+    "operating_cost_per_bom_quantity": 0,
+    "operations": [
+      {
+        "batch_size": 5,
+        "operation": "Assemble Combination Product",
+        "time_in_mins": 2,
+        "workstation": "Food Prep Table 1"
+      }
+    ],
+    "overproduction_percentage_for_work_order": 0,
+    "quantity": 5,
+    "rm_cost_as_per": "Price List",
+    "with_operations": 1
+  }
 ]

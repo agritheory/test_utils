@@ -1,37 +1,37 @@
-name: 'Changelog Generator'
-description: 'Analyzes PR changes and generates a draft changelog entry as a comment'
-author: 'agritheory'
+name: "Changelog Generator"
+description: "Analyzes PR changes and generates a draft changelog entry as a comment"
+author: "agritheory"
 
 inputs:
   github-token:
-    description: 'GitHub token with permissions to read PRs and create comments'
+    description: "GitHub token with permissions to read PRs and create comments"
     required: true
   anthropic-api-key:
-    description: 'API key for Anthropic'
+    description: "API key for Anthropic"
     required: true
   anthropic-model:
-    description: 'Anthropic model to use for generating the changelog'
+    description: "Anthropic model to use for generating the changelog"
     required: false
-    default: 'claude-3-7-sonnet-latest'
+    default: "claude-3-7-sonnet-latest"
   prompt-template:
-    description: 'Path to a custom prompt template file for the LLM'
+    description: "Path to a custom prompt template file for the LLM"
     required: false
-    default: '.github/changelog-prompt.txt'
+    default: ".github/changelog-prompt.txt"
   comment-header:
-    description: 'Header text for the comment that will contain the changelog'
+    description: "Header text for the comment that will contain the changelog"
     required: false
-    default: '## 📝 Draft Changelog Entry'
+    default: "## 📝 Draft Changelog Entry"
   max_tokens:
-    description: 'Maximum number of tokens to generate in the response'
+    description: "Maximum number of tokens to generate in the response"
     required: false
-    default: '1500'
+    default: "1500"
   temperature:
-    description: 'Temperature for the model response (lower is more deterministic)'
+    description: "Temperature for the model response (lower is more deterministic)"
     required: false
-    default: '0.2'
+    default: "0.2"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -60,7 +60,7 @@ runs:
       if: ${{ steps.should-run.outputs.should_run == 'true' }}
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: "3.10"
 
     - name: Install dependencies
       if: ${{ steps.should-run.outputs.should_run == 'true' }}

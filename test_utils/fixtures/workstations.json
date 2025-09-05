@@ -1,66 +1,66 @@
 [
-	{
-		"production_capacity": 20,
-		"workstation_name": "Mix Pie Crust Station"
-	},
-	{
-		"production_capacity": 20,
-		"workstation_name": "Roll Pie Crust Station"
-	},
-	{
-		"production_capacity": 20,
-		"workstation_name": "Make Pie Filling Station"
-	},
-	{
-		"production_capacity": 100,
-		"workstation_name": "Cooling Station"
-	},
-	{
-		"production_capacity": 100,
-		"workstation_name": "Box Pie Station"
-	},
-	{
-		"production_capacity": 20,
-		"workstation_name": "Baking Station"
-	},
-	{
-		"production_capacity": 20,
-		"workstation_name": "Assemble Pie Station"
-	},
-	{
-		"production_capacity": 20,
-		"workstation_name": "Mix Pie Filling Station"
-	},
-	{
-		"production_capacity": 2,
-		"workstation_name": "Packaging Station"
-	},
-	{
-		"production_capacity": 5,
-		"workstation_name": "Food Prep Table 1"
-	},
-	{
-		"production_capacity": 20,
-		"workstation_name": "Range Station"
-	},
-	{
-		"production_capacity": 80,
-		"workstation_name": "Cooling Racks Station"
-	},
-	{
-		"production_capacity": 20,
-		"workstation_name": "Oven Station"
-	},
-	{
-		"production_capacity": 200,
-		"workstation_name": "Refrigerator Station"
-	},
-	{
-		"production_capacity": 10,
-		"workstation_name": "Mixer Station"
-	},
-	{
-		"production_capacity": 10,
-		"workstation_name": "Food Prep Table 2"
-	}
+  {
+    "production_capacity": 20,
+    "workstation_name": "Mix Pie Crust Station"
+  },
+  {
+    "production_capacity": 20,
+    "workstation_name": "Roll Pie Crust Station"
+  },
+  {
+    "production_capacity": 20,
+    "workstation_name": "Make Pie Filling Station"
+  },
+  {
+    "production_capacity": 100,
+    "workstation_name": "Cooling Station"
+  },
+  {
+    "production_capacity": 100,
+    "workstation_name": "Box Pie Station"
+  },
+  {
+    "production_capacity": 20,
+    "workstation_name": "Baking Station"
+  },
+  {
+    "production_capacity": 20,
+    "workstation_name": "Assemble Pie Station"
+  },
+  {
+    "production_capacity": 20,
+    "workstation_name": "Mix Pie Filling Station"
+  },
+  {
+    "production_capacity": 2,
+    "workstation_name": "Packaging Station"
+  },
+  {
+    "production_capacity": 5,
+    "workstation_name": "Food Prep Table 1"
+  },
+  {
+    "production_capacity": 20,
+    "workstation_name": "Range Station"
+  },
+  {
+    "production_capacity": 80,
+    "workstation_name": "Cooling Racks Station"
+  },
+  {
+    "production_capacity": 20,
+    "workstation_name": "Oven Station"
+  },
+  {
+    "production_capacity": 200,
+    "workstation_name": "Refrigerator Station"
+  },
+  {
+    "production_capacity": 10,
+    "workstation_name": "Mixer Station"
+  },
+  {
+    "production_capacity": 10,
+    "workstation_name": "Food Prep Table 2"
+  }
 ]

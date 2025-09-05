@@ -24,6 +24,7 @@ This GitHub Action automatically generates a changelog entry as a PR comment by 
 ### 1. Configure GitHub Secrets
 
 In your repository settings, add the following secrets:
+
 - `ANTHROPIC_API_KEY`: Your Anthropic API key
 
 ### 2. Create a Workflow File
@@ -65,6 +66,7 @@ That's it! The action automatically handles different event types and determines
 For integrating with release workflows, see the [Release Integration Guide](./docs/release-integration.md).
 
 This covers:
+
 - Integration with the GitHub Releases API
 - Integration with [`python-semantic-release`](https://github.com/python-semantic-release/python-semantic-release)
 - Integration with other release tools
@@ -83,15 +85,15 @@ Once installed and configured:
 
 The action accepts the following inputs:
 
-| Input | Description | Required | Default |
-|-------|-------------|----------|---------|
-| `github-token` | GitHub token with permissions to read PRs and create comments | Yes | N/A |
-| `anthropic-api-key` | API key for Anthropic | Yes | N/A |
-| `anthropic-model` | Anthropic model to use for generating the changelog | No | `claude-3-7-sonnet-latest` |
-| `prompt-template` | Path to a custom prompt template file | No | `.github/changelog-prompt.txt` |
-| `comment-header` | Header text for the changelog comment | No | `## 📝 Draft Changelog Entry` |
-| `max_tokens` | Maximum number of tokens to generate in the response | No | `1500` |
-| `temperature` | Temperature for the model response (lower is more analytical) | No | `0.2` |
+| Input               | Description                                                   | Required | Default                        |
+| ------------------- | ------------------------------------------------------------- | -------- | ------------------------------ |
+| `github-token`      | GitHub token with permissions to read PRs and create comments | Yes      | N/A                            |
+| `anthropic-api-key` | API key for Anthropic                                         | Yes      | N/A                            |
+| `anthropic-model`   | Anthropic model to use for generating the changelog           | No       | `claude-3-7-sonnet-latest`     |
+| `prompt-template`   | Path to a custom prompt template file                         | No       | `.github/changelog-prompt.txt` |
+| `comment-header`    | Header text for the changelog comment                         | No       | `## 📝 Draft Changelog Entry`  |
+| `max_tokens`        | Maximum number of tokens to generate in the response          | No       | `1500`                         |
+| `temperature`       | Temperature for the model response (lower is more analytical) | No       | `0.2`                          |
 
 All event-specific parameters are handled automatically by the action.
 

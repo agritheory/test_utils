@@ -1,6 +1,6 @@
 [
-	{
-		"supplier_group_name": "Bakery",
-		"parent_supplier_group": "All Supplier Groups"
-	}
+  {
+    "supplier_group_name": "Bakery",
+    "parent_supplier_group": "All Supplier Groups"
+  }
 ]

@@ -1,758 +1,758 @@
 {
-    "country_code": "--",
-    "name": "Basic IFRS - Chart of Accounts with Numbers",
-    "tree": {
-        "Assets": {
-            "Property, Plant And Equipment": {
-                "Land and Buildings": {
-                    "account_number": "1.01.01",
-                    "account_type": "Fixed Asset"
-                },
-                "Machinery and Equipment": {
-                    "account_number": "1.01.02",
-                    "account_type": "Fixed Asset"
-                },
-                "Vehicles": {
-                    "account_number": "1.01.03",
-                    "account_type": "Fixed Asset"
-                },
-                "Fixtures and Fittings": {
-                    "account_number": "1.01.04",
-                    "account_type": "Fixed Asset"
-                },
-                "Exploration and Evaluation Assets": {
-                    "account_number": "1.01.05",
-                    "account_type": "Fixed Asset"
-                },
-                "Additional Property, Plant and Equipment": {
-                    "account_number": "1.01.06",
-                    "account_type": "Fixed Asset"
-                },
-                "Construction In Progress": {
-                    "account_number": "1.01.07",
-                    "account_type": "Capital Work in Progress"
-                },
-                "account_number": "1.01",
-                "account_type": "Fixed Asset"
-            },
-            "Investment Property": {
-                "Investment Property Under Construction Or Development": {
-                    "account_number": "1.02.01",
-                    "account_type": "Capital Work in Progress"
-                },
-                "Investment Property Completed": {
-                    "account_number": "1.02.02",
-                    "account_type": "Fixed Asset"
-                },
-                "account_number": "1.02",
-                "account_type": "Fixed Asset"
-            },
-            "Intangible Assets": {
-                "Intangible Assets Other Than Goodwill": {
-                    "account_number": "1.03.01"
-                },
-                "Goodwill": {
-                    "account_number": "1.03.02"
-                },
-                "account_number": "1.03"
-            },
-            "Financial Assets": {
-                "Group Companies (Intercompany Investments)": {
-                    "account_number": "1.04.01"
-                },
-                "Investments And Financial Instruments": {
-                    "account_number": "1.04.02"
-                },
-                "Derivative Financial Assets": {
-                    "account_number": "1.04.03"
-                },
-                "Other Financial Assets": {
-                    "account_number": "1.04.04"
-                },
-                "Allowance For Credit Losses (Aggregate)": {
-                    "account_number": "1.04.05"
-                },
-                "Financial Assets Classified By Designation": {
-                    "account_number": "1.04.06"
-                },
-                "account_number": "1.04"
-            },
-            "Biological Assets": {
-                "Biological Assets At Cost": {
-                    "account_number": "1.05.01",
-                    "account_type": "Stock"
-                },
-                "Biological Assets At Fair Value": {
-                    "account_number": "1.05.02",
-                    "account_type": "Stock"
-                },
-                "account_number": "1.05",
-                "account_type": "Stock"
-            },
-            "Accrued And Other Assets": {
-                "Prepayments And Other Current Assets": {
-                    "account_number": "1.06.01"
-                },
-                "Tax Related Receivables": {
-                    "account_number": "1.06.02"
-                },
-                "Service Providers": {
-                    "account_number": "1.06.03"
-                },
-                "Construction Contract Asset": {
-                    "account_number": "1.06.04"
-                },
-                "Set Up Costs": {
-                    "account_number": "1.06.05"
-                },
-                "Restricted Assets": {
-                    "account_number": "1.06.06"
-                },
-                "Current Investments Not Classified As Cash Equivalents": {
-                    "account_number": "1.06.07"
-                },
-                "Additional, Other And Miscellaneous Assets": {
-                    "account_number": "1.06.08"
-                },
-                "account_number": "1.06"
-            },
-            "Inventories": {
-                "Raw Materials and Production Supplies": {
-                    "account_number": "1.07.01",
-                    "account_type": "Stock"
-                },
-                "Merchandise": {
-                    "account_number": "1.07.02",
-                    "account_type": "Stock"
-                },
-                "Food and Beverage": {
-                    "account_number": "1.07.03",
-                    "account_type": "Stock"
-                },
-                "Agricultural Produce": {
-                    "account_number": "1.07.04",
-                    "account_type": "Stock"
-                },
-                "Work In Progress": {
-                    "account_number": "1.07.05",
-                    "account_type": "Stock"
-                },
-                "Materials and Supplies To Be Consumed In Production Process Or Rendering Services": {
-                    "account_number": "1.07.06",
-                    "account_type": "Stock"
-                },
-                "Finished Goods": {
-                    "account_number": "1.07.07",
-                    "account_type": "Stock"
-                },
-                "Packaging And Storage Materials": {
-                    "account_number": "1.07.08",
-                    "account_type": "Stock"
-                },
-                "Spare Parts": {
-                    "account_number": "1.07.09",
-                    "account_type": "Stock"
-                },
-                "Fuel": {
-                    "account_number": "1.07.10",
-                    "account_type": "Stock"
-                },
-                "Property Intended For Sale In Ordinary Course Of Business": {
-                    "account_number": "1.07.11",
-                    "account_type": "Stock"
-                },
-                "Inventories In Transit": {
-                    "account_number": "1.07.12",
-                    "account_type": "Stock"
-                },
-                "Other Inventories": {
-                    "account_number": "1.07.13",
-                    "account_type": "Stock"
-                },
-                "Inventories Pledged As Security For Liabilities": {
-                    "account_number": "1.07.14",
-                    "account_type": "Stock"
-                },
-                "Inventories At Fair Value Less Costs To Sell": {
-                    "account_number": "1.07.15",
-                    "account_type": "Stock"
-                },
-                "Acquisition In Progress": {
-                    "account_number": "1.07.16",
-                    "account_type": "Stock"
-                },
-                "Additional Inventory Items": {
-                    "account_number": "1.07.17",
-                    "account_type": "Stock"
-                },
-                "account_number": "1.07",
-                "account_type": "Stock"
-            },
-            "Receivables": {
-                "Trade Receivables": {
-                    "account_number": "1.08.01",
-                    "account_type": "Receivable"    
-                },
-                "Contract Assets": {
-                    "account_number": "1.08.02"
-                },
-                "Other Receivables": {
-                    "account_number": "1.08.03"
-                },
-                "Adjustments": {
-                    "account_number": "1.08.04"
-                },
-                "account_number": "1.08"
-            },
-            "Cash And Cash Equivalents": {
-                "Cash": {
-                    "account_number": "1.09.01",
-                    "account_type": "Cash"
-                },
-                "Cash Equivalents": {
-                    "account_number": "1.09.02",
-                    "account_type": "Cash"
-                },
-                "Short-Term Investments": {
-                    "account_number": "1.09.03"
-                },
-                "Other Cash And Cash Equivalents": {
-                    "account_number": "1.09.04",
-                    "account_type": "Cash"
-                },
-                "account_number": "1.09",
-                "account_type": "Cash"
-            },
-            "Bank Accounts": {
-                "is_group": 1,
-                "account_number": "1.10",
-                "account_type": "Bank"
-            },
-            "account_number": "1",
-            "root_type": "Asset"
+  "country_code": "--",
+  "name": "Basic IFRS - Chart of Accounts with Numbers",
+  "tree": {
+    "Assets": {
+      "Property, Plant And Equipment": {
+        "Land and Buildings": {
+          "account_number": "1.01.01",
+          "account_type": "Fixed Asset"
         },
-        "Expenses": {
-            "Expenses Classified By Nature": {
-                "Raw Materials And Consumables": {
-                    "account_number": "5.01.01",
-                    "account_type": "Cost of Goods Sold"
-                },
-                "Merchandise": {
-                    "account_number": "5.01.02",
-                    "account_type": "Cost of Goods Sold"
-                },
-                "Employee Benefits": {
-                    "account_number": "5.01.03"
-                },
-                "Services": {
-                    "account_number": "5.01.04"
-                },
-                "Transportation Expense": {
-                    "account_number": "5.01.05"
-                },
-                "Depreciation And Amortization": {
-                    "account_number": "5.01.06",
-                    "account_type": "Depreciation"
-                },
-                "Rental Expense": {
-                    "account_number": "5.01.07"
-                },
-                "Expenses Included In Asset Valuation": {
-                    "account_type": "Expenses Included In Asset Valuation",
-                    "account_number": "5.01.08"
-                },
-                "Expenses Included In Valuation": {
-                    "account_type": "Expenses Included In Valuation",
-                    "account_number": "5.01.09"
-                },
-                "Change in inventories of finished goods and work in progress": {
-                    "account_number": "5.01.10",
-                    "account_type": "Stock Adjustment"
-                },
-                "account_number": "5.01"
-            },
-            "Expenses Classified By Function": {
-                "Cost Of Sales": {
-                    "account_number": "5.02.01",
-                    "account_type": "Cost of Goods Sold"
-                },
-                "Selling, General And Administrative": {
-                    "account_number": "5.02.02"
-                },
-                "account_number": "5.02"
-            },
-            "Non-Operating Expenses (Peripheral Activities)": {
-                "Finance Costs": {
-                    "account_number": "6.02.01"
-                },
-                "Interest Expense": {
-                    "account_number": "6.02.02"
-                },
-                "Property Service Charges": {
-                    "account_number": "6.02.03"
-                },
-                "Unwinding Discounts On Provisions": {
-                    "account_number": "6.02.04"
-                },
-                "Donations And Subsidies": {
-                    "account_number": "6.02.05"
-                },
-                "Dividends Classified As Expense": {
-                    "account_number": "6.02.06"
-                },
-                "Other Expense By Nature": {
-                    "account_number": "6.02.07",
-                    "is_group": 1
-                },
-                "Other Operating Expenses By Function": {
-                    "account_number": "6.02.08",
-                    "is_group": 1
-                },
-                "account_number": "6.02"
-            },
-            "Taxes": {
-                "Taxes (Other than Income and Payroll) and Fees": {
-                    "account_number": "6.04.01"
-                },
-                "Tax Expense (Income)": {
-                    "account_number": "6.04.02"
-                },
-                "account_number": "6.04"
-            },
-            "account_number": "5",
-            "root_type": "Expense"
+        "Machinery and Equipment": {
+          "account_number": "1.01.02",
+          "account_type": "Fixed Asset"
         },
-        "Revenue": {
-            "Goods": {
-                "Products": {
-                    "account_number": "4.01.01"
-                },
-                "Merchandise": {
-                    "account_number": "4.01.02"
-                },
-                "Adjustments": {
-                    "account_number": "4.01.03"
-                },
-                "Specifically Itemized Goods Revenues": {
-                    "account_number": "4.01.04"
-                },
-                "account_number": "4.01"
-            },
-            "Services": {
-                "Specifically Itemized Service Revenues": {
-                    "account_number": "4.02.01"
-                },
-                "account_number": "4.02"
-            },
-            "Revenue From Contracts With Customers": {
-                "account_number": "4.03"
-            },
-            "Revenue From Construction Contracts": {
-                "account_number": "4.04"
-            },
-            "Franchise Fee Income": {
-                "account_number": "4.05"
-            },
-            "Barter Sales": {
-                "Goods": {
-                    "account_number": "4.06.01"
-                },
-                "Services": {
-                    "account_number": "4.06.02"
-                },
-                "Construction Contracts": {
-                    "account_number": "4.06.03"
-                },
-                "Royalties": {
-                    "account_number": "4.06.04"
-                },
-                "Interest": {
-                    "account_number": "4.06.05"
-                },
-                "Dividends": {
-                    "account_number": "4.06.06"
-                },
-                "Other Exchange Revenue": {
-                    "account_number": "4.06.07"
-                },
-                "account_number": "4.06"
-            },
-            "Dividends Classified As Operating Income": {
-                "account_number": "4.07"
-            },
-            "Non-Operating Income (Peripheral Activities)": {
-                "Finance Income": {
-                    "account_number": "6.01.01"
-                },
-                "Interest Income": {
-                    "account_number": "6.01.02"
-                },
-                "Dividends": {
-                    "account_number": "6.01.03"
-                },
-                "Royalties": {
-                    "account_number": "6.01.04"
-                },
-                "Licenses": {
-                    "account_number": "6.01.05"
-                },
-                "Rental Income": {
-                    "account_number": "6.01.06"
-                },
-                "Contractual Fines And Penalties": {
-                    "account_number": "6.01.07"
-                },
-                "Income From Government Grants": {
-                    "account_number": "6.01.08"
-                },
-                "Property Service Charge Income": {
-                    "account_number": "6.01.09"
-                },
-                "Income From Reimbursements Under Insurance Policies": {
-                    "account_number": "6.01.10"
-                },
-                "Other Operating Income By Function": {
-                    "account_number": "6.01.11",
-                    "is_group": 1
-                },
-                "account_number": "6.01"
-            },
-            "Gains and (Losses)": {
-                "Foreign Exchange Gain (Loss)": {
-                    "account_number": "6.03.01"
-                },
-                "Impairment": {
-                    "account_number": "6.03.02"
-                },
-                "Restructuring Activities": {
-                    "account_number": "6.03.03"
-                },
-                "Disposals Of Non-Current Assets": {
-                    "account_number": "6.03.04"
-                },
-                "Disposals Of Property, Plant And Equipment": {
-                    "account_number": "6.03.05"
-                },
-                "Disposals Of Investment Properties": {
-                    "account_number": "6.03.06"
-                },
-                "Disposals Of Investments": {
-                    "account_number": "6.03.07"
-                },
-                "Gains And Losses On Derivatives": {
-                    "account_number": "6.03.08"
-                },
-                "Disposals Of Other Non-Current Assets": {
-                    "account_number": "6.03.09"
-                },
-                "Changes In Contingent Consideration": {
-                    "account_number": "6.03.10"
-                },
-                "Changes In Investment Property": {
-                    "account_number": "6.03.11"
-                },
-                "Gain (Loss) On Liability Extinguishment": {
-                    "account_number": "6.03.12"
-                },
-                "Income (Expense) On Discontinued Operations": {
-                    "account_number": "6.03.13"
-                },
-                "Litigation Settlements": {
-                    "account_number": "6.03.14"
-                },
-                "Other Reversals Of Provisions": {
-                    "account_number": "6.03.15"
-                },
-                "Gain (Loss) On Financial Assets Reclassified To Fair Value": {
-                    "account_number": "6.03.16"
-                },
-                "Cumulative Gain (Loss) From Reclassification To OCI": {
-                    "account_number": "6.03.17"
-                },
-                "Gain (Loss) On De-recognition Of Amortized Cost Assets": {
-                    "account_number": "6.03.18"
-                },
-                "Gain (Loss) On Non-Cash Dividends": {
-                    "account_number": "6.03.19"
-                },
-                "account_number": "6.03"
-            },
-            "Other Comprehensive Income Reclassification Adjustments": {
-                "Exchange Differences On Translation": {
-                    "account_number": "6.05.01"
-                },
-                "Available-For-Sale Financial Assets": {
-                    "account_number": "6.05.02"
-                },
-                "Cash Flow Hedges": {
-                    "account_number": "6.05.03"
-                },
-                "Hedges Of Net Investment In Foreign Operations": {
-                    "account_number": "6.05.04"
-                },
-                "Change In Value Of Time Value Of Options": {
-                    "account_number": "6.05.05"
-                },
-                "Change In Value Of Forward Elements Of Forward Contracts": {
-                    "account_number": "6.05.06"
-                },
-                "Change In Value Of Foreign Currency Basis Spreads": {
-                    "account_number": "6.05.07"
-                },
-                "Financial Assets Measured At Fair Value Through Other Comprehensive Income": {
-                    "account_number": "6.05.08"
-                },
-                "account_number": "6.05"
-            },
-            "account_number": "4",
-            "root_type": "Income"
+        "Vehicles": {
+          "account_number": "1.01.03",
+          "account_type": "Fixed Asset"
         },
-        "Liabilities": {
-            "Borrowings": {
-                "Borrowings (By Type)": {
-                    "account_number": "3.01.01",
-                    "is_group": 1
-                },
-                "Financial Liabilities (By Designation)": {
-                    "account_number": "3.01.02",
-                    "is_group": 1
-                },
-                "account_number": "3.01"
-            },
-            "Provisions": {
-                "Employee Benefits": {
-                    "account_number": "3.02.01"
-                },
-                "Warranties": {
-                    "account_number": "3.02.02"
-                },
-                "Refunds": {
-                    "account_number": "3.02.03"
-                },
-                "Decommissioning, Restoration And Rehabilitation": {
-                    "account_number": "3.02.04"
-                },
-                "Restructuring": {
-                    "account_number": "3.02.05"
-                },
-                "Onerous Contracts": {
-                    "account_number": "3.02.06"
-                },
-                "Legal Proceedings": {
-                    "account_number": "3.02.07"
-                },
-                "Business Combinations": {
-                    "account_number": "3.02.08"
-                },
-                "Liabilities Included In Disposal Groups": {
-                    "account_number": "3.02.09"
-                },
-                "Other Provisions": {
-                    "account_number": "3.02.10"
-                },
-                "account_number": "3.02"
-            },
-            "Trade And Other Payables": {
-                "Trade Payables": {
-                    "account_number": "3.03.01",
-                    "account_type": "Payable"
-                },
-                "Contract Liabilities": {
-                    "account_number": "3.03.02"
-                },
-                "Related Party Payables": {
-                    "account_number": "3.03.03"
-                },
-                "Retention Payables": {
-                    "account_number": "3.03.04"
-                },
-                "Adjustments": {
-                    "account_number": "3.03.05"
-                },
-                "account_number": "3.03"
-            },
-            "Accrued, Deferred And Other Liabilities": {
-                "Accrued Liabilities": {
-                    "account_number": "3.04.01"
-                },
-                "Accrued Expenses And Other Liabilities": {
-                    "account_number": "3.04.02"
-                },
-                "Dividend Payables": {
-                    "account_number": "3.04.03"
-                },
-                "Interest Payable": {
-                    "account_number": "3.04.04"
-                },
-                "Deferred Income, Unearned Revenue": {
-                    "account_number": "3.04.05"
-                },
-                "Advances": {
-                    "account_number": "3.04.06"
-                },
-                "Construction Contract Liability": {
-                    "account_number": "3.04.07"
-                },
-                "Other Payables": {
-                    "account_number": "3.04.08"
-                },
-                "account_number": "3.04"
-            },
-            "Tax Liabilities": {
-                "Current Tax Liabilities": {
-                    "account_number": "3.05.01"
-                },
-                "Deferred Tax Liabilities": {
-                    "account_number": "3.05.02"
-                },
-                "account_number": "3.05",
-                "account_type": "Tax"
-            },
-            "Other And Miscellaneous Liabilities": {
-                "Finance Leases": {
-                    "account_number": "3.06.01"
-                },
-                "Deposits": {
-                    "account_number": "3.06.02"
-                },
-                "Derivative Financial Liabilities": {
-                    "account_number": "3.06.03"
-                },
-                "Government Grant Obligations": {
-                    "account_number": "3.06.04"
-                },
-                "Liabilities Due To Central Banks": {
-                    "account_number": "3.06.05"
-                },
-                "Subordinated Liabilities": {
-                    "account_number": "3.06.06"
-                },
-                "Other Liabilities": {
-                    "account_number": "3.06.07"
-                },
-                "account_number": "3.06"
-            },
-            "account_number": "3",
-            "root_type": "Liability"
+        "Fixtures and Fittings": {
+          "account_number": "1.01.04",
+          "account_type": "Fixed Asset"
         },
-        "Equity": {
-            "Issued Capital": {
-                "Ordinary Shares": {
-                    "account_number": "2.01.01"
-                },
-                "Preferred Shares": {
-                    "account_number": "2.01.02"
-                },
-                "Par Value Per Share": {
-                    "account_number": "2.01.03"
-                },
-                "Share Premium": {
-                    "account_number": "2.01.04"
-                },
-                "Additional Paid In Capital": {
-                    "account_number": "2.01.05"
-                },
-                "account_number": "2.01",
-                "account_type": "Equity"
-            },
-            "Retained Earnings": {
-                "Retained Earnings": {
-                    "account_number": "2.02.01"
-                },
-                "account_number": "2.02",
-                "account_type": "Equity"
-            },
-            "Other Reserves (Accumulated Other Comprehensive Income)": {
-                "Revaluation Surplus": {
-                    "account_number": "2.03.01"
-                },
-                "Reserve Of Exchange Differences On Translation": {
-                    "account_number": "2.03.02"
-                },
-                "Reserve Of Cash Flow Hedges": {
-                    "account_number": "2.03.03"
-                },
-                "Reserve Of Gains And Losses On Hedging Instruments That Hedge Investments In Equity Instruments": {
-                    "account_number": "2.03.04"
-                },
-                "Reserve Of Change In Value Of Time Value Of Options": {
-                    "account_number": "2.03.05"
-                },
-                "Reserve Of Change In Value Of Forward Elements Of Forward Contracts": {
-                    "account_number": "2.03.06"
-                },
-                "Reserve Of Change In Value Of Foreign Currency Basis Spreads": {
-                    "account_number": "2.03.07"
-                },
-                "Reserve Of Gains And Losses On Financial Assets Measured At Fair Value Through Other Comprehensive Income": {
-                    "account_number": "2.03.08"
-                },
-                "Reserve Of Gains And Losses On Remeasuring Available-For-Sale Financial Assets": {
-                    "account_number": "2.03.09"
-                },
-                "Reserve Of Share-Based Payments": {
-                    "account_number": "2.03.10"
-                },
-                "Reserve Of Remeasurements Of Defined Benefit Plans": {
-                    "account_number": "2.03.11"
-                },
-                "Amount Recognized In Other Comprehensive Income Relating To Non-Current Assets Or Disposal Groups Held For Sale": {
-                    "account_number": "2.03.12"
-                },
-                "Reserve Of Gains And Losses From Investments In Equity Instruments": {
-                    "account_number": "2.03.13"
-                },
-                "Reserve Of Change In Fair Value Of Financial Liability Attributable To Change In Credit Risk Of Liability": {
-                    "account_number": "2.03.14"
-                },
-                "Reserve For Catastrophe": {
-                    "account_number": "2.03.15"
-                },
-                "Reserve For Equalization": {
-                    "account_number": "2.03.16"
-                },
-                "Reserve Of Discretionary Participation Features": {
-                    "account_number": "2.03.17"
-                },
-                "Reserve Of Equity Component Of Convertible Instruments": {
-                    "account_number": "2.03.18"
-                },
-                "Capital Redemption Reserve": {
-                    "account_number": "2.03.19"
-                },
-                "Merger Reserve": {
-                    "account_number": "2.03.20"
-                },
-                "Statutory Reserve": {
-                    "account_number": "2.03.21"
-                },
-                "account_number": "2.03",
-                "account_type": "Equity"
-            },
-            "Other Equity": {
-                "Other Equity Interest": {
-                    "account_number": "2.04.01"
-                },
-                "Capital Reserve": {
-                    "account_number": "2.04.02"
-                },
-                "Receivable For Shares (Share Subscribed But Unissued)": {
-                    "account_number": "2.04.03"
-                },
-                "Treasury Shares": {
-                    "account_number": "2.04.04"
-                },
-                "Controlling Interest": {
-                    "account_number": "2.04.05"
-                },
-                "Non-Controlling Interest": {
-                    "account_number": "2.04.06"
-                },
-                "account_number": "2.04",
-                "account_type": "Equity"
-            },
-            "account_number": "2",
-            "root_type": "Equity"
-        }
+        "Exploration and Evaluation Assets": {
+          "account_number": "1.01.05",
+          "account_type": "Fixed Asset"
+        },
+        "Additional Property, Plant and Equipment": {
+          "account_number": "1.01.06",
+          "account_type": "Fixed Asset"
+        },
+        "Construction In Progress": {
+          "account_number": "1.01.07",
+          "account_type": "Capital Work in Progress"
+        },
+        "account_number": "1.01",
+        "account_type": "Fixed Asset"
+      },
+      "Investment Property": {
+        "Investment Property Under Construction Or Development": {
+          "account_number": "1.02.01",
+          "account_type": "Capital Work in Progress"
+        },
+        "Investment Property Completed": {
+          "account_number": "1.02.02",
+          "account_type": "Fixed Asset"
+        },
+        "account_number": "1.02",
+        "account_type": "Fixed Asset"
+      },
+      "Intangible Assets": {
+        "Intangible Assets Other Than Goodwill": {
+          "account_number": "1.03.01"
+        },
+        "Goodwill": {
+          "account_number": "1.03.02"
+        },
+        "account_number": "1.03"
+      },
+      "Financial Assets": {
+        "Group Companies (Intercompany Investments)": {
+          "account_number": "1.04.01"
+        },
+        "Investments And Financial Instruments": {
+          "account_number": "1.04.02"
+        },
+        "Derivative Financial Assets": {
+          "account_number": "1.04.03"
+        },
+        "Other Financial Assets": {
+          "account_number": "1.04.04"
+        },
+        "Allowance For Credit Losses (Aggregate)": {
+          "account_number": "1.04.05"
+        },
+        "Financial Assets Classified By Designation": {
+          "account_number": "1.04.06"
+        },
+        "account_number": "1.04"
+      },
+      "Biological Assets": {
+        "Biological Assets At Cost": {
+          "account_number": "1.05.01",
+          "account_type": "Stock"
+        },
+        "Biological Assets At Fair Value": {
+          "account_number": "1.05.02",
+          "account_type": "Stock"
+        },
+        "account_number": "1.05",
+        "account_type": "Stock"
+      },
+      "Accrued And Other Assets": {
+        "Prepayments And Other Current Assets": {
+          "account_number": "1.06.01"
+        },
+        "Tax Related Receivables": {
+          "account_number": "1.06.02"
+        },
+        "Service Providers": {
+          "account_number": "1.06.03"
+        },
+        "Construction Contract Asset": {
+          "account_number": "1.06.04"
+        },
+        "Set Up Costs": {
+          "account_number": "1.06.05"
+        },
+        "Restricted Assets": {
+          "account_number": "1.06.06"
+        },
+        "Current Investments Not Classified As Cash Equivalents": {
+          "account_number": "1.06.07"
+        },
+        "Additional, Other And Miscellaneous Assets": {
+          "account_number": "1.06.08"
+        },
+        "account_number": "1.06"
+      },
+      "Inventories": {
+        "Raw Materials and Production Supplies": {
+          "account_number": "1.07.01",
+          "account_type": "Stock"
+        },
+        "Merchandise": {
+          "account_number": "1.07.02",
+          "account_type": "Stock"
+        },
+        "Food and Beverage": {
+          "account_number": "1.07.03",
+          "account_type": "Stock"
+        },
+        "Agricultural Produce": {
+          "account_number": "1.07.04",
+          "account_type": "Stock"
+        },
+        "Work In Progress": {
+          "account_number": "1.07.05",
+          "account_type": "Stock"
+        },
+        "Materials and Supplies To Be Consumed In Production Process Or Rendering Services": {
+          "account_number": "1.07.06",
+          "account_type": "Stock"
+        },
+        "Finished Goods": {
+          "account_number": "1.07.07",
+          "account_type": "Stock"
+        },
+        "Packaging And Storage Materials": {
+          "account_number": "1.07.08",
+          "account_type": "Stock"
+        },
+        "Spare Parts": {
+          "account_number": "1.07.09",
+          "account_type": "Stock"
+        },
+        "Fuel": {
+          "account_number": "1.07.10",
+          "account_type": "Stock"
+        },
+        "Property Intended For Sale In Ordinary Course Of Business": {
+          "account_number": "1.07.11",
+          "account_type": "Stock"
+        },
+        "Inventories In Transit": {
+          "account_number": "1.07.12",
+          "account_type": "Stock"
+        },
+        "Other Inventories": {
+          "account_number": "1.07.13",
+          "account_type": "Stock"
+        },
+        "Inventories Pledged As Security For Liabilities": {
+          "account_number": "1.07.14",
+          "account_type": "Stock"
+        },
+        "Inventories At Fair Value Less Costs To Sell": {
+          "account_number": "1.07.15",
+          "account_type": "Stock"
+        },
+        "Acquisition In Progress": {
+          "account_number": "1.07.16",
+          "account_type": "Stock"
+        },
+        "Additional Inventory Items": {
+          "account_number": "1.07.17",
+          "account_type": "Stock"
+        },
+        "account_number": "1.07",
+        "account_type": "Stock"
+      },
+      "Receivables": {
+        "Trade Receivables": {
+          "account_number": "1.08.01",
+          "account_type": "Receivable"
+        },
+        "Contract Assets": {
+          "account_number": "1.08.02"
+        },
+        "Other Receivables": {
+          "account_number": "1.08.03"
+        },
+        "Adjustments": {
+          "account_number": "1.08.04"
+        },
+        "account_number": "1.08"
+      },
+      "Cash And Cash Equivalents": {
+        "Cash": {
+          "account_number": "1.09.01",
+          "account_type": "Cash"
+        },
+        "Cash Equivalents": {
+          "account_number": "1.09.02",
+          "account_type": "Cash"
+        },
+        "Short-Term Investments": {
+          "account_number": "1.09.03"
+        },
+        "Other Cash And Cash Equivalents": {
+          "account_number": "1.09.04",
+          "account_type": "Cash"
+        },
+        "account_number": "1.09",
+        "account_type": "Cash"
+      },
+      "Bank Accounts": {
+        "is_group": 1,
+        "account_number": "1.10",
+        "account_type": "Bank"
+      },
+      "account_number": "1",
+      "root_type": "Asset"
+    },
+    "Expenses": {
+      "Expenses Classified By Nature": {
+        "Raw Materials And Consumables": {
+          "account_number": "5.01.01",
+          "account_type": "Cost of Goods Sold"
+        },
+        "Merchandise": {
+          "account_number": "5.01.02",
+          "account_type": "Cost of Goods Sold"
+        },
+        "Employee Benefits": {
+          "account_number": "5.01.03"
+        },
+        "Services": {
+          "account_number": "5.01.04"
+        },
+        "Transportation Expense": {
+          "account_number": "5.01.05"
+        },
+        "Depreciation And Amortization": {
+          "account_number": "5.01.06",
+          "account_type": "Depreciation"
+        },
+        "Rental Expense": {
+          "account_number": "5.01.07"
+        },
+        "Expenses Included In Asset Valuation": {
+          "account_type": "Expenses Included In Asset Valuation",
+          "account_number": "5.01.08"
+        },
+        "Expenses Included In Valuation": {
+          "account_type": "Expenses Included In Valuation",
+          "account_number": "5.01.09"
+        },
+        "Change in inventories of finished goods and work in progress": {
+          "account_number": "5.01.10",
+          "account_type": "Stock Adjustment"
+        },
+        "account_number": "5.01"
+      },
+      "Expenses Classified By Function": {
+        "Cost Of Sales": {
+          "account_number": "5.02.01",
+          "account_type": "Cost of Goods Sold"
+        },
+        "Selling, General And Administrative": {
+          "account_number": "5.02.02"
+        },
+        "account_number": "5.02"
+      },
+      "Non-Operating Expenses (Peripheral Activities)": {
+        "Finance Costs": {
+          "account_number": "6.02.01"
+        },
+        "Interest Expense": {
+          "account_number": "6.02.02"
+        },
+        "Property Service Charges": {
+          "account_number": "6.02.03"
+        },
+        "Unwinding Discounts On Provisions": {
+          "account_number": "6.02.04"
+        },
+        "Donations And Subsidies": {
+          "account_number": "6.02.05"
+        },
+        "Dividends Classified As Expense": {
+          "account_number": "6.02.06"
+        },
+        "Other Expense By Nature": {
+          "account_number": "6.02.07",
+          "is_group": 1
+        },
+        "Other Operating Expenses By Function": {
+          "account_number": "6.02.08",
+          "is_group": 1
+        },
+        "account_number": "6.02"
+      },
+      "Taxes": {
+        "Taxes (Other than Income and Payroll) and Fees": {
+          "account_number": "6.04.01"
+        },
+        "Tax Expense (Income)": {
+          "account_number": "6.04.02"
+        },
+        "account_number": "6.04"
+      },
+      "account_number": "5",
+      "root_type": "Expense"
+    },
+    "Revenue": {
+      "Goods": {
+        "Products": {
+          "account_number": "4.01.01"
+        },
+        "Merchandise": {
+          "account_number": "4.01.02"
+        },
+        "Adjustments": {
+          "account_number": "4.01.03"
+        },
+        "Specifically Itemized Goods Revenues": {
+          "account_number": "4.01.04"
+        },
+        "account_number": "4.01"
+      },
+      "Services": {
+        "Specifically Itemized Service Revenues": {
+          "account_number": "4.02.01"
+        },
+        "account_number": "4.02"
+      },
+      "Revenue From Contracts With Customers": {
+        "account_number": "4.03"
+      },
+      "Revenue From Construction Contracts": {
+        "account_number": "4.04"
+      },
+      "Franchise Fee Income": {
+        "account_number": "4.05"
+      },
+      "Barter Sales": {
+        "Goods": {
+          "account_number": "4.06.01"
+        },
+        "Services": {
+          "account_number": "4.06.02"
+        },
+        "Construction Contracts": {
+          "account_number": "4.06.03"
+        },
+        "Royalties": {
+          "account_number": "4.06.04"
+        },
+        "Interest": {
+          "account_number": "4.06.05"
+        },
+        "Dividends": {
+          "account_number": "4.06.06"
+        },
+        "Other Exchange Revenue": {
+          "account_number": "4.06.07"
+        },
+        "account_number": "4.06"
+      },
+      "Dividends Classified As Operating Income": {
+        "account_number": "4.07"
+      },
+      "Non-Operating Income (Peripheral Activities)": {
+        "Finance Income": {
+          "account_number": "6.01.01"
+        },
+        "Interest Income": {
+          "account_number": "6.01.02"
+        },
+        "Dividends": {
+          "account_number": "6.01.03"
+        },
+        "Royalties": {
+          "account_number": "6.01.04"
+        },
+        "Licenses": {
+          "account_number": "6.01.05"
+        },
+        "Rental Income": {
+          "account_number": "6.01.06"
+        },
+        "Contractual Fines And Penalties": {
+          "account_number": "6.01.07"
+        },
+        "Income From Government Grants": {
+          "account_number": "6.01.08"
+        },
+        "Property Service Charge Income": {
+          "account_number": "6.01.09"
+        },
+        "Income From Reimbursements Under Insurance Policies": {
+          "account_number": "6.01.10"
+        },
+        "Other Operating Income By Function": {
+          "account_number": "6.01.11",
+          "is_group": 1
+        },
+        "account_number": "6.01"
+      },
+      "Gains and (Losses)": {
+        "Foreign Exchange Gain (Loss)": {
+          "account_number": "6.03.01"
+        },
+        "Impairment": {
+          "account_number": "6.03.02"
+        },
+        "Restructuring Activities": {
+          "account_number": "6.03.03"
+        },
+        "Disposals Of Non-Current Assets": {
+          "account_number": "6.03.04"
+        },
+        "Disposals Of Property, Plant And Equipment": {
+          "account_number": "6.03.05"
+        },
+        "Disposals Of Investment Properties": {
+          "account_number": "6.03.06"
+        },
+        "Disposals Of Investments": {
+          "account_number": "6.03.07"
+        },
+        "Gains And Losses On Derivatives": {
+          "account_number": "6.03.08"
+        },
+        "Disposals Of Other Non-Current Assets": {
+          "account_number": "6.03.09"
+        },
+        "Changes In Contingent Consideration": {
+          "account_number": "6.03.10"
+        },
+        "Changes In Investment Property": {
+          "account_number": "6.03.11"
+        },
+        "Gain (Loss) On Liability Extinguishment": {
+          "account_number": "6.03.12"
+        },
+        "Income (Expense) On Discontinued Operations": {
+          "account_number": "6.03.13"
+        },
+        "Litigation Settlements": {
+          "account_number": "6.03.14"
+        },
+        "Other Reversals Of Provisions": {
+          "account_number": "6.03.15"
+        },
+        "Gain (Loss) On Financial Assets Reclassified To Fair Value": {
+          "account_number": "6.03.16"
+        },
+        "Cumulative Gain (Loss) From Reclassification To OCI": {
+          "account_number": "6.03.17"
+        },
+        "Gain (Loss) On De-recognition Of Amortized Cost Assets": {
+          "account_number": "6.03.18"
+        },
+        "Gain (Loss) On Non-Cash Dividends": {
+          "account_number": "6.03.19"
+        },
+        "account_number": "6.03"
+      },
+      "Other Comprehensive Income Reclassification Adjustments": {
+        "Exchange Differences On Translation": {
+          "account_number": "6.05.01"
+        },
+        "Available-For-Sale Financial Assets": {
+          "account_number": "6.05.02"
+        },
+        "Cash Flow Hedges": {
+          "account_number": "6.05.03"
+        },
+        "Hedges Of Net Investment In Foreign Operations": {
+          "account_number": "6.05.04"
+        },
+        "Change In Value Of Time Value Of Options": {
+          "account_number": "6.05.05"
+        },
+        "Change In Value Of Forward Elements Of Forward Contracts": {
+          "account_number": "6.05.06"
+        },
+        "Change In Value Of Foreign Currency Basis Spreads": {
+          "account_number": "6.05.07"
+        },
+        "Financial Assets Measured At Fair Value Through Other Comprehensive Income": {
+          "account_number": "6.05.08"
+        },
+        "account_number": "6.05"
+      },
+      "account_number": "4",
+      "root_type": "Income"
+    },
+    "Liabilities": {
+      "Borrowings": {
+        "Borrowings (By Type)": {
+          "account_number": "3.01.01",
+          "is_group": 1
+        },
+        "Financial Liabilities (By Designation)": {
+          "account_number": "3.01.02",
+          "is_group": 1
+        },
+        "account_number": "3.01"
+      },
+      "Provisions": {
+        "Employee Benefits": {
+          "account_number": "3.02.01"
+        },
+        "Warranties": {
+          "account_number": "3.02.02"
+        },
+        "Refunds": {
+          "account_number": "3.02.03"
+        },
+        "Decommissioning, Restoration And Rehabilitation": {
+          "account_number": "3.02.04"
+        },
+        "Restructuring": {
+          "account_number": "3.02.05"
+        },
+        "Onerous Contracts": {
+          "account_number": "3.02.06"
+        },
+        "Legal Proceedings": {
+          "account_number": "3.02.07"
+        },
+        "Business Combinations": {
+          "account_number": "3.02.08"
+        },
+        "Liabilities Included In Disposal Groups": {
+          "account_number": "3.02.09"
+        },
+        "Other Provisions": {
+          "account_number": "3.02.10"
+        },
+        "account_number": "3.02"
+      },
+      "Trade And Other Payables": {
+        "Trade Payables": {
+          "account_number": "3.03.01",
+          "account_type": "Payable"
+        },
+        "Contract Liabilities": {
+          "account_number": "3.03.02"
+        },
+        "Related Party Payables": {
+          "account_number": "3.03.03"
+        },
+        "Retention Payables": {
+          "account_number": "3.03.04"
+        },
+        "Adjustments": {
+          "account_number": "3.03.05"
+        },
+        "account_number": "3.03"
+      },
+      "Accrued, Deferred And Other Liabilities": {
+        "Accrued Liabilities": {
+          "account_number": "3.04.01"
+        },
+        "Accrued Expenses And Other Liabilities": {
+          "account_number": "3.04.02"
+        },
+        "Dividend Payables": {
+          "account_number": "3.04.03"
+        },
+        "Interest Payable": {
+          "account_number": "3.04.04"
+        },
+        "Deferred Income, Unearned Revenue": {
+          "account_number": "3.04.05"
+        },
+        "Advances": {
+          "account_number": "3.04.06"
+        },
+        "Construction Contract Liability": {
+          "account_number": "3.04.07"
+        },
+        "Other Payables": {
+          "account_number": "3.04.08"
+        },
+        "account_number": "3.04"
+      },
+      "Tax Liabilities": {
+        "Current Tax Liabilities": {
+          "account_number": "3.05.01"
+        },
+        "Deferred Tax Liabilities": {
+          "account_number": "3.05.02"
+        },
+        "account_number": "3.05",
+        "account_type": "Tax"
+      },
+      "Other And Miscellaneous Liabilities": {
+        "Finance Leases": {
+          "account_number": "3.06.01"
+        },
+        "Deposits": {
+          "account_number": "3.06.02"
+        },
+        "Derivative Financial Liabilities": {
+          "account_number": "3.06.03"
+        },
+        "Government Grant Obligations": {
+          "account_number": "3.06.04"
+        },
+        "Liabilities Due To Central Banks": {
+          "account_number": "3.06.05"
+        },
+        "Subordinated Liabilities": {
+          "account_number": "3.06.06"
+        },
+        "Other Liabilities": {
+          "account_number": "3.06.07"
+        },
+        "account_number": "3.06"
+      },
+      "account_number": "3",
+      "root_type": "Liability"
+    },
+    "Equity": {
+      "Issued Capital": {
+        "Ordinary Shares": {
+          "account_number": "2.01.01"
+        },
+        "Preferred Shares": {
+          "account_number": "2.01.02"
+        },
+        "Par Value Per Share": {
+          "account_number": "2.01.03"
+        },
+        "Share Premium": {
+          "account_number": "2.01.04"
+        },
+        "Additional Paid In Capital": {
+          "account_number": "2.01.05"
+        },
+        "account_number": "2.01",
+        "account_type": "Equity"
+      },
+      "Retained Earnings": {
+        "Retained Earnings": {
+          "account_number": "2.02.01"
+        },
+        "account_number": "2.02",
+        "account_type": "Equity"
+      },
+      "Other Reserves (Accumulated Other Comprehensive Income)": {
+        "Revaluation Surplus": {
+          "account_number": "2.03.01"
+        },
+        "Reserve Of Exchange Differences On Translation": {
+          "account_number": "2.03.02"
+        },
+        "Reserve Of Cash Flow Hedges": {
+          "account_number": "2.03.03"
+        },
+        "Reserve Of Gains And Losses On Hedging Instruments That Hedge Investments In Equity Instruments": {
+          "account_number": "2.03.04"
+        },
+        "Reserve Of Change In Value Of Time Value Of Options": {
+          "account_number": "2.03.05"
+        },
+        "Reserve Of Change In Value Of Forward Elements Of Forward Contracts": {
+          "account_number": "2.03.06"
+        },
+        "Reserve Of Change In Value Of Foreign Currency Basis Spreads": {
+          "account_number": "2.03.07"
+        },
+        "Reserve Of Gains And Losses On Financial Assets Measured At Fair Value Through Other Comprehensive Income": {
+          "account_number": "2.03.08"
+        },
+        "Reserve Of Gains And Losses On Remeasuring Available-For-Sale Financial Assets": {
+          "account_number": "2.03.09"
+        },
+        "Reserve Of Share-Based Payments": {
+          "account_number": "2.03.10"
+        },
+        "Reserve Of Remeasurements Of Defined Benefit Plans": {
+          "account_number": "2.03.11"
+        },
+        "Amount Recognized In Other Comprehensive Income Relating To Non-Current Assets Or Disposal Groups Held For Sale": {
+          "account_number": "2.03.12"
+        },
+        "Reserve Of Gains And Losses From Investments In Equity Instruments": {
+          "account_number": "2.03.13"
+        },
+        "Reserve Of Change In Fair Value Of Financial Liability Attributable To Change In Credit Risk Of Liability": {
+          "account_number": "2.03.14"
+        },
+        "Reserve For Catastrophe": {
+          "account_number": "2.03.15"
+        },
+        "Reserve For Equalization": {
+          "account_number": "2.03.16"
+        },
+        "Reserve Of Discretionary Participation Features": {
+          "account_number": "2.03.17"
+        },
+        "Reserve Of Equity Component Of Convertible Instruments": {
+          "account_number": "2.03.18"
+        },
+        "Capital Redemption Reserve": {
+          "account_number": "2.03.19"
+        },
+        "Merger Reserve": {
+          "account_number": "2.03.20"
+        },
+        "Statutory Reserve": {
+          "account_number": "2.03.21"
+        },
+        "account_number": "2.03",
+        "account_type": "Equity"
+      },
+      "Other Equity": {
+        "Other Equity Interest": {
+          "account_number": "2.04.01"
+        },
+        "Capital Reserve": {
+          "account_number": "2.04.02"
+        },
+        "Receivable For Shares (Share Subscribed But Unissued)": {
+          "account_number": "2.04.03"
+        },
+        "Treasury Shares": {
+          "account_number": "2.04.04"
+        },
+        "Controlling Interest": {
+          "account_number": "2.04.05"
+        },
+        "Non-Controlling Interest": {
+          "account_number": "2.04.06"
+        },
+        "account_number": "2.04",
+        "account_type": "Equity"
+      },
+      "account_number": "2",
+      "root_type": "Equity"
     }
+  }
 }

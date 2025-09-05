@@ -1,205 +1,205 @@
 [
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Andromeda Fruit Market",
-		"customer_type": "Company",
-		"tax_id": "04-41486",
-		"territory": "All Territories",
-		"user": "Antonina Hunter",
-		"email": "ahunter@andromedafruit.co"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Betelgeuse Bakery Suppliers",
-		"customer_type": "Company",
-		"tax_id": "04-43711",
-		"territory": "All Territories",
-		"user": "Jong Foley",
-		"email": "jfoley@bakerysuppliers.us"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Cassiopeia Restaurant Group",
-		"customer_type": "Company",
-		"tax_id": "04-33564",
-		"territory": "All Territories",
-		"user": "Illa Townsend",
-		"email": "illa@cassiopeiagroup.com"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Delphinus Food Distributors",
-		"customer_type": "Company",
-		"tax_id": "04-35582",
-		"territory": "All Territories",
-		"user": "Byron Greene",
-		"email": "byron@delphinus.food"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Grus Goodies",
-		"customer_type": "Company",
-		"tax_id": "04-50909",
-		"territory": "All Territories",
-		"user": "Leif Grusson",
-		"email": "leif@grusgoodies.com"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Phoenix Fruit, Ltd",
-		"customer_type": "Company",
-		"tax_id": "04-98249",
-		"territory": "All Territories",
-		"user": "Brenton Kennedy",
-		"email": "brenton@phoenix.fruit"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Hydra Produce Co",
-		"customer_type": "Company",
-		"tax_id": "04-57983",
-		"territory": "All Territories",
-		"user": "Marcell Crane",
-		"email": "marcell@hydraproduce.ca"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Almacs Food Group",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Beans and Dreams Roasters",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Cafe 27 Cafeteria",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Capital Grille Restaurant Group",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Downtown Deli",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Draws Groceries",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Grab n Go Bodega",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Grand North Station Baking Co",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Happy Basket Food Distribution Group",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Jitter Cafe",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Longwoods Sandwich Shop",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Midtown Munchies Inc",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "My Way Cup Coffee",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Nom Nom Cafe",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Round the World Donut Shop",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Sand Street Deli",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Starfood Cafe",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Terrywood Terminal Bakery Inc",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "TransAmerica Bank Cafeteria",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	},
-	{
-		"customer_group": "Commercial",
-		"customer_name": "Whole Harvest Grocery Group",
-		"customer_type": "Company",
-		"tax_id": null,
-		"territory": "United States"
-	}
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Andromeda Fruit Market",
+    "customer_type": "Company",
+    "tax_id": "04-41486",
+    "territory": "All Territories",
+    "user": "Antonina Hunter",
+    "email": "ahunter@andromedafruit.co"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Betelgeuse Bakery Suppliers",
+    "customer_type": "Company",
+    "tax_id": "04-43711",
+    "territory": "All Territories",
+    "user": "Jong Foley",
+    "email": "jfoley@bakerysuppliers.us"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Cassiopeia Restaurant Group",
+    "customer_type": "Company",
+    "tax_id": "04-33564",
+    "territory": "All Territories",
+    "user": "Illa Townsend",
+    "email": "illa@cassiopeiagroup.com"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Delphinus Food Distributors",
+    "customer_type": "Company",
+    "tax_id": "04-35582",
+    "territory": "All Territories",
+    "user": "Byron Greene",
+    "email": "byron@delphinus.food"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Grus Goodies",
+    "customer_type": "Company",
+    "tax_id": "04-50909",
+    "territory": "All Territories",
+    "user": "Leif Grusson",
+    "email": "leif@grusgoodies.com"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Phoenix Fruit, Ltd",
+    "customer_type": "Company",
+    "tax_id": "04-98249",
+    "territory": "All Territories",
+    "user": "Brenton Kennedy",
+    "email": "brenton@phoenix.fruit"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Hydra Produce Co",
+    "customer_type": "Company",
+    "tax_id": "04-57983",
+    "territory": "All Territories",
+    "user": "Marcell Crane",
+    "email": "marcell@hydraproduce.ca"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Almacs Food Group",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Beans and Dreams Roasters",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Cafe 27 Cafeteria",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Capital Grille Restaurant Group",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Downtown Deli",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Draws Groceries",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Grab n Go Bodega",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Grand North Station Baking Co",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Happy Basket Food Distribution Group",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Jitter Cafe",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Longwoods Sandwich Shop",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Midtown Munchies Inc",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "My Way Cup Coffee",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Nom Nom Cafe",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Round the World Donut Shop",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Sand Street Deli",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Starfood Cafe",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Terrywood Terminal Bakery Inc",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "TransAmerica Bank Cafeteria",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  },
+  {
+    "customer_group": "Commercial",
+    "customer_name": "Whole Harvest Grocery Group",
+    "customer_type": "Company",
+    "tax_id": null,
+    "territory": "United States"
+  }
 ]

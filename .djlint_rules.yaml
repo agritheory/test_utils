@@ -1,0 +1,41 @@
+- rule:
+    name: H050
+    message: <aside> tags must have a class attribute for styling
+    flags: re.DOTALL|re.I
+    patterns:
+      - <aside(?![^>]*class\s*=)[^>]*>
+
+- rule:
+    name: H051
+    message: <table> tags must have proper structure with <thead>, <tbody>, or <tfoot>
+    flags: re.DOTALL|re.I
+    patterns:
+      - <table(?![^>]*>[\s\S]*?<t(?:head|body|foot))[^>]*>[\s\S]*?</table>
+
+- rule:
+    name: H052
+    message: Table rows <tr> should be inside <thead>, <tbody>, or <tfoot>
+    flags: re.DOTALL|re.I
+    patterns:
+      - <table[^>]*>[\s\S]*?<tr(?![\s\S]*?<t(?:head|body|foot))
+
+- rule:
+    name: H053
+    message: Table header cells should use <th> instead of <td>
+    flags: re.DOTALL|re.I
+    patterns:
+      - <thead[\s\S]*?<tr[\s\S]*?<td
+
+- rule:
+    name: H054
+    message: <table> must have a <caption> or aria-label for accessibility
+    flags: re.DOTALL|re.I
+    patterns:
+      - <table(?![^>]*aria-label)(?![^>]*>[\s\S]*?<caption)[^>]*>
+
+- rule:
+    name: H055
+    message: Empty table cells should have content or scope attribute
+    flags: re.DOTALL|re.I
+    patterns:
+      - <t[hd](?![^>]*scope)[^>]*>\s*</t[hd]>

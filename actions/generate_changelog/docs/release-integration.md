@@ -184,7 +184,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
@@ -223,15 +223,17 @@ changelog_template = ".github/changelog_template.md"
 # Changelog
 
 {% for version in versions %}
+
 ## {{ version.version }} ({{ version.date }})
 
 {% if version.env.EXTRA_CHANGELOG %}
 {{ version.env.EXTRA_CHANGELOG }}
 {% else %}
 {% for commit in version.commits %}
-* {{ commit.subject }} ([`{{ commit.hash }}`]({{ commit.url }}))
-{% endfor %}
-{% endif %}
+
+- {{ commit.subject }} ([`{{ commit.hash }}`]({{ commit.url }}))
+  {% endfor %}
+  {% endif %}
 
 {% endfor %}
 ```

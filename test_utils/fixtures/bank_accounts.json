@@ -1,13 +1,13 @@
 [
-	{
-		"account_name": "Primary Checking",
-		"allow_quick_check": 1,
-		"bank": "Local Bank",
-		"bank_account_no": "072000915",
-		"branch_code": "07200091",
-		"check_number": "2500",
-		"company_ach_id": "1381655417",
-		"is_company_account": 1,
-		"is_default": 1
-	}
+  {
+    "account_name": "Primary Checking",
+    "allow_quick_check": 1,
+    "bank": "Local Bank",
+    "bank_account_no": "072000915",
+    "branch_code": "07200091",
+    "check_number": "2500",
+    "company_ach_id": "1381655417",
+    "is_company_account": 1,
+    "is_default": 1
+  }
 ]
