@@ -1,4 +1,3 @@
-import frappe
 import argparse
 
 
@@ -13,6 +12,7 @@ def drop_unused_custom_fields(
 	doctype: str, fields: list, field_types: list, columns: list, dry_run: bool = False
 ):
 	"""Drop unused custom fields from the database."""
+	import frappe
 
 	if len(fields) != len(field_types):
 		raise ValueError("Lengths of inputs fields and field_types are not equal")
@@ -48,7 +48,15 @@ def main():
 	subparsers.add_parser("find-unused", help="Find unused custom fields in the database")
 
 	# drop-unused command
-	drop_parser = subparsers.add_parser("drop-unused", help="Drop unused custom fields")
+	drop_parser = subparsers.add_parser(
+		"drop-unused",
+		help="Drop unused custom fields",
+		epilog="""
+Example:
+  custom_fields drop-unused --doctype "Sales Order" --fields parent parentfield parenttype --field-types TEXT TEXT TEXT --columns company_gstin custom_field_unused --dry-run
+		""".strip(),
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+	)
 	drop_parser.add_argument(
 		"--dry-run",
 		action="store_true",
