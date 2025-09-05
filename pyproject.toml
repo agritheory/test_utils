@@ -32,6 +32,11 @@ python = ">=3.10,<3.14"
 mypy = "^1.15.0"
 toml = "^0.10.2"
 requests = "^2.32.3"
+djlint = "^1.34.1"
+
+[tool.djlint]
+profile = "html"
+extension = "html"
 
 [tool.codespell]
 skip = "CHANGELOG.md"
