@@ -6,12 +6,11 @@ import sys
 import tempfile
 from collections.abc import Sequence
 
-import frappe
-from frappe.utils.export_file import strip_default_fields
-
 
 def get_customized_doctypes_to_clean(app: str):
 	customized_doctypes = {}
+
+	import frappe
 
 	app_dir = pathlib.Path(frappe.get_app_path(app)).resolve()
 	if not app_dir.is_dir():
@@ -44,6 +43,8 @@ def validate_and_clean_customized_doctypes(
 
 			original_content = json.dumps(file_contents, sort_keys=True, indent=2)
 
+			from frappe.utils.export_file import strip_default_fields
+
 			cleaned = strip_default_fields(file_contents)
 
 			new_content = json.dumps(cleaned, sort_keys=True, indent=2)
@@ -59,6 +60,43 @@ def validate_and_clean_customized_doctypes(
 	return modified_files
 
 
+def is_frappe_bench_environment():
+	"""
+	Check if we're running in a valid Frappe bench environment
+
+	Returns:
+	        bool: True if valid Frappe bench, False otherwise
+	"""
+	# Get current working directory
+	current_dir = pathlib.Path.cwd()
+
+	# Look for bench structure - check current dir and parent dirs
+	for path in [current_dir] + list(current_dir.parents):
+		required_dirs = ["sites", "env", "apps"]
+		if all((path / dirname).is_dir() for dirname in required_dirs):
+			# Found the directory structure, now check for additional bench indicators
+			bench_indicators = [
+				"common_site_config.json",  # Common bench file
+				"Procfile",  # Process file
+				"apps.txt",  # Apps list (in sites folder)
+			]
+
+			# Check for bench files in the bench root or sites directory
+			sites_dir = path / "sites"
+			has_bench_files = any(
+				(path / indicator).exists() for indicator in bench_indicators
+			) or any((sites_dir / indicator).exists() for indicator in bench_indicators)
+
+			if has_bench_files:
+				return True
+
+			# If we find the directory structure but no bench files,
+			# we'll still consider it a bench (less strict check)
+			return True
+
+	return False
+
+
 def main(argv: Sequence[str] = None):
 	parser = argparse.ArgumentParser()
 	parser.add_argument("filenames", nargs="*")
@@ -70,8 +108,9 @@ def main(argv: Sequence[str] = None):
 		sys.exit(1)
 
 	app = args.app[0]
-	customized_doctypes = get_customized_doctypes_to_clean(app)
-	modified_files = validate_and_clean_customized_doctypes(customized_doctypes)
+	if is_frappe_bench_environment():
+		customized_doctypes = get_customized_doctypes_to_clean(app)
+		modified_files = validate_and_clean_customized_doctypes(customized_doctypes)
 
 	for modified_file in modified_files:
 		print(f"File cleaned: {modified_file}")
