@@ -60,41 +60,50 @@ def validate_and_clean_customized_doctypes(
 	return modified_files
 
 
-def is_frappe_bench_environment():
+def find_bench_root(start: pathlib.Path | None = None) -> pathlib.Path | None:
 	"""
-	Check if we're running in a valid Frappe bench environment
+	Walk upwards from start (or cwd) looking for a Frappe bench root.
 
 	Returns:
-	        bool: True if valid Frappe bench, False otherwise
+	    Path to bench root if found, else None
 	"""
-	# Get current working directory
-	current_dir = pathlib.Path.cwd()
+	if start is None:
+		start = pathlib.Path.cwd()
 
-	# Look for bench structure - check current dir and parent dirs
-	for path in [current_dir] + list(current_dir.parents):
-		required_dirs = ["sites", "env", "apps"]
-		if all((path / dirname).is_dir() for dirname in required_dirs):
-			# Found the directory structure, now check for additional bench indicators
-			bench_indicators = [
-				"common_site_config.json",  # Common bench file
-				"Procfile",  # Process file
-				"apps.txt",  # Apps list (in sites folder)
-			]
+	indicators = [
+		"sites/common_site_config.json",
+		"sites/apps.txt",
+		"sites/apps.json",
+		"apps/frappe/pyproject.toml",
+	]
 
-			# Check for bench files in the bench root or sites directory
-			sites_dir = path / "sites"
-			has_bench_files = any(
-				(path / indicator).exists() for indicator in bench_indicators
-			) or any((sites_dir / indicator).exists() for indicator in bench_indicators)
+	for path in [start] + list(start.parents):
+		if all((path / d).is_dir() for d in ["sites", "apps", "env"]):
+			if any((path / ind).exists() for ind in indicators):
+				return path
+	return None
 
-			if has_bench_files:
-				return True
 
-			# If we find the directory structure but no bench files,
-			# we'll still consider it a bench (less strict check)
-			return True
+def ensure_bench_python():
+	"""
+	Ensure we are running inside the bench virtualenv's python.
+	If not, re-exec ourselves with that interpreter.
+	"""
+	bench_root = find_bench_root()
+	if not bench_root:
+		return False
 
-	return False
+	bench_python = bench_root / "env" / "bin" / "python"
+	if not bench_python.exists():
+		return False
+
+	# Already running under bench python?
+	if pathlib.Path(sys.executable).resolve() == bench_python.resolve():
+		return True
+
+	# Re-execute with bench python
+	os.execv(str(bench_python), [str(bench_python)] + sys.argv)
+	return True
 
 
 def main(argv: Sequence[str] = None):
@@ -107,10 +116,13 @@ def main(argv: Sequence[str] = None):
 		print("No app specified. Use --app <app_name>")
 		sys.exit(1)
 
+	if not ensure_bench_python():
+		print("Not inside a valid Frappe bench environment.")
+		sys.exit(1)
+
 	app = args.app[0]
-	if is_frappe_bench_environment():
-		customized_doctypes = get_customized_doctypes_to_clean(app)
-		modified_files = validate_and_clean_customized_doctypes(customized_doctypes)
+	customized_doctypes = get_customized_doctypes_to_clean(app)
+	modified_files = validate_and_clean_customized_doctypes(customized_doctypes)
 
 	for modified_file in modified_files:
 		print(f"File cleaned: {modified_file}")
