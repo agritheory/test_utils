@@ -13,7 +13,6 @@ def is_frappe_bench_environment():
 	Returns:
 	        bool: True if valid Frappe bench, False otherwise
 	"""
-	print("called is frappe bench env")
 	current_dir = pathlib.Path.cwd()
 
 	for path in [current_dir] + list(current_dir.parents):
