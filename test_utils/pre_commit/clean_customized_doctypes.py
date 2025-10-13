@@ -6,13 +6,8 @@ import sys
 import tempfile
 from collections.abc import Sequence
 
-def is_frappe_bench_environment():
-	"""
-	Check if we're running in a valid Frappe bench environment
 
-	Returns:
-	        bool: True if valid Frappe bench, False otherwise
-	"""
+def is_frappe_bench_environment():
 	current_dir = pathlib.Path.cwd()
 
 	for path in [current_dir] + list(current_dir.parents):
