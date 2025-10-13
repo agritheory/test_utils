@@ -6,7 +6,6 @@ import sys
 import tempfile
 from collections.abc import Sequence
 
-
 def is_frappe_bench_environment():
 	"""
 	Check if we're running in a valid Frappe bench environment
