@@ -95,7 +95,7 @@ def strip_default_fields(doc: dict, doc_export: bool = False):
 
 	EXTRA_DEFAULT_KEYS = {"_assign", "_comments", "_liked_by", "_user_tags", "_seen"}
 
-	PRESERVE_KEYS = {"property_setters", "custom_fields", "value"}
+	PRESERVE_KEYS = {"property_setters", "custom_fields", "value", "default"}
 	DEFAULT_KEYS = DEFAULT_FIELDS | EXTRA_DEFAULT_KEYS
 
 	def clean(obj, is_child=False):
