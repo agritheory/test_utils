@@ -138,27 +138,19 @@ def strip_default_fields(doc: dict, doc_export: bool = False):
 
 
 def get_customized_doctypes():
-	apps_dir = pathlib.Path().resolve().parent
-	apps_order = pathlib.Path().resolve().parent.parent / "sites" / "apps.txt"
-	apps_order = apps_order.read_text().split("\n")
 	customized_doctypes = {}
-	for _app_dir in apps_order:
-		app_dir = (apps_dir / _app_dir).resolve()
-		if not app_dir.is_dir():
+	this_app = pathlib.Path().resolve()
+	modules = (this_app / this_app.stem / "modules.txt").read_text().split("\n")
+	for module in modules:
+		if not (this_app / this_app.stem / scrub(module) / "custom").exists():
 			continue
-		modules = (app_dir / _app_dir / "modules.txt").read_text().split("\n")
-		for module in modules:
-			if not (app_dir / _app_dir / scrub(module) / "custom").exists():
-				continue
-			for custom_file in list(
-				(app_dir / _app_dir / scrub(module) / "custom").glob("**/*.json")
-			):
-				if custom_file.stem in customized_doctypes:
-					customized_doctypes[custom_file.stem].append(custom_file.resolve())
-				else:
-					customized_doctypes[custom_file.stem] = [custom_file.resolve()]
-		if app_dir.stem == "hrms":
-			pass
+		for custom_file in list(
+			(this_app / this_app.stem / scrub(module) / "custom").glob("**/*.json")
+		):
+			if custom_file.stem in customized_doctypes:
+				customized_doctypes[custom_file.stem].append(custom_file.resolve())
+			else:
+				customized_doctypes[custom_file.stem] = [custom_file.resolve()]
 
 	return dict(sorted(customized_doctypes.items()))
 
