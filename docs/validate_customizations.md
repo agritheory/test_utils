@@ -31,6 +31,11 @@ The validation system performs several checks to ensure customizations are prope
 	- Detects duplicate Custom Fields  and Property Setters across different modules
 	- Prevents conflicting customizations between apps
 
+5. **Replace email literals** (`validate_email_literals`)
+	- Checks @ email literals in Custom Fields and Property Setters JSON file in the "modified" or "owner" key
+	- Replace it with "Administrator"
+
+
 ## Adding New Customizations
 
 Customizations can be added to the system through several methods:
