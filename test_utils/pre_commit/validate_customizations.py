@@ -2,7 +2,46 @@ import argparse
 import json
 import pathlib
 import sys
+import shutil
 from collections.abc import Sequence
+
+
+def is_frappe_bench_environment():
+	"""
+	Check if we're running in a valid Frappe bench environment
+
+	Returns:
+	        bool: True if valid Frappe bench, False otherwise
+	"""
+	print("called is frappe bench env")
+	# Get current working directory
+	current_dir = pathlib.Path.cwd()
+
+	# Look for bench structure - check current dir and parent dirs
+	for path in [current_dir] + list(current_dir.parents):
+		required_dirs = ["sites", "env", "apps"]
+		if all((path / dirname).is_dir() for dirname in required_dirs):
+			# Found the directory structure, now check for additional bench indicators
+			bench_indicators = [
+				"common_site_config.json",  # Common bench file
+				"Procfile",  # Process file
+				"apps.txt",  # Apps list (in sites folder)
+			]
+
+			# Check for bench files in the bench root or sites directory
+			sites_dir = path / "sites"
+			has_bench_files = any(
+				(path / indicator).exists() for indicator in bench_indicators
+			) or any((sites_dir / indicator).exists() for indicator in bench_indicators)
+
+			if has_bench_files:
+				return True
+
+			# If we find the directory structure but no bench files,
+			# we'll still consider it a bench (less strict check)
+			return True
+
+	return False
 
 
 def scrub(txt: str) -> str:
@@ -283,9 +322,14 @@ def main(argv: Sequence[str] = None):
 	parser.add_argument("filenames", nargs="*")
 	args = parser.parse_args(argv)
 
-	exceptions = validate_customizations()
-	if exceptions:
-		for exception in list(set(exceptions)):
-			print(exception)
+	if is_frappe_bench_environment():
+		exceptions = validate_customizations()
+		if exceptions:
+			for exception in list(set(exceptions)):
+				print(exception)
 
-	sys.exit(1) if exceptions else sys.exit(0)
+		sys.exit(1) if exceptions else sys.exit(0)
+
+
+if __name__ == "__main__":
+	main()

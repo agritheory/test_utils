@@ -56,3 +56,17 @@
   entry: track_overrides
   language: python
   require_serial: true
+
+- id: add_translations
+  name: add_translations
+  description: "Get untranslated strings in app and translate them to the language specified"
+  entry: add_translations
+  language: python
+  require_serial: true
+
+- id: bylines
+  name: bylines
+  description: "Add byline <div> in markdown files with authors from git history"
+  entry: bylines
+  language: python
+  require_serial: true
