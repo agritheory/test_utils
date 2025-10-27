@@ -516,7 +516,7 @@ def run_as_cli(args):
 
 	if not paths:
 		print("No markdown files found.")
-		return 1
+		return 0
 
 	print("Building global identity map across all files...")
 	global_name_map = build_global_identity_map(paths)
