@@ -68,14 +68,6 @@ def add_custom_field(parent_doctype, partition_field):
 
 
 def populate_partition_fields(doc, event):
-	"""
-	doc_events = {
-	                                "*": {
-	                                                                "before_insert": "yourapp.utils.populate_partition_fields",
-	                                                                "before_save": "yourapp.utils.populate_partition_fields",
-	                                }
-	}
-	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
 
 	if doc.doctype not in partition_doctypes.keys():
@@ -263,6 +255,78 @@ def get_date_range(doctype, field, doc=None, years_ahead=0):
 		return current_year, current_year + years_ahead
 
 
+def get_existing_partitions(table_name):
+	try:
+		existing_partitions = frappe.db.sql(
+			f"""
+			SELECT PARTITION_NAME, PARTITION_DESCRIPTION
+			FROM INFORMATION_SCHEMA.PARTITIONS
+			WHERE TABLE_NAME = '{table_name}'
+			AND PARTITION_NAME IS NOT NULL
+			AND TABLE_SCHEMA = DATABASE()
+		""",
+			as_dict=True,
+		)
+
+		return [p["PARTITION_NAME"] for p in existing_partitions]
+	except Exception as e:
+		print(
+			f"\033[31mERROR: Error getting existing partitions for {table_name}: {e}\033[0m"
+		)
+		return []
+
+
+def is_table_partitioned(table_name):
+	try:
+		partitions = frappe.db.sql(
+			f"""
+			SELECT PARTITION_NAME
+			FROM INFORMATION_SCHEMA.PARTITIONS
+			WHERE TABLE_NAME = '{table_name}'
+			AND PARTITION_NAME IS NOT NULL
+			AND TABLE_SCHEMA = DATABASE()
+			LIMIT 1
+		"""
+		)
+		return len(partitions) > 0
+	except Exception as e:
+		print(
+			f"\033[31mERROR: Error checking if table {table_name} is partitioned: {e}\033[0m"
+		)
+		return False
+
+
+def add_partitions_to_existing_table(
+	table_name, partitions, partition_field, partition_by
+):
+	try:
+		for partition_info in partitions:
+			partition_name = partition_info.split()[1]
+
+			existing = frappe.db.sql(
+				f"""
+				SELECT PARTITION_NAME
+				FROM INFORMATION_SCHEMA.PARTITIONS
+				WHERE TABLE_NAME = '{table_name}'
+				AND PARTITION_NAME = '{partition_name}'
+				AND TABLE_SCHEMA = DATABASE()
+			"""
+			)
+
+			if existing:
+				print(f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m")
+				continue
+
+			add_partition_sql = f"ALTER TABLE `{table_name}` ADD PARTITION ({partition_info})"
+			frappe.db.sql(add_partition_sql)
+			frappe.db.commit()
+			print(f"\033[32mSUCCESS: Added new partition {partition_name}.\033[0m")
+
+	except Exception as e:
+		print(f"\033[31mERROR: Error adding partitions to {table_name}: {e}\033[0m")
+		frappe.db.rollback()
+
+
 def create_partition(doc=None, years_ahead=5):
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
 
@@ -282,9 +346,12 @@ def create_partition(doc=None, years_ahead=5):
 		partition_field = settings.get("field", "posting_date")[0]
 		partition_by = settings.get("partition_by", "fiscal_year")[0]
 
-		modify_primary_key(table_name, partition_field)
+		is_partitioned = is_table_partitioned(table_name)
+		existing_partitions = get_existing_partitions(table_name) if is_partitioned else []
 
-		populate_partition_fields_for_existing_data(doctype, settings)
+		if not is_partitioned:
+			modify_primary_key(table_name, partition_field)
+			populate_partition_fields_for_existing_data(doctype, settings)
 
 		partitions = []
 		partition_sql = ""
@@ -303,18 +370,27 @@ def create_partition(doc=None, years_ahead=5):
 			for value in partition_values:
 				partition_value = value[partition_field]
 				partition_name = f"{frappe.scrub(doctype)}_{partition_field}_{partition_value}"
-				if partition_name not in [p.split()[1] for p in partitions]:
+				if partition_name not in existing_partitions:
 					partitions.append(f"PARTITION {partition_name} VALUES IN ({partition_value})")
 					print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
+				else:
+					print(f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m")
 
-			if not partitions:
+			if not partitions and not is_partitioned:
 				continue
 
-			partition_sql = (
-				f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
-			)
-			partition_sql += ",\n".join(partitions)
-			partition_sql += ");"
+			if not is_partitioned:
+				partition_sql = (
+					f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
+				)
+				partition_sql += ",\n".join(partitions)
+				partition_sql += ");"
+			elif partitions:
+				add_partitions_to_existing_table(
+					table_name, partitions, partition_field, partition_by
+				)
+				continue
+
 		elif partition_by == "fiscal_year":
 			fiscal_years = frappe.get_all(
 				"Fiscal Year",
@@ -324,62 +400,102 @@ def create_partition(doc=None, years_ahead=5):
 			for fiscal_year in fiscal_years:
 				year_start = fiscal_year.get("year_start_date").year
 				year_end = fiscal_year.get("year_end_date").year + 1
+				partition_name = f"{frappe.scrub(doctype)}_fiscal_year_{year_start}"
 
-				if partition_by == "fiscal_year":
-					partition_sql = (
-						f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`)) (\n"
-					)
-					partition_name = f"{frappe.scrub(doctype)}_fiscal_year_{year_start}"
-					partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({year_end}), ")
+				if partition_name not in existing_partitions:
+					partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({year_end})")
 					print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
+				else:
+					print(f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m")
 
-			if not partitions:
+				if not partitions and not is_partitioned:
+					continue
+
+			if not is_partitioned:
+				partition_sql = (
+					f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
+				)
+				partition_sql += ",\n".join(partitions)
+				partition_sql += ");"
+			elif partitions:
+				add_partitions_to_existing_table(
+					table_name, partitions, partition_field, partition_by
+				)
 				continue
-
-			partition_sql = (
-				f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
-			)
-			partition_sql += ",\n".join(partitions)
-			partition_sql += ");"
 		else:
 			for year_start in range(start_year, end_year + 1):
 				if partition_by == "quarter":
-					partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 10 + QUARTER(`{partition_field}`)) (\n"
+					if not is_partitioned:
+						partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 10 + QUARTER(`{partition_field}`)) (\n"
+
 					for quarter in range(1, 5):
 						partition_name = f"{frappe.scrub(doctype)}_{year_start}_quarter_{quarter}"
 
-						if quarter < 4:
-							quarter_code = year_start * 10 + (quarter + 1)
-						else:
-							quarter_code = (year_start + 1) * 10 + 1
+						if partition_name not in existing_partitions:
+							if quarter < 4:
+								quarter_code = year_start * 10 + (quarter + 1)
+							else:
+								quarter_code = (year_start + 1) * 10 + 1
 
-						partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({quarter_code})")
-						print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
+							partitions.append(
+								f"PARTITION {partition_name} VALUES LESS THAN ({quarter_code})"
+							)
+							print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
+						else:
+							print(
+								f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m"
+							)
 
 				elif partition_by == "month":
-					partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 100 + MONTH(`{partition_field}`)) (\n"
+					if not is_partitioned:
+						partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 100 + MONTH(`{partition_field}`)) (\n"
+
 					for month in range(1, 13):
 						partition_name = f"{frappe.scrub(doctype)}_{year_start}_month_{month:02d}"
 
-						if month < 12:
-							month_code = year_start * 100 + month + 1
-						else:
-							month_code = (year_start + 1) * 100 + 1
-						partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({month_code})")
-						print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
+						if partition_name not in existing_partitions:
+							if month < 12:
+								month_code = year_start * 100 + month + 1
+							else:
+								month_code = (year_start + 1) * 100 + 1
 
-			if not partitions:
-				print(
-					f"\033[34mINFO: No need to create partitions for {doctype}, skipping partitioning.\033[0m"
+							partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({month_code})")
+							print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
+						else:
+							print(
+								f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m"
+							)
+
+			if is_partitioned and partitions:
+				add_partitions_to_existing_table(
+					table_name, partitions, partition_field, partition_by
 				)
 				continue
 
-			partition_sql += ",\n".join(partitions)
-			partition_sql += ");"
+			if not partitions:
+				if is_partitioned:
+					print(
+						f"\033[34mINFO: All partitions for {doctype} already exist, skipping.\033[0m"
+					)
+				else:
+					print(
+						f"\033[34mINFO: No need to create partitions for {doctype}, skipping partitioning.\033[0m"
+					)
+				continue
 
-		try:
-			frappe.db.sql(partition_sql)
-			frappe.db.commit()
-			print(f"\033[32mSUCCESS: Partitioning for {doctype} completed successfully.\033[0m")
-		except Exception as e:
-			print(f"\033[31mERROR: Error while partitioning {doctype}: {e}.\033[0m")
+			if not is_partitioned:
+				partition_sql += ",\n".join(partitions)
+				partition_sql += ");"
+
+		if not is_partitioned and partition_sql:
+			try:
+				frappe.db.sql(partition_sql)
+				frappe.db.commit()
+				print(f"\033[32mSUCCESS: Partitioning for {doctype} completed successfully.\033[0m")
+			except Exception as e:
+				print(f"\033[31mERROR: Error while partitioning {doctype}: {e}.\033[0m")
+				frappe.db.rollback()
+		elif is_partitioned:
+			print(
+				f"\033[34mINFO: Table {table_name} is already partitioned. Only new partitions were added.\033[0m"
+			)
