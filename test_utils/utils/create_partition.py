@@ -70,10 +70,10 @@ def add_custom_field(parent_doctype, partition_field):
 def populate_partition_fields(doc, event):
 	"""
 	doc_events = {
-	                "*": {
-	                                "before_insert": "yourapp.utils.populate_partition_fields",
-	                                "before_save": "yourapp.utils.populate_partition_fields",
-	                }
+	                                "*": {
+	                                                                "before_insert": "yourapp.utils.populate_partition_fields",
+	                                                                "before_save": "yourapp.utils.populate_partition_fields",
+	                                }
 	}
 	"""
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
@@ -224,7 +224,7 @@ def get_partition_doctypes_extended(partition_doctypes):
 	return partition_doctypes_extended
 
 
-def get_date_range(doctype, field, doc=None):
+def get_date_range(doctype, field, doc=None, years_ahead=0):
 	doc_year = None
 	if doc:
 		doc_year = getattr(doc, field)
@@ -243,18 +243,27 @@ def get_date_range(doctype, field, doc=None):
 	)
 	if result and result[0].get("min_date") and result[0].get("max_date"):
 		current_year = frappe.utils.now_datetime().year
+		extended_max_year = current_year + years_ahead
 		if doc_year:
 			min_year = min(result[0].get("min_date").year, doc_year)
-			max_year = max(result[0].get("max_date").year, doc_year, current_year)
+			max_year = max(result[0].get("max_date").year, doc_year, extended_max_year)
 			return min_year, max_year
 
 		return result[0].get("min_date").year, max(
-			result[0].get("max_date").year, current_year
+			result[0].get("max_date").year, extended_max_year
 		)
-	return None, None
+	else:
+		current_year = frappe.utils.now_datetime().year
+
+		if doc_year:
+			min_year = min(current_year, doc_year)
+			max_year = max(current_year + years_ahead, doc_year)
+			return min_year, max_year
+
+		return current_year, current_year + years_ahead
 
 
-def create_partition(doc=None):
+def create_partition(doc=None, years_ahead=5):
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
 
 	if doc:
@@ -280,7 +289,9 @@ def create_partition(doc=None):
 		partitions = []
 		partition_sql = ""
 
-		start_year, end_year = get_date_range(doctype, partition_field, doc)
+		start_year, end_year = get_date_range(
+			doctype, partition_field, doc, years_ahead=years_ahead
+		)
 		if start_year is None or end_year is None:
 			print(f"\033[34mINFO: No data found for {doctype}, skipping partitioning.\033[0m")
 			continue
