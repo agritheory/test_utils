@@ -31,6 +31,45 @@ The `exclude_tables` hook specifies the tables that should be ignored during a f
 exclude_tables = ["__global_search", "tabAccess Log", "tabActivity Log", "tabData Import"]
 ```
 
+#### After Migrate
+
+# hooks.py
+```python
+after_migrate = "your_app.utils.after_migrate"
+```python
+
+# utils.py
+```python
+import frappe
+from test_utils.utils.create_partition import create_partition
+
+def after_migrate():
+	frappe.db.commit()
+	create_partition(years_ahead=5)
+```
+
+#### Doc Events
+
+# hooks.py
+```python
+doc_events = {
+    "*": {
+        "before_insert": "your_app.utils.populate_partition_fields",
+        "before_save": "your_app.utils.populate_partition_fields",
+    }
+}
+```
+
+# utils.py
+
+```python
+import frappe
+from test_utils.utils.create_partition import populate_partition_fields as _populate_partition_fields
+
+def populate_partition_fields(doc, event):
+	_populate_partition_fields(doc, event)
+```
+
 
 ## Create Partition
 
@@ -53,7 +92,7 @@ bench --site your_site_name console
 
 ```python
 from test_utils.utils.create_partition import create_partition
-create_partition()
+create_partition(years_ahead=5)
 ```
 
 
