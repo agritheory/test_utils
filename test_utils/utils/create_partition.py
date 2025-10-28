@@ -116,7 +116,7 @@ def populate_partition_fields_for_existing_data(doctype=None, settings=None):
 				continue
 
 			unpopulated_count = frappe.db.count(
-				child_doctype, filters={partition_field: ["is", "null"], "parenttype": doctype}
+				child_doctype, filters={partition_field: ["is", "not set"], "parenttype": doctype}
 			)
 
 			if unpopulated_count == 0:
