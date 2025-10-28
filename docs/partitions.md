@@ -36,7 +36,7 @@ exclude_tables = ["__global_search", "tabAccess Log", "tabActivity Log", "tabDat
 # hooks.py
 ```python
 after_migrate = "your_app.utils.after_migrate"
-```python
+```
 
 # utils.py
 ```python
