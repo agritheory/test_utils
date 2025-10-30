@@ -31,14 +31,14 @@ The `exclude_tables` hook specifies the tables that should be ignored during a f
 exclude_tables = ["__global_search", "tabAccess Log", "tabActivity Log", "tabData Import"]
 ```
 
-#### After Migrate
+### Before Migrate
 
-# hooks.py
+#### hooks.py
 ```python
 before_migrate = "your_app.utils.before_migrate"
 ```
 
-# utils.py
+#### utils.py
 ```python
 import frappe
 from test_utils.utils.create_partition import create_partition
@@ -47,9 +47,10 @@ def before_migrate():
 	create_partition(years_ahead=10)
 ```
 
-#### Doc Events
+### Doc Events
 
-# hooks.py
+
+#### hooks.py
 ```python
 doc_events = {
     "*": {
@@ -59,7 +60,7 @@ doc_events = {
 }
 ```
 
-# utils.py
+#### utils.py
 
 ```python
 import frappe
