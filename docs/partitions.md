@@ -35,7 +35,7 @@ exclude_tables = ["__global_search", "tabAccess Log", "tabActivity Log", "tabDat
 
 # hooks.py
 ```python
-after_migrate = "your_app.utils.after_migrate"
+before_migrate = "your_app.utils.before_migrate"
 ```
 
 # utils.py
@@ -43,9 +43,8 @@ after_migrate = "your_app.utils.after_migrate"
 import frappe
 from test_utils.utils.create_partition import create_partition
 
-def after_migrate():
-	frappe.db.commit()
-	create_partition(years_ahead=5)
+def before_migrate():
+	create_partition(years_ahead=10)
 ```
 
 #### Doc Events
@@ -92,8 +91,10 @@ bench --site your_site_name console
 
 ```python
 from test_utils.utils.create_partition import create_partition
-create_partition(years_ahead=5)
+create_partition(years_ahead=10)
 ```
+
+> It is recommended to create partitions 10 years ahead rather than just 1 year. There is no significant overhead in MariaDB/MySQL for having many empty future partitions, and this approach prevents issues with missing partitions as new data is added over time.
 
 
 ## Restore Partition

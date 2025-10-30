@@ -327,7 +327,7 @@ def add_partitions_to_existing_table(
 		frappe.db.rollback()
 
 
-def create_partition(doc=None, years_ahead=5):
+def create_partition(doc=None, years_ahead=10):
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
 
 	if doc:
