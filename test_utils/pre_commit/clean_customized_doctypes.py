@@ -1,9 +1,9 @@
 import argparse
 import json
-import os
 import pathlib
 import sys
 import tempfile
+import shutil
 from collections.abc import Sequence
 
 
@@ -54,7 +54,7 @@ def validate_and_clean_customized_doctypes(
 					temp_file.write(new_content)
 					temp_path = temp_file.name
 
-				os.replace(temp_path, customize_file)
+				shutil.move(temp_path, customize_file)
 				modified_files.append(str(customize_file))
 
 		if modified_files:
