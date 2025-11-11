@@ -2,11 +2,13 @@ import sys
 import os
 import json
 import subprocess
+import click
 
 import frappe
-from frappe.utils import get_datetime
+from frappe.utils import get_datetime, cint
 from frappe.model.sync import get_doc_files
 from frappe.modules.import_file import read_doc_from_file, calculate_hash
+from frappe.commands import pass_context
 
 
 def get_customizations():
@@ -116,30 +118,6 @@ def get_table_row_count(doctype):
 	return frappe.db.sql(f"SELECT COUNT(*) FROM `tab{doctype}`")[0][0]
 
 
-def before_migrate():
-	threshold = frappe.get_hooks("row_threshold_for_offline_migrate")
-
-	if not threshold:
-		return
-
-	threshold = threshold[0]
-	large_tables = []
-
-	doctypes_with_changes = get_doctypes_to_be_migrated() + get_customizations()
-
-	for doctype in doctypes_with_changes:
-		count = get_table_row_count(doctype)
-		if count >= threshold:
-			large_tables.append((doctype, count))
-
-	if large_tables:
-		print("\nThe following tables exceed the row threshold for online migration:")
-		for doctype, count in large_tables:
-			print(f"  - {doctype}: {count} rows")
-		print("\nPlease abort and use the offline migration command..")
-		sys.exit(1)
-
-
 def get_create_statements(db_table):
 	from frappe.model import log_types
 
@@ -202,59 +180,97 @@ def get_create_statements(db_table):
 	return query
 
 
+def get_actual_table_columns(doctype):
+	"""
+	Get actual columns that exist in the database table
+	Returns a set of lowercase column names
+	"""
+	try:
+		columns = frappe.db.sql(
+			"""
+			SELECT COLUMN_NAME
+			FROM INFORMATION_SCHEMA.COLUMNS
+			WHERE TABLE_SCHEMA = %s
+			AND TABLE_NAME = %s
+		""",
+			(frappe.conf.db_name, f"tab{doctype}"),
+			as_dict=1,
+		)
+
+		return {col["COLUMN_NAME"].lower() for col in columns}
+	except Exception as e:
+		print(f"Error getting columns for {doctype}: {e}")
+		return set()
+
+
 def get_alter_statements(db_table):
+	"""
+	Generate ALTER statements for schema changes
+	Only include columns that don't already exist
+	"""
 	for col in db_table.columns.values():
 		col.build_for_alter_table(db_table.current_columns.get(col.fieldname.lower()))
 
-	add_column_query = []
-	modify_column_query = []
-	add_index_query = []
-	drop_index_query = []
+	actual_columns = get_actual_table_columns(db_table.doctype)
+
+	statements = []
 
 	for col in db_table.add_column:
-		add_column_query.append(f"ADD COLUMN `{col.fieldname}` {col.get_definition()}")
+		fieldname_lower = col.fieldname.lower()
+
+		if fieldname_lower in db_table.current_columns:
+			continue
+		if fieldname_lower in actual_columns:
+			continue
+
+		statements.append(f"ADD COLUMN `{col.fieldname}` {col.get_definition()}")
 
 	columns_to_modify = set(db_table.change_type + db_table.set_default)
 	for col in columns_to_modify:
-		modify_column_query.append(
-			f"MODIFY `{col.fieldname}` {col.get_definition(for_modification=True)}"
-		)
+		fieldname_lower = col.fieldname.lower()
+
+		if fieldname_lower in db_table.current_columns or fieldname_lower in actual_columns:
+			statements.append(
+				f"MODIFY `{col.fieldname}` {col.get_definition(for_modification=True)}"
+			)
 
 	for col in db_table.add_unique:
-		modify_column_query.append(
+		statements.append(
 			f"ADD UNIQUE INDEX IF NOT EXISTS {col.fieldname} (`{col.fieldname}`)"
 		)
 
 	for col in db_table.add_index:
-		# if index key does not exists
 		if not frappe.db.get_column_index(db_table.table_name, col.fieldname, unique=False):
-			add_index_query.append(f"ADD INDEX `{col.fieldname}_index`(`{col.fieldname}`)")
+			statements.append(f"ADD INDEX `{col.fieldname}_index`(`{col.fieldname}`)")
 
 	if db_table.meta.sort_field == "creation" and not frappe.db.get_column_index(
 		db_table.table_name, "creation", unique=False
 	):
-		add_index_query.append("ADD INDEX `creation`(`creation`)")
+		statements.append("ADD INDEX `creation`(`creation`)")
 
 	for col in {*db_table.drop_index, *db_table.drop_unique}:
 		if col.fieldname == "name":
 			continue
 
 		current_column = db_table.current_columns.get(col.fieldname.lower())
+		if not current_column:
+			continue
+
 		unique_constraint_changed = current_column.unique != col.unique
 		if unique_constraint_changed and not col.unique:
 			if unique_index := frappe.db.get_column_index(
 				db_table.table_name, col.fieldname, unique=True
 			):
-				drop_index_query.append(f"DROP INDEX `{unique_index.Key_name}`")
+				statements.append(f"DROP INDEX `{unique_index.Key_name}`")
 
 		index_constraint_changed = current_column.index != col.set_index
 		if index_constraint_changed and not col.set_index:
 			if index_record := frappe.db.get_column_index(
 				db_table.table_name, col.fieldname, unique=False
 			):
-				drop_index_query.append(f"DROP INDEX `{index_record.Key_name}`")
+				statements.append(f"DROP INDEX `{index_record.Key_name}`")
 
-	return [add_column_query, modify_column_query, add_index_query, drop_index_query]
+	return statements
 
 
 def get_statements(doctype):
@@ -265,36 +281,187 @@ def get_statements(doctype):
 	db_table = MariaDBTable(doctype, meta)
 
 	if db_table.is_new():
-		statements = get_create_statements(db_table)
+		statements = [get_create_statements(db_table)]
 	else:
 		statements = get_alter_statements(db_table)
-	return statements
+
+	return db_table, statements
+
+
+def get_large_tables_with_changes():
+	threshold = frappe.get_hooks("row_threshold_for_offline_migrate")
+
+	if not threshold:
+		return []
+
+	threshold = cint(threshold[0])
+	large_tables = []
+
+	print("\nChecking for schema changes...")
+
+	doctypes_with_changes = list(set(get_doctypes_to_be_migrated() + get_customizations()))
+
+	print(f"Found {len(doctypes_with_changes)} doctype(s) with potential changes")
+
+	for doctype in doctypes_with_changes:
+		try:
+			count = get_table_row_count(doctype)
+
+			if count >= threshold:
+				actual_columns = get_actual_table_columns(doctype)
+				print(f"\n  {doctype}: {count:,} rows")
+				print(f"Existing columns: {len(actual_columns)}")
+
+				db_table, statements = get_statements(doctype)
+
+				if statements:
+					if isinstance(statements, list):
+						statements = [s for s in statements if s]
+
+					if statements:
+						large_tables.append((doctype, count, statements))
+						print(f"Changes detected: {len(statements)} statement(s)")
+						for stmt in statements[:3]:
+							print(f"- {stmt[:60]}...")
+					else:
+						print("No changes needed (filtered out)")
+				else:
+					print("No changes needed")
+		except Exception as e:
+			print(f"Error checking {doctype}: {str(e)}")
+			import traceback
+
+			traceback.print_exc()
+			continue
+
+	return large_tables
+
+
+def before_migrate():
+	large_tables = get_large_tables_with_changes()
+
+	if not large_tables:
+		return
+
+	print("\n" + "=" * 70)
+	print("MIGRATION BLOCKED - Large Tables Detected")
+	print("=" * 70)
+	print(
+		"\nThe following tables exceed the row threshold and require offline migration:\n"
+	)
+
+	for doctype, count, statements in large_tables:
+		print(f"{doctype}")
+		print(f"   Rows: {count:,}")
+		print(f"   Changes: {len(statements)} statement(s)")
+		for stmt in statements[:3]:
+			print(f"   - {stmt[:80]}...")
+		if len(statements) > 3:
+			print(f"   ... and {len(statements) - 3} more")
+		print()
+
+	print("To migrate these tables offline, run:")
+	print(f"\n   bench --site {frappe.local.site} offline-migrate\n")
+	print("=" * 70 + "\n")
+	sys.exit(1)
 
 
 def run_pt_online_schema_change(
 	doctype,
-	alter_statement,
+	statements,
 	db_name=None,
 	db_user=None,
 	db_password=None,
-	db_host="localhost",
+	db_host=None,
+	db_port=None,
+	dry_run=False,
 ):
+	""" """
+	if not statements or (isinstance(statements, list) and not any(statements)):
+		print(f"No changes needed for {doctype}")
+		return True
 
 	table = f"tab{doctype}"
 	db_name = db_name or frappe.conf.db_name
-	db_user = db_user or frappe.conf.db_user
+	db_user = db_user or frappe.conf.db_name  # frappe.conf.db_user
 	db_password = db_password or frappe.conf.db_password
+	db_host = db_host or frappe.conf.get("db_host", "127.0.0.1")
+	db_port = db_port or frappe.conf.get("db_port", 3306)
+
+	if isinstance(statements, list):
+		flat_statements = []
+		for stmt in statements:
+			if isinstance(stmt, list):
+				flat_statements.extend([s for s in stmt if s])
+			elif stmt:
+				flat_statements.append(stmt)
+
+		if not flat_statements:
+			print(f"No changes needed for {doctype}")
+			return True
+
+		flat_statements = list(dict.fromkeys(flat_statements))
+		alter_statement = ", ".join(flat_statements)
+	else:
+		alter_statement = statements
+
+	if not alter_statement:
+		print(f"No changes needed for {doctype}")
+		return True
+
+	dsn = f"D={db_name},t={table},h={db_host},P={db_port},u={db_user},p={db_password}"
 
 	cmd = [
 		"pt-online-schema-change",
 		f"--alter={alter_statement}",
-		f"D={db_name},t={table}",
-		"--execute",
-		f"--user={db_user}",
-		f"--password={db_password}",
-		f"--host={db_host}",
+		dsn,
 		"--no-check-replication-filters",
 		"--alter-foreign-keys-method=auto",
+		"--progress=percentage,1",
+		"--chunk-size=1000",
+		"--max-load=Threads_running=50",
+		"--critical-load=Threads_running=100",
+		"--no-check-alter",
 	]
-	print("Running:", " ".join(cmd))
-	subprocess.run(cmd, check=True)
+
+	if dry_run:
+		cmd.append("--dry-run")
+	else:
+		cmd.append("--execute")
+
+	print(f"\n{'='*70}")
+	print(f"Migrating: {doctype}")
+	print(f"{'='*70}")
+	print(f"Alter statement: {alter_statement[:100]}...")
+	print()
+
+	try:
+		result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+		print(result.stdout)
+		print(f"Successfully migrated {doctype}\n")
+		return True
+	except subprocess.CalledProcessError as e:
+		print(f"\nError migrating {doctype}")
+		print(f"Exit code: {e.returncode}")
+
+		# Try to run again with captured output for debugging
+		print("\nRetrying with captured output for debugging...")
+		result = subprocess.run(cmd, capture_output=True, text=True)
+
+		if result.stdout:
+			print("\nSTDOUT:")
+			print(result.stdout)
+		if result.stderr:
+			print("\nSTDERR:")
+			print(result.stderr)
+
+		return False
+	except FileNotFoundError:
+		print("   pt-online-schema-change not found. Please install percona-toolkit:")
+		print("   Ubuntu/Debian: sudo apt-get install percona-toolkit")
+		print("   CentOS/RHEL: sudo yum install percona-toolkit")
+		print("   macOS: brew install percona-toolkit")
+		return False
+	except Exception as e:
+		print(f"Unexpected error: {type(e).__name__}: {str(e)}")
+		return False
