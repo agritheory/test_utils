@@ -2,7 +2,7 @@ import sys
 import os
 import json
 import subprocess
-import click
+from contextlib import contextmanager
 
 import frappe
 from frappe.utils import get_datetime, cint
@@ -118,172 +118,104 @@ def get_table_row_count(doctype):
 	return frappe.db.sql(f"SELECT COUNT(*) FROM `tab{doctype}`")[0][0]
 
 
-def get_create_statements(db_table):
-	from frappe.model import log_types
+def get_custom_fields_from_disk(doctype):
+	custom_fields = []
+	for app_name in frappe.get_installed_apps():
+		for module_name in frappe.local.app_modules.get(app_name) or []:
+			folder = frappe.get_app_path(app_name, module_name, "custom")
+			if not os.path.exists(folder):
+				continue
 
-	additional_definitions = ""
-	engine = db_table.meta.get("engine") or "InnoDB"
-	varchar_len = frappe.db.VARCHAR_LEN
-	name_column = f"name varchar({varchar_len}) primary key"
+			for fname in os.listdir(folder):
+				if not fname.endswith(".json"):
+					continue
 
-	# columns
-	column_defs = db_table.get_column_definitions()
-	if column_defs:
-		additional_definitions += ",\n".join(column_defs) + ",\n"
+				with open(os.path.join(folder, fname)) as f:
+					data = json.loads(f.read())
 
-	# index
-	index_defs = db_table.get_index_definitions()
-	if index_defs:
-		additional_definitions += ",\n".join(index_defs) + ",\n"
+				if not data.get("sync_on_migrate"):
+					continue
 
-	# child table columns
-	if db_table.meta.get("istable") or 0:
-		additional_definitions += (
-			",\n".join(
-				(
-					f"parent varchar({varchar_len})",
-					f"parentfield varchar({varchar_len})",
-					f"parenttype varchar({varchar_len})",
-					"index parent(parent)",
-				)
-			)
-			+ ",\n"
-		)
-
-	"""
-	# creating sequence(s)
-	if (not db_table.meta.issingle and db_table.meta.autoname == "autoincrement") or db_table.doctype in log_types:
-		frappe.db.create_sequence(db_table.doctype, check_not_exists=True, cache=frappe.db.SEQUENCE_CACHE)
-
-		# NOTE: not used nextval func as default as the ability to restore
-		# database with sequences has bugs in mariadb and gives a scary error.
-		# issue link: https://jira.mariadb.org/browse/MDEV-20070
-		name_column = "name bigint primary key"
-	"""
-
-	# create table
-	query = f"""create table `{db_table.table_name}` (
-		{name_column},
-		creation datetime(6),
-		modified datetime(6),
-		modified_by varchar({varchar_len}),
-		owner varchar({varchar_len}),
-		docstatus int(1) not null default '0',
-		idx int(8) not null default '0',
-		{additional_definitions}
-		index modified(modified))
-		ENGINE={engine}
-		ROW_FORMAT=DYNAMIC
-		CHARACTER SET=utf8mb4
-		COLLATE=utf8mb4_unicode_ci"""
-
-	return query
+				if data.get("custom_fields"):
+					for cf in data["custom_fields"]:
+						if cf.get("dt") == doctype:
+							custom_fields.append(cf)
+	return custom_fields
 
 
-def get_actual_table_columns(doctype):
-	"""
-	Get actual columns that exist in the database table
-	Returns a set of lowercase column names
-	"""
-	try:
-		columns = frappe.db.sql(
-			"""
-			SELECT COLUMN_NAME
-			FROM INFORMATION_SCHEMA.COLUMNS
-			WHERE TABLE_SCHEMA = %s
-			AND TABLE_NAME = %s
-		""",
-			(frappe.conf.db_name, f"tab{doctype}"),
-			as_dict=1,
-		)
-
-		return {col["COLUMN_NAME"].lower() for col in columns}
-	except Exception as e:
-		print(f"Error getting columns for {doctype}: {e}")
-		return set()
-
-
-def get_alter_statements(db_table):
-	"""
-	Generate ALTER statements for schema changes
-	Only include columns that don't already exist
-	"""
-	for col in db_table.columns.values():
-		col.build_for_alter_table(db_table.current_columns.get(col.fieldname.lower()))
-
-	actual_columns = get_actual_table_columns(db_table.doctype)
-
+@contextmanager
+def capture_sql_ddl():
 	statements = []
+	original_sql_ddl = frappe.db.sql_ddl
 
-	for col in db_table.add_column:
-		fieldname_lower = col.fieldname.lower()
+	def capture(query):
+		statements.append(query)
 
-		if fieldname_lower in db_table.current_columns:
-			continue
-		if fieldname_lower in actual_columns:
-			continue
-
-		statements.append(f"ADD COLUMN `{col.fieldname}` {col.get_definition()}")
-
-	columns_to_modify = set(db_table.change_type + db_table.set_default)
-	for col in columns_to_modify:
-		fieldname_lower = col.fieldname.lower()
-
-		if fieldname_lower in db_table.current_columns or fieldname_lower in actual_columns:
-			statements.append(
-				f"MODIFY `{col.fieldname}` {col.get_definition(for_modification=True)}"
-			)
-
-	for col in db_table.add_unique:
-		statements.append(
-			f"ADD UNIQUE INDEX IF NOT EXISTS {col.fieldname} (`{col.fieldname}`)"
-		)
-
-	for col in db_table.add_index:
-		if not frappe.db.get_column_index(db_table.table_name, col.fieldname, unique=False):
-			statements.append(f"ADD INDEX `{col.fieldname}_index`(`{col.fieldname}`)")
-
-	if db_table.meta.sort_field == "creation" and not frappe.db.get_column_index(
-		db_table.table_name, "creation", unique=False
-	):
-		statements.append("ADD INDEX `creation`(`creation`)")
-
-	for col in {*db_table.drop_index, *db_table.drop_unique}:
-		if col.fieldname == "name":
-			continue
-
-		current_column = db_table.current_columns.get(col.fieldname.lower())
-		if not current_column:
-			continue
-
-		unique_constraint_changed = current_column.unique != col.unique
-		if unique_constraint_changed and not col.unique:
-			if unique_index := frappe.db.get_column_index(
-				db_table.table_name, col.fieldname, unique=True
-			):
-				statements.append(f"DROP INDEX `{unique_index.Key_name}`")
-
-		index_constraint_changed = current_column.index != col.set_index
-		if index_constraint_changed and not col.set_index:
-			if index_record := frappe.db.get_column_index(
-				db_table.table_name, col.fieldname, unique=False
-			):
-				statements.append(f"DROP INDEX `{index_record.Key_name}`")
-
-	return statements
+	frappe.db.sql_ddl = capture
+	try:
+		yield statements
+	finally:
+		frappe.db.sql_ddl = original_sql_ddl
 
 
 def get_statements(doctype):
 	from frappe.database.mariadb.schema import MariaDBTable
 	from frappe.model.meta import Meta
+	from frappe.modules.utils import get_doc_path
 
-	meta = Meta(doctype)
+	# Force reload meta to ensure we have the latest JSON changes
+	frappe.clear_cache(doctype=doctype)
+
+	meta = None
+	module = frappe.db.get_value("DocType", doctype, "module")
+	if module:
+		try:
+			doc_path = get_doc_path(module, "DocType", doctype)
+			json_path = os.path.join(doc_path, f"{frappe.scrub(doctype)}.json")
+			if os.path.exists(json_path):
+				with open(json_path) as f:
+					doc_dict = json.load(f)
+				# Create in-memory DocType from JSON
+				doc = frappe.get_doc(doc_dict)
+				meta = Meta(doc)
+		except Exception as e:
+			print(f"Failed to load meta from file for {doctype}: {e}")
+
+	if not meta:
+		meta = Meta(doctype)
+
+	# Inject custom fields from disk
+	custom_fields = get_custom_fields_from_disk(doctype)
+	if custom_fields:
+		existing_fields = {f.fieldname: f for f in meta.fields}
+		for cf in custom_fields:
+			if cf["fieldname"] in existing_fields:
+				existing_fields[cf["fieldname"]].update(cf)
+			else:
+				meta.fields.append(frappe._dict(cf))
+
 	db_table = MariaDBTable(doctype, meta)
 
+	# Compare JSON meta with Database schema
+	# This populates db_table.columns, db_table.current_columns, and change lists
+	db_table.setup_table_columns()
+
+	statements = []
+
 	if db_table.is_new():
-		statements = [get_create_statements(db_table)]
+		pass
 	else:
-		statements = get_alter_statements(db_table)
+		with capture_sql_ddl() as captured:
+			db_table.alter()
+
+		for query in captured:
+			# query is like "ALTER TABLE `tabSales Order` ADD COLUMN ..."
+			# We need "ADD COLUMN ..."
+			prefix = f"ALTER TABLE `{db_table.table_name}` "
+			if query.startswith(prefix):
+				statements.append(query[len(prefix) :])
+			else:
+				print(f"Warning: Unexpected query format: {query}")
 
 	return db_table, statements
 
@@ -308,9 +240,7 @@ def get_large_tables_with_changes():
 			count = get_table_row_count(doctype)
 
 			if count >= threshold:
-				actual_columns = get_actual_table_columns(doctype)
 				print(f"\n  {doctype}: {count:,} rows")
-				print(f"Existing columns: {len(actual_columns)}")
 
 				db_table, statements = get_statements(doctype)
 
