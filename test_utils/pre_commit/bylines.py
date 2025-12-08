@@ -15,7 +15,8 @@ from datetime import datetime
 from collections import OrderedDict
 
 
-def build_global_identity_map(file_paths):
+def build_global_identity_map(file_paths, alias_map=None):
+	"""Build identity map with optional manual aliases."""
 	all_identities = {}
 
 	for file_path in file_paths:
@@ -112,6 +113,15 @@ def build_global_identity_map(file_paths):
 
 		for name in group["names"]:
 			name_map[name] = canonical
+
+	# Apply manual aliases
+	if alias_map:
+		for alias, real_name in alias_map.items():
+			name_map[alias] = real_name
+			# Also update any existing mappings that point to the alias
+			for key in list(name_map.keys()):
+				if name_map[key] == alias:
+					name_map[key] = real_name
 
 	return name_map
 
@@ -401,7 +411,11 @@ def create_byline_div(contributors, last_modified, indent="", manual_authors="")
 
 
 def update_markdown_byline(
-	file_path, dry_run=False, verbose=False, global_name_map=None
+	file_path,
+	dry_run=False,
+	verbose=False,
+	global_name_map=None,
+	file_specific_authors=None,
 ):
 	"""Update the byline in a markdown file using the global name map."""
 
@@ -417,6 +431,13 @@ def update_markdown_byline(
 		return False
 
 	start_idx, end_idx, indent, manual_authors = find_byline_div(content)
+
+	# Add file-specific authors if provided
+	if file_specific_authors:
+		if manual_authors:
+			manual_authors += ", " + file_specific_authors
+		else:
+			manual_authors = file_specific_authors
 
 	lines = content.split("\n")
 
@@ -447,7 +468,9 @@ def update_markdown_byline(
 					print(f"    Found heading at line {i + 1}: {line[:50]}")
 				break
 
-		byline_div = create_byline_div(contributors, last_modified)
+		byline_div = create_byline_div(
+			contributors, last_modified, manual_authors=manual_authors
+		)
 
 		if title_idx is not None:
 			new_lines = lines[: title_idx + 1] + ["", byline_div, ""] + lines[title_idx + 1 :]
@@ -507,19 +530,100 @@ def find_markdown_files(path):
 		return []
 
 
+def should_skip_file(file_path, skip_patterns):
+	"""Check if a file should be skipped based on skip patterns."""
+	if not skip_patterns:
+		return False
+
+	file_path = Path(file_path)
+	for pattern in skip_patterns:
+		# Match against filename
+		if file_path.name == pattern:
+			return True
+		# Match against relative path
+		if file_path.match(pattern):
+			return True
+
+	return False
+
+
+def parse_specify_args(specify_args):
+	"""Parse --specify arguments into a dictionary mapping file patterns to author lists."""
+	file_authors = {}
+
+	i = 0
+	while i < len(specify_args):
+		if i + 1 < len(specify_args):
+			file_pattern = specify_args[i]
+			authors = specify_args[i + 1]
+			file_authors[file_pattern] = authors
+			i += 2
+		else:
+			i += 1
+
+	return file_authors
+
+
+def parse_alias_args(alias_args):
+	"""Parse --alias arguments into a dictionary mapping aliases to real names."""
+	alias_map = {}
+
+	i = 0
+	while i < len(alias_args):
+		if i + 1 < len(alias_args):
+			alias = alias_args[i]
+			real_name = alias_args[i + 1]
+			alias_map[alias] = real_name
+			i += 2
+		else:
+			i += 1
+
+	return alias_map
+
+
+def get_file_specific_authors(file_path, file_authors_map):
+	"""Get file-specific authors if the file matches any pattern."""
+	if not file_authors_map:
+		return None
+
+	file_path = Path(file_path)
+	for pattern, authors in file_authors_map.items():
+		# Match against filename
+		if file_path.name == pattern:
+			return authors
+		# Match against relative path
+		if file_path.match(pattern):
+			return authors
+
+	return None
+
+
 def run_as_cli(args):
 	"""Run as a standalone CLI tool."""
+	# Parse aliases
+	alias_map = parse_alias_args(args.alias) if args.alias else {}
+
+	# Parse file-specific authors
+	file_authors_map = parse_specify_args(args.specify) if args.specify else {}
+
 	paths = []
 
 	for path_str in args.paths:
 		paths.extend(find_markdown_files(path_str))
+
+	# Filter out skipped files
+	if args.skip:
+		original_count = len(paths)
+		paths = [p for p in paths if not should_skip_file(p, args.skip)]
+		if args.verbose and original_count > len(paths):
+			print(f"Skipped {original_count - len(paths)} file(s) based on --skip patterns")
 
 	if not paths:
 		print("No markdown files found.")
 		return 0
 
 	print("Building global identity map across all files...")
-	global_name_map = build_global_identity_map(paths)
+	global_name_map = build_global_identity_map(paths, alias_map)
 
 	if args.verbose and global_name_map:
 		print("\nIdentity mappings found:")
@@ -542,11 +646,14 @@ def run_as_cli(args):
 			print(f"  Processing {file_path}...")
 
 		try:
+			file_specific_authors = get_file_specific_authors(file_path, file_authors_map)
+
 			if update_markdown_byline(
 				file_path,
 				dry_run=args.dry_run,
 				verbose=args.verbose,
 				global_name_map=global_name_map,
+				file_specific_authors=file_specific_authors,
 			):
 				modified_count += 1
 				action = "Would update" if args.dry_run else "Updated"
@@ -619,7 +726,25 @@ def main():
 			return
 
 	parser = argparse.ArgumentParser(
-		description="Update bylines in markdown files based on git history"
+		description="Update bylines in markdown files based on git history",
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+		epilog="""
+Examples:
+  # Process all markdown files in current directory
+  %(prog)s .
+
+  # Skip README.md files
+  %(prog)s . --skip README.md
+
+  # Add specific authors to index.md
+  %(prog)s . --specify index.md "John Doe, Jane Smith"
+
+  # Map GitHub username to real name
+  %(prog)s . --alias jdoe123 "John Doe"
+
+  # Combine multiple options
+  %(prog)s . --skip README.md --alias jsmith "Jane Smith" --specify docs/guide.md "Expert Reviewer"
+		""",
 	)
 	parser.add_argument(
 		"paths",
@@ -632,8 +757,40 @@ def main():
 		help="Show what would be changed without actually modifying files",
 	)
 	parser.add_argument("-v", "--verbose", action="store_true", help="Show verbose output")
+	parser.add_argument(
+		"--skip",
+		action="append",
+		metavar="PATTERN",
+		help="Skip files matching this pattern (can be used multiple times). "
+		"Matches against filename or path pattern (e.g., 'README.md', '*/docs/*.md')",
+	)
+	parser.add_argument(
+		"--specify",
+		nargs="+",
+		action="append",
+		metavar=("FILE_PATTERN", "AUTHORS"),
+		help="Specify additional authors for files matching a pattern. "
+		'Usage: --specify FILE_PATTERN "Author1, Author2". '
+		"Can be used multiple times for different files.",
+	)
+	parser.add_argument(
+		"--alias",
+		nargs="+",
+		action="append",
+		metavar=("USERNAME", "REAL_NAME"),
+		help="Map a git username/alias to a real name. "
+		'Usage: --alias gh_username "Real Name". '
+		"Can be used multiple times for different aliases.",
+	)
 
 	args = parser.parse_args()
+
+	# Flatten the nested lists from action="append" with nargs="+"
+	if args.specify:
+		args.specify = [item for sublist in args.specify for item in sublist]
+	if args.alias:
+		args.alias = [item for sublist in args.alias for item in sublist]
+
 	sys.exit(run_as_cli(args))
 
 
