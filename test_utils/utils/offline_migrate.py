@@ -8,7 +8,6 @@ import frappe
 from frappe.utils import get_datetime, cint
 from frappe.model.sync import get_doc_files
 from frappe.modules.import_file import read_doc_from_file, calculate_hash
-from frappe.commands import pass_context
 
 
 def get_customizations():
@@ -120,7 +119,11 @@ def get_table_row_count(doctype):
 
 def get_custom_fields_from_disk(doctype):
 	custom_fields = []
+	seen_fieldnames = set()
+
 	for app_name in frappe.get_installed_apps():
+
+		# Method 1: Standard custom folder (module/custom/*.json)
 		for module_name in frappe.local.app_modules.get(app_name) or []:
 			folder = frappe.get_app_path(app_name, module_name, "custom")
 			if not os.path.exists(folder):
@@ -133,13 +136,65 @@ def get_custom_fields_from_disk(doctype):
 				with open(os.path.join(folder, fname)) as f:
 					data = json.loads(f.read())
 
-				if not data.get("sync_on_migrate"):
+				if not data.get("sync_on_migrate") or not data.get("custom_fields"):
 					continue
 
-				if data.get("custom_fields"):
-					for cf in data["custom_fields"]:
-						if cf.get("dt") == doctype:
-							custom_fields.append(cf)
+				for custom_field in data["custom_fields"]:
+					if custom_field.get("dt") != doctype:
+						continue
+
+					fieldname = custom_field.get("fieldname")
+					if fieldname and fieldname not in seen_fieldnames:
+						custom_fields.append(custom_field)
+						seen_fieldnames.add(fieldname)
+
+		# Method 2: HRMS-style setup.py with get_custom_fields() function
+		custom_fields.extend(
+			_get_custom_fields_from_setup_py(app_name, doctype, seen_fieldnames)
+		)
+
+	return custom_fields
+
+
+def _get_custom_fields_from_setup_py(app_name, doctype, seen_fieldnames):
+	"""
+	Get custom fields from setup.py get_custom_fields() function.
+	"""
+	custom_fields = []
+
+	try:
+		try:
+			setup_module = frappe.get_module(f"{app_name}.setup")
+		except ImportError:
+			return custom_fields
+
+		if not hasattr(setup_module, "get_custom_fields"):
+			return custom_fields
+
+		custom_fields_dict = setup_module.get_custom_fields()
+
+		if not isinstance(custom_fields_dict, dict):
+			return custom_fields
+
+		doctype_fields = custom_fields_dict.get(doctype, [])
+
+		for field in doctype_fields:
+			if not isinstance(field, dict):
+				continue
+
+			fieldname = field.get("fieldname")
+			if not fieldname or fieldname in seen_fieldnames:
+				continue
+
+			normalized_field = field.copy()
+			normalized_field["dt"] = doctype
+
+			custom_fields.append(normalized_field)
+			seen_fieldnames.add(fieldname)
+
+	except Exception as e:
+		pass
+
 	return custom_fields
 
 
