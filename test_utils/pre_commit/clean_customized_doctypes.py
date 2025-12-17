@@ -68,20 +68,17 @@ def strip_default_fields(doc: dict, doc_export: bool = False):
 	"""
 
 	DEFAULT_FIELDS = {
-		"name",
 		"owner",
 		"creation",
 		"modified",
 		"modified_by",
 		"docstatus",
-		"idx",
 		"parent",
 		"parentfield",
 		"parenttype",
 	}
 
 	CHILD_TABLE_FIELDS = {
-		"name",
 		"owner",
 		"creation",
 		"modified",
@@ -90,7 +87,6 @@ def strip_default_fields(doc: dict, doc_export: bool = False):
 		"parentfield",
 		"parenttype",
 		"docstatus",
-		"idx",
 	}
 
 	EXTRA_DEFAULT_KEYS = {"_assign", "_comments", "_liked_by", "_user_tags", "_seen"}
