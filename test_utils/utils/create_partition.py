@@ -7,6 +7,112 @@ except Exception as e:
 	raise (e)
 
 
+def get_db_config():
+	config = frappe.get_site_config()
+
+	return {
+		"host": config.get("db_host", "localhost"),
+		"port": config.get("db_port", 3306),
+		"user": config.get("root_login", "root"),
+		"password": config.get("root_password", ""),
+		"database": config.get("db_name"),
+	}
+
+
+def generate_percona_command(table_name, alter_statement):
+	db_config = get_db_config()
+
+	dsn = f"h={db_config['host']},D={db_config['database']},t={table_name}"
+
+	percona_cmd = [
+		"pt-online-schema-change",
+		f"--alter={alter_statement}",
+		dsn,
+		f"--user={db_config['user']}",
+		f"--password={db_config['password']}",
+		"--chunk-size=1000",
+		"--chunk-time=0.1",
+		"--max-load=Threads_running=25",
+		"--critical-load=Threads_running=50",
+		"--check-interval=1",
+		"--recursion-method=none",
+		"--no-check-unique-key-change",
+		"--no-check-alter",
+		"--set-vars=lock_wait_timeout=2",
+		"--set-vars=innodb_lock_wait_timeout=2",
+		"--set-vars=wait_timeout=28800",
+		"--max-lag=1s",
+		"--tries=create_triggers:200:0.5",
+		"--tries=drop_triggers:200:0.5",
+		"--tries=swap_tables:200:0.5",
+		"--no-drop-new-table",
+		"--charset=utf8mb4",
+		"--print",
+		"--progress=time,10",
+		"--execute",
+	]
+
+	# Display command with proper shell escaping
+	display_cmd = percona_cmd.copy()
+	display_cmd[4] = "--password=****"
+
+	print("\nCommand (copy-paste ready):")
+	print("-" * 80)
+
+	# Build shell-safe command string
+	import shlex
+
+	shell_safe_cmd = []
+	for i, arg in enumerate(display_cmd):
+		# Quote arguments that contain special characters
+		if any(c in arg for c in " '\"()$`\\!"):
+			shell_safe_cmd.append(shlex.quote(arg))
+		else:
+			shell_safe_cmd.append(arg)
+
+	print(" \\\n  ".join(shell_safe_cmd))
+
+	return percona_cmd
+
+
+def run_percona_command(percona_cmd):
+	"""
+	Run pt-online-schema-change command.
+
+	Args:
+	        percona_cmd (list): Base command arguments
+
+	Returns:
+	        bool: True if successful, False otherwise
+	"""
+	import subprocess
+
+	cmd = percona_cmd.copy()
+
+	print("\nRunning pt-online-schema-change...")
+	print("-" * 80)
+
+	try:
+		result = subprocess.run(cmd, capture_output=False, text=True, check=False)
+
+		if result.returncode == 0:
+			print("\n pt-online-schema-change completed successfully")
+			return True
+		else:
+			print(f"\n pt-online-schema-change failed with exit code {result.returncode}")
+			return False
+
+	except FileNotFoundError:
+		print("\n pt-online-schema-change not found. Install percona-toolkit:")
+		print("  apt-get install percona-toolkit")
+		print("  # or")
+		print("  yum install percona-toolkit")
+		return False
+	except Exception as e:
+		print(f"\n Error running pt-online-schema-change: {e}")
+		return False
+
+
 def add_custom_field(parent_doctype, partition_field):
 	# Skip creation of standard fields
 	if partition_field in frappe.model.default_fields:
@@ -88,7 +194,9 @@ def populate_partition_fields(doc, event):
 			setattr(row, partition_field, doc.get(partition_field))
 
 
-def populate_partition_fields_for_existing_data(doctype=None, settings=None):
+def populate_partition_fields_for_existing_data(
+	doctype=None, settings=None, chunk_size=10000
+):
 	if doctype and settings:
 		partition_doctypes = {doctype: settings}
 	else:
@@ -118,22 +226,64 @@ def populate_partition_fields_for_existing_data(doctype=None, settings=None):
 				continue
 
 			try:
-				frappe.db.sql(
-					f"""
-					UPDATE `tab{child_doctype}` AS child
-					INNER JOIN `tab{doctype}` AS parent ON child.parent = parent.name
-					SET child.{partition_field} = parent.{partition_field}
-					WHERE child.{partition_field} IS NULL
-				"""
-				)
-				frappe.db.commit()
-				print(
-					f"\033[32mSUCCESS: Partition field {partition_field} in child table {child_doctype} populated.\033[0m"
-				)
+				if unpopulated_count > chunk_size:
+					print(f"\033[34mINFO: Using chunked updates (chunk_size={chunk_size:,})\033[0m")
+					total_updated = 0
+					batch_num = 0
+
+					while True:
+						batch_num += 1
+
+						frappe.db.sql(
+							f"""
+							UPDATE `tab{child_doctype}` AS child
+							INNER JOIN `tab{doctype}` AS parent ON child.parent = parent.name
+							SET child.`{partition_field}` = parent.`{partition_field}`
+							WHERE child.`{partition_field}` IS NULL
+							AND child.parenttype = %s
+							LIMIT {chunk_size}
+						""",
+							(doctype,),
+						)
+
+						rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+
+						if rows_affected == 0:
+							break
+
+						total_updated += rows_affected
+						frappe.db.commit()
+
+						progress = min(100, (total_updated / unpopulated_count) * 100)
+						print(
+							f"  Batch {batch_num}: Updated {rows_affected:,} rows "
+							f"(Total: {total_updated:,}/{unpopulated_count:,} - {progress:.1f}%)"
+						)
+
+					print(
+						f"\033[32mSUCCESS: Partition field '{partition_field}' in child table '{child_doctype}' "
+						f"populated ({total_updated:,} rows in {batch_num} batches).\033[0m"
+					)
+				else:
+					frappe.db.sql(
+						f"""
+						UPDATE `tab{child_doctype}` AS child
+						INNER JOIN `tab{doctype}` AS parent ON child.parent = parent.name
+						SET child.`{partition_field}` = parent.`{partition_field}`
+						WHERE child.`{partition_field}` IS NULL
+						AND child.parenttype = %s
+					""",
+						(doctype,),
+					)
+					frappe.db.commit()
+					print(
+						f"\033[32mSUCCESS: Partition field '{partition_field}' in child table '{child_doctype}' populated.\033[0m"
+					)
 			except Exception as e:
 				print(
-					f"\033[31mERROR: Error populating partition field {partition_field} in child table {child_doctype}: {e}.\033[0m"
+					f"\033[31mERROR: Error populating partition field '{partition_field}' in child table '{child_doctype}': {e}.\033[0m"
 				)
+				frappe.db.rollback()
 
 
 def primary_key_exists(table_name):
@@ -152,7 +302,7 @@ def primary_key_exists(table_name):
 		return False
 
 
-def modify_primary_key(table_name, partition_field):
+def modify_primary_key(table_name, partition_field, use_percona):
 	try:
 		if primary_key_exists(table_name):
 
@@ -165,42 +315,130 @@ def modify_primary_key(table_name, partition_field):
 				print(
 					f"\033[34mINFO: primary key in table {table_name} already includes the partition field `{partition_field}`. No changes needed.\033[0m"
 				)
-				return
+				return True
 
-			drop_pk_sql = f"""
-			ALTER TABLE `{table_name}`
-			DROP PRIMARY KEY;
-			"""
-			frappe.db.sql(drop_pk_sql)
+			print(f"\033[34mINFO: Checking uniqueness of (name, {partition_field})...\033[0m")
 
-			unique_indexes = frappe.db.sql(
-				f"SHOW INDEXES FROM `{table_name}` WHERE Non_unique = 0", as_dict=True
-			)
+			duplicate_check = frappe.db.sql(
+				f"""
+				SELECT COUNT(*) as total,
+				       COUNT(DISTINCT name, `{partition_field}`) as unique_count
+				FROM `{table_name}`
+			""",
+				as_dict=True,
+			)[0]
 
-			for index in unique_indexes:
-				index_name = index["Key_name"]
-				columns = index["Column_name"]
-				frappe.db.sql(f"ALTER TABLE `{table_name}` DROP INDEX `{index_name}`;")
-				if partition_field not in columns:
-					columns = f"{columns}, `{partition_field}`"
-				frappe.db.sql(
-					f"ALTER TABLE `{table_name}` ADD UNIQUE INDEX `{index_name}` ({columns});"
+			if duplicate_check["total"] != duplicate_check["unique_count"]:
+				diff = duplicate_check["total"] - duplicate_check["unique_count"]
+				print(
+					f"\033[31mERROR: Cannot modify primary key - found {diff} duplicate (name, {partition_field}) "
+					f"combinations. Total rows: {duplicate_check['total']}, "
+					f"Unique combinations: {duplicate_check['unique_count']}\033[0m"
 				)
 
-			pk_columns = f"name, {partition_field}"
-			add_pk_sql = f"""
-			ALTER TABLE `{table_name}`
-			ADD PRIMARY KEY ({pk_columns});
-			"""
-			frappe.db.sql(add_pk_sql)
-			frappe.db.commit()
-			print(
-				f"\033[32mSUCCESS: Primary key modified in table {table_name} to include columns: {pk_columns}.\033[0m"
-			)
+				# Show sample duplicates
+				duplicates = frappe.db.sql(
+					f"""
+					SELECT name, `{partition_field}`, COUNT(*) as cnt
+					FROM `{table_name}`
+					GROUP BY name, `{partition_field}`
+					HAVING cnt > 1
+					LIMIT 5
+				""",
+					as_dict=True,
+				)
+
+				if duplicates:
+					print("\033[33mSample duplicates:\033[0m")
+					for dup in duplicates:
+						print(
+							f"  - name: {dup['name']}, {partition_field}: {dup[partition_field]}, count: {dup['cnt']}"
+						)
+
+				return False
+
+			print("\033[32m Uniqueness check passed.\033[0m")
+
+			if use_percona:
+				alter_parts = []
+
+				# Add backticks around partition_field in case it has special chars or is a reserved word
+				pk_columns = f"name, `{partition_field}`"
+				alter_parts.append(f"DROP PRIMARY KEY, ADD PRIMARY KEY ({pk_columns})")
+
+				unique_indexes = frappe.db.sql(
+					f"SHOW INDEXES FROM `{table_name}` WHERE Non_unique = 0 AND Key_name != 'PRIMARY'",
+					as_dict=True,
+				)
+
+				index_columns = {}
+				for index in unique_indexes:
+					index_name = index["Key_name"]
+					column = index["Column_name"]
+					if index_name not in index_columns:
+						index_columns[index_name] = []
+					index_columns[index_name].append(column)
+
+				for index_name, columns in index_columns.items():
+					if partition_field not in columns:
+						columns.append(partition_field)
+					columns_str = ", ".join([f"`{col}`" for col in columns])
+					alter_parts.append(
+						f"DROP INDEX `{index_name}`, ADD UNIQUE INDEX `{index_name}` ({columns_str})"
+					)
+
+				alter_statement = ", ".join(alter_parts)
+
+				percona_command = generate_percona_command(table_name, alter_statement)
+				success = run_percona_command(percona_command)
+
+				if success:
+					print(
+						f"\033[32mSUCCESS: Primary key modified in table {table_name} using Percona.\033[0m"
+					)
+					return True
+				else:
+					print(
+						f"\033[31mERROR: Percona failed to modify primary key in table {table_name}.\033[0m"
+					)
+					return False
+			else:
+				drop_pk_sql = f"""
+				ALTER TABLE `{table_name}`
+				DROP PRIMARY KEY;
+				"""
+				frappe.db.sql(drop_pk_sql)
+
+				unique_indexes = frappe.db.sql(
+					f"SHOW INDEXES FROM `{table_name}` WHERE Non_unique = 0", as_dict=True
+				)
+
+				for index in unique_indexes:
+					index_name = index["Key_name"]
+					columns = index["Column_name"]
+					frappe.db.sql(f"ALTER TABLE `{table_name}` DROP INDEX `{index_name}`;")
+					if partition_field not in columns:
+						columns = f"{columns}, `{partition_field}`"
+					frappe.db.sql(
+						f"ALTER TABLE `{table_name}` ADD UNIQUE INDEX `{index_name}` ({columns});"
+					)
+
+				pk_columns = f"name, `{partition_field}`"
+				add_pk_sql = f"""
+					ALTER TABLE `{table_name}`
+					ADD PRIMARY KEY ({pk_columns});
+				"""
+				frappe.db.sql(add_pk_sql)
+				frappe.db.commit()
+				print(
+					f"\033[32mSUCCESS: Primary key modified in table {table_name} to include columns: {pk_columns}.\033[0m"
+				)
+				return True
 	except Exception as e:
 		print(
 			f"\033[31mERROR: Error modifying primary key in table {table_name}: {e}.\033[0m"
 		)
+		return False
 
 
 def get_partition_doctypes_extended(partition_doctypes):
@@ -327,7 +565,7 @@ def add_partitions_to_existing_table(
 		frappe.db.rollback()
 
 
-def create_partition(doc=None, years_ahead=10):
+def create_partition(doc=None, years_ahead=10, use_percona=False):
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
 
 	if doc:
@@ -350,7 +588,18 @@ def create_partition(doc=None, years_ahead=10):
 		existing_partitions = get_existing_partitions(table_name) if is_partitioned else []
 
 		if not is_partitioned:
-			modify_primary_key(table_name, partition_field)
+			# Modify primary key and check if successful
+			pk_success = modify_primary_key(table_name, partition_field, use_percona)
+
+			if not pk_success:
+				print(
+					f"\033[31mERROR: Skipping partitioning for {doctype} - primary key modification failed.\033[0m"
+				)
+				print(
+					f"\033[33mTIP: Check if the table has duplicate (name, {partition_field}) combinations.\033[0m"
+				)
+				continue
+
 			populate_partition_fields_for_existing_data(doctype, settings)
 
 		partitions = []
