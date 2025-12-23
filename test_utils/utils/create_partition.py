@@ -210,8 +210,6 @@ class TableAnalyzer:
 class FieldManager:
 	@staticmethod
 	def add_custom_field(parent_doctype: str, partition_field: str):
-		"""Add partition field to child doctypes if it doesn't exist"""
-		# Skip creation of standard fields
 		if partition_field in frappe.model.default_fields:
 			if partition_field != "creation":
 				return
@@ -470,17 +468,6 @@ class PartitionEngine:
 		years_ahead: int = 10,
 		dry_run: bool = False,
 	) -> bool:
-		"""
-		Partition a table
-
-		Args:
-		        table: Table name
-		        partition_field: Field to partition on
-		        strategy: 'month', 'quarter', 'year', or 'fiscal_year'
-		        years_back: How many years of historical data
-		        years_ahead: How many years ahead to create partitions
-		        dry_run: If True, only print what would be done
-		"""
 		print(f"\n{'='*80}")
 		print(f"Partitioning Table: {table}")
 		print(f"Strategy: {strategy} | Field: {partition_field}")
