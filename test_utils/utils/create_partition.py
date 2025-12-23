@@ -1,217 +1,289 @@
-try:
-	from datetime import date, datetime
-
-	import frappe
-	from frappe.utils import get_table_name
-except Exception as e:
-	raise (e)
+import subprocess
+import sys
+from datetime import datetime
+from typing import List, Dict, Optional, Tuple
+import frappe
 
 
-def get_db_config():
-	config = frappe.get_site_config()
-
-	return {
-		"host": config.get("db_host", "localhost"),
-		"port": config.get("db_port", 3306),
-		"user": config.get("root_login", "root"),
-		"password": config.get("root_password", ""),
-		"database": config.get("db_name"),
+class PerconaConfig:
+	DEFAULT_OPTIONS = {
+		"chunk_size": 10000,
+		#'chunk_time': 0.05,
+		"max_load": "Threads_running=100",
+		"critical_load": "Threads_running=200",
+		#'check_interval': 0.5,
+		"recursion_method": "none",
+		#'charset': 'utf8mb4',
+		"progress": "time,30",
+		"print": True,
+		"no_check_unique_key_change": True,
+		"no_check_alter": True,
+		#'set_vars': 'lock_wait_timeout=1,innodb_lock_wait_timeout=1,wait_timeout=28800',
+		#'max_lag': '2s',
+		#'tries': 'create_triggers:300:0.2,drop_triggers:300:0.2,swap_tables:300:0.2',
+		#'no_drop_new_table': True,
 	}
 
+	@classmethod
+	def build_dsn(cls, host: str, database: str, table: str) -> str:
+		return f"h={host},D={database},t={table}"
 
-def generate_percona_command(table_name, alter_statement):
-	db_config = get_db_config()
+	@classmethod
+	def build_command(
+		cls, dsn: str, user: str, password: str, alter: str, **kwargs
+	) -> list[str]:
+		options = {**cls.DEFAULT_OPTIONS, **kwargs}
 
-	dsn = f"h={db_config['host']},D={db_config['database']},t={table_name}"
+		cmd = [
+			"pt-online-schema-change",
+			f"--alter={alter}",
+			dsn,
+			f"--user={user}",
+			f"--password={password}",
+			"--execute",
+		]
 
-	percona_cmd = [
-		"pt-online-schema-change",
-		f"--alter={alter_statement}",
-		dsn,
-		f"--user={db_config['user']}",
-		f"--password={db_config['password']}",
-		"--chunk-size=1000",
-		"--chunk-time=0.1",
-		"--max-load=Threads_running=25",
-		"--critical-load=Threads_running=50",
-		"--check-interval=1",
-		"--recursion-method=none",
-		"--no-check-unique-key-change",
-		"--no-check-alter",
-		"--set-vars=lock_wait_timeout=2",
-		"--set-vars=innodb_lock_wait_timeout=2",
-		"--set-vars=wait_timeout=28800",
-		"--max-lag=1s",
-		"--tries=create_triggers:200:0.5",
-		"--tries=drop_triggers:200:0.5",
-		"--tries=swap_tables:200:0.5",
-		"--no-drop-new-table",
-		"--charset=utf8mb4",
-		"--print",
-		"--progress=time,10",
-		"--execute",
-	]
+		for key, value in options.items():
+			if isinstance(value, bool):
+				if value:
+					cmd.append(f'--{key.replace("_", "-")}')
+			else:
+				cmd.append(f'--{key.replace("_", "-")}={value}')
 
-	# Display command with proper shell escaping
-	display_cmd = percona_cmd.copy()
-	display_cmd[4] = "--password=****"
-
-	print("\nCommand (copy-paste ready):")
-	print("-" * 80)
-
-	# Build shell-safe command string
-	import shlex
-
-	shell_safe_cmd = []
-	for i, arg in enumerate(display_cmd):
-		# Quote arguments that contain special characters
-		if any(c in arg for c in " '\"()$`\\!"):
-			shell_safe_cmd.append(shlex.quote(arg))
-		else:
-			shell_safe_cmd.append(arg)
-
-	print(" \\\n  ".join(shell_safe_cmd))
-
-	return percona_cmd
+		return cmd
 
 
-def run_percona_command(percona_cmd):
-	"""
-	Run pt-online-schema-change command.
+class DatabaseConnection:
+	def __init__(self, root_user: str | None = None, root_password: str | None = None):
+		self.config = frappe.get_site_config()
+		self.host = self.config.get("db_host", "localhost")
+		self.port = self.config.get("db_port", 3306)
+		self.database = self.config.get("db_name")
+		self.user = root_user or self.config.get("root_login") or self.config.get("db_user")
+		self.password = (
+			root_password
+			or self.config.get("root_password")
+			or self.config.get("db_password", "")
+		)
 
-	Args:
-	        percona_cmd (list): Base command arguments
+	def execute(self, query: str, as_dict: bool = True):
+		return frappe.db.sql(query, as_dict=as_dict)
 
-	Returns:
-	        bool: True if successful, False otherwise
-	"""
-	import subprocess
+	def get_dsn(self, table: str) -> str:
+		return PerconaConfig.build_dsn(self.host, self.database, table)
 
-	cmd = percona_cmd.copy()
+	def clear_all_connections(self):
+		try:
+			print("Unlocking tables on current connection...")
+			try:
+				frappe.db.sql("UNLOCK TABLES")
+				frappe.db.commit()
+				print("Tables unlocked and transaction committed")
+			except Exception as e:
+				print(f"Error unlocking tables: {e}")
 
-	print("\nRunning pt-online-schema-change...")
-	print("-" * 80)
+			connections = self.execute(
+				f"""
+				SELECT ID, USER, TIME, STATE, COMMAND, INFO
+				FROM information_schema.PROCESSLIST
+				WHERE DB = '{self.database}'
+				AND ID != CONNECTION_ID()
+			"""
+			)
 
-	try:
-		result = subprocess.run(cmd, capture_output=False, text=True, check=False)
+			if connections:
+				print(f"Found {len(connections)} active connection(s) - killing them...")
+				killed_count = 0
 
-		if result.returncode == 0:
-			print("\n pt-online-schema-change completed successfully")
-			return True
-		else:
-			print(f"\n pt-online-schema-change failed with exit code {result.returncode}")
+				for conn in connections:
+					try:
+						frappe.db.sql(f"KILL {conn['ID']}")
+						print(
+							f"Killed connection ID {conn['ID']} (Command: {conn['COMMAND']}, Time: {conn['TIME']}s)"
+						)
+						killed_count += 1
+					except Exception as e:
+						print(f"Could not kill connection {conn['ID']}: {e}")
+
+				if killed_count > 0:
+					import time
+
+					print("Waiting 3 seconds for locks to clear...")
+					time.sleep(3)
+
+				return killed_count > 0
+			else:
+				print("No other connections found")
+				return False
+		except Exception as e:
+			print(f"Error clearing connections: {e}")
 			return False
 
-	except FileNotFoundError:
-		print("\n pt-online-schema-change not found. Install percona-toolkit:")
-		print("  apt-get install percona-toolkit")
-		print("  # or")
-		print("  yum install percona-toolkit")
-		return False
-	except Exception as e:
-		print(f"\n Error running pt-online-schema-change: {e}")
-		return False
+
+class TableAnalyzer:
+	def __init__(self, db: DatabaseConnection):
+		self.db = db
+
+	def is_partitioned(self, table: str) -> bool:
+		result = self.db.execute(
+			f"""
+			SELECT COUNT(*) as cnt
+			FROM information_schema.PARTITIONS
+			WHERE TABLE_SCHEMA = '{self.db.database}'
+			AND TABLE_NAME = '{table}'
+			AND PARTITION_NAME IS NOT NULL
+		"""
+		)
+		return result[0]["cnt"] > 0
+
+	def get_primary_key(self, table: str) -> list[str]:
+		result = self.db.execute(
+			f"""
+			SELECT COLUMN_NAME
+			FROM information_schema.KEY_COLUMN_USAGE
+			WHERE TABLE_SCHEMA = '{self.db.database}'
+			AND TABLE_NAME = '{table}'
+			AND CONSTRAINT_NAME = 'PRIMARY'
+			ORDER BY ORDINAL_POSITION
+		"""
+		)
+		return [row["COLUMN_NAME"] for row in result]
+
+	def check_uniqueness(self, table: str, columns: list[str]) -> tuple[bool, int]:
+		col_list = ", ".join([f"`{c}`" for c in columns])
+		result = self.db.execute(
+			f"""
+			SELECT
+				COUNT(*) as total,
+				COUNT(DISTINCT {col_list}) as unique_count
+			FROM `{table}`
+		"""
+		)
+
+		total = result[0]["total"]
+		unique = result[0]["unique_count"]
+		return total == unique, total - unique
+
+	def get_date_range(self, table: str, field: str) -> tuple[int | None, int | None]:
+		result = self.db.execute(
+			f"""
+			SELECT
+				YEAR(MIN(`{field}`)) as min_year,
+				YEAR(MAX(`{field}`)) as max_year
+			FROM `{table}`
+			WHERE `{field}` IS NOT NULL
+		"""
+		)
+
+		if result and result[0]["min_year"]:
+			return result[0]["min_year"], result[0]["max_year"]
+		return None, None
+
+	def get_table_size(self, table: str) -> dict:
+		result = self.db.execute(
+			f"""
+			SELECT
+				TABLE_ROWS,
+				ROUND(DATA_LENGTH / 1024 / 1024, 2) as DATA_MB,
+				ROUND(INDEX_LENGTH / 1024 / 1024, 2) as INDEX_MB,
+				ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as TOTAL_MB
+			FROM information_schema.TABLES
+			WHERE TABLE_SCHEMA = '{self.db.database}'
+			AND TABLE_NAME = '{table}'
+		"""
+		)
+		return result[0] if result else {}
+
+	def get_existing_partitions(self, table: str) -> list[str]:
+		result = self.db.execute(
+			f"""
+			SELECT PARTITION_NAME
+			FROM information_schema.PARTITIONS
+			WHERE TABLE_SCHEMA = '{self.db.database}'
+			AND TABLE_NAME = '{table}'
+			AND PARTITION_NAME IS NOT NULL
+		"""
+		)
+		return [row["PARTITION_NAME"] for row in result]
 
 
-def add_custom_field(parent_doctype, partition_field):
-	# Skip creation of standard fields
-	if partition_field in frappe.model.default_fields:
-		if partition_field != "creation":
-			return
+class FieldManager:
+	@staticmethod
+	def add_custom_field(parent_doctype: str, partition_field: str):
+		"""Add partition field to child doctypes if it doesn't exist"""
+		# Skip creation of standard fields
+		if partition_field in frappe.model.default_fields:
+			if partition_field != "creation":
+				return
+
+			partition_docfield = frappe._dict(
+				{
+					"fieldname": "creation",
+					"fieldtype": "Datetime",
+					"label": "Creation",
+					"options": "",
+					"default": "",
+				}
+			)
+		else:
+			parent_doctype_meta = frappe.get_meta(parent_doctype)
+			partition_docfield = parent_doctype_meta._fields.get(partition_field)
+
+			if not partition_docfield:
+				# V13 compatibility
+				partition_docfields = list(
+					filter(lambda x: x.get("fieldname") == partition_field, parent_doctype_meta.fields)
+				)
+				partition_docfield = partition_docfields[0] if partition_docfields else None
+
+			if not partition_docfield:
+				raise ValueError(
+					f"Partition field {partition_field} does not exist for {parent_doctype}"
+				)
 
 		parent_doctype_meta = frappe.get_meta(parent_doctype)
-		partition_docfield = frappe._dict(
-			{
-				"fieldname": "creation",
-				"fieldtype": "Datetime",
-				"label": "Creation",
-				"options": "",
-				"default": "",
-			}
-		)
-	else:
-		parent_doctype_meta = frappe.get_meta(parent_doctype)
-		partition_docfield = parent_doctype_meta._fields.get(partition_field)
-		if not partition_docfield:
-			# V13 compatibility
-			partition_docfields = list(
-				filter(lambda x: x.get("fieldname") == partition_field, parent_doctype_meta.fields)
+		for child_doctype in [df.options for df in parent_doctype_meta.get_table_fields()]:
+			if frappe.get_all(
+				"Custom Field", filters={"dt": child_doctype, "fieldname": partition_field}
+			) or frappe.get_meta(child_doctype)._fields.get(partition_field):
+				continue
+
+			print(f"INFO: Adding {partition_field} to {child_doctype} for {parent_doctype}")
+
+			custom_field = frappe.get_doc(
+				{
+					"doctype": "Custom Field",
+					"dt": child_doctype,
+					"fieldname": partition_docfield.fieldname,
+					"fieldtype": partition_docfield.fieldtype,
+					"label": partition_docfield.label,
+					"options": partition_docfield.options,
+					"default": partition_docfield.default,
+					"read_only": 1,
+					"hidden": 1,
+				}
 			)
-			partition_docfield = partition_docfields[0] if partition_docfields else None
-		if not partition_docfield:
-			raise ValueError(
-				f"Partition field {partition_field} does not exist for {parent_doctype}"
-			)
 
-	for child_doctype in [df.options for df in parent_doctype_meta.get_table_fields()]:
-		if frappe.get_all(
-			"Custom Field", filters={"dt": child_doctype, "fieldname": partition_field}
-		) or frappe.get_meta(child_doctype)._fields.get(partition_field):
-			continue
-		print(
-			f"\033[34mINFO: Adding {partition_field} to {child_doctype} for {parent_doctype}\033[0m"
-		)
-		custom_field = frappe.get_doc(
-			{
-				"doctype": "Custom Field",
-				"dt": child_doctype,
-				"fieldname": partition_docfield.fieldname,
-				"fieldtype": partition_docfield.fieldtype,
-				"label": partition_docfield.label,
-				"options": partition_docfield.options,
-				"default": partition_docfield.default,
-				"read_only": 1,
-				"hidden": 1,
-			}
-		)
-		try:
-			custom_field.insert()
-		except Exception as e:
-			print(
-				f"\033[31mERROR: error adding {partition_field} to {child_doctype} for {parent_doctype}: {e}\033[0m"
-			)
-			continue
+			try:
+				custom_field.insert()
+			except Exception as e:
+				print(f"ERROR: error adding {partition_field} to {child_doctype}: {e}")
 
+	@staticmethod
+	def populate_partition_fields(
+		doctype: str, partition_field: str, chunk_size: int = 10000
+	):
+		"""Populate partition field in child tables from parent table"""
+		parent_meta = frappe.get_meta(doctype)
 
-def populate_partition_fields(doc, event):
-	partition_doctypes = frappe.get_hooks("partition_doctypes")
+		for df in parent_meta.get_table_fields():
+			child_doctype = df.options
 
-	if doc.doctype not in partition_doctypes.keys():
-		return
-
-	partition_field = partition_doctypes[doc.doctype]["field"][0]
-
-	for child_doctype_fieldname in [
-		(df.options, df.fieldname) for df in frappe.get_meta(doc.doctype).get_table_fields()
-	]:
-		child_doctype = child_doctype_fieldname[0]
-		child_fieldname = child_doctype_fieldname[1]
-
-		if not frappe.get_meta(child_doctype)._fields.get(partition_field):
-			add_custom_field(doc.doctype, partition_field)
-
-		for row in getattr(doc, child_fieldname):
-			setattr(row, partition_field, doc.get(partition_field))
-
-
-def populate_partition_fields_for_existing_data(
-	doctype=None, settings=None, chunk_size=10000
-):
-	if doctype and settings:
-		partition_doctypes = {doctype: settings}
-	else:
-		partition_doctypes = frappe.get_hooks("partition_doctypes")
-
-	for doctype, settings in partition_doctypes.items():
-		partition_field = settings["field"][0]
-		for child_doctype in [
-			df.options for df in frappe.get_meta(doctype).get_table_fields()
-		]:
 			if partition_field not in frappe.model.default_fields and not frappe.get_meta(
 				child_doctype
 			)._fields.get(partition_field):
 				print(
-					f"\033[33mWARNING: Field '{partition_field}' does not exist in child doctype '{child_doctype}'. Skipping.\033[0m"
+					f"WARNING: Field '{partition_field}' does not exist in '{child_doctype}'. Skipping."
 				)
 				continue
 
@@ -221,13 +293,13 @@ def populate_partition_fields_for_existing_data(
 
 			if unpopulated_count == 0:
 				print(
-					f"\033[34mINFO: Partition field '{partition_field}' in child table '{child_doctype}' is already populated. Skipping.\033[0m"
+					f"INFO: Partition field '{partition_field}' in '{child_doctype}' already populated. Skipping."
 				)
 				continue
 
 			try:
 				if unpopulated_count > chunk_size:
-					print(f"\033[34mINFO: Using chunked updates (chunk_size={chunk_size:,})\033[0m")
+					print(f"INFO: Using chunked updates (chunk_size={chunk_size:,})")
 					total_updated = 0
 					batch_num = 0
 
@@ -247,7 +319,6 @@ def populate_partition_fields_for_existing_data(
 						)
 
 						rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
-
 						if rows_affected == 0:
 							break
 
@@ -261,8 +332,7 @@ def populate_partition_fields_for_existing_data(
 						)
 
 					print(
-						f"\033[32mSUCCESS: Partition field '{partition_field}' in child table '{child_doctype}' "
-						f"populated ({total_updated:,} rows in {batch_num} batches).\033[0m"
+						f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' ({total_updated:,} rows)"
 					)
 				else:
 					frappe.db.sql(
@@ -276,475 +346,633 @@ def populate_partition_fields_for_existing_data(
 						(doctype,),
 					)
 					frappe.db.commit()
-					print(
-						f"\033[32mSUCCESS: Partition field '{partition_field}' in child table '{child_doctype}' populated.\033[0m"
-					)
+					print(f"SUCCESS: Populated '{partition_field}' in '{child_doctype}'")
 			except Exception as e:
-				print(
-					f"\033[31mERROR: Error populating partition field '{partition_field}' in child table '{child_doctype}': {e}.\033[0m"
-				)
+				print(f"ERROR: Error populating '{partition_field}' in '{child_doctype}': {e}")
 				frappe.db.rollback()
 
 
-def primary_key_exists(table_name):
-	try:
-		result = frappe.db.sql(
-			f"""
-		SELECT COUNT(*)
-		FROM information_schema.TABLE_CONSTRAINTS
-		WHERE TABLE_NAME = '{table_name}'
-		AND CONSTRAINT_TYPE = 'PRIMARY KEY';
-		"""
-		)
-		return result[0][0] > 0
-	except Exception as e:
-		print(f"\033[31mERROR: error checking primary key existence: {e}\033[0m")
-		return False
+class PartitionStrategy:
+	def __init__(self, field: str, strategy: str = "month"):
+		self.field = field
+		self.strategy = strategy
+		self.strategies = {
+			"month": self._generate_monthly,
+			"quarter": self._generate_quarterly,
+			"year": self._generate_yearly,
+			"fiscal_year": self._generate_fiscal_year,
+		}
 
-
-def modify_primary_key(table_name, partition_field, use_percona):
-	try:
-		if primary_key_exists(table_name):
-
-			pk_info = frappe.db.sql(
-				f"SHOW KEYS FROM `{table_name}` WHERE Key_name = 'PRIMARY'", as_dict=True
+		if strategy not in self.strategies:
+			raise ValueError(
+				f"Invalid strategy: {strategy}. Use: {list(self.strategies.keys())}"
 			)
-			current_pk_columns = [row["Column_name"] for row in pk_info]
 
-			if partition_field in current_pk_columns:
-				print(
-					f"\033[34mINFO: primary key in table {table_name} already includes the partition field `{partition_field}`. No changes needed.\033[0m"
+	def get_expression(self) -> str:
+		expressions = {
+			"month": f"YEAR(`{self.field}`) * 100 + MONTH(`{self.field}`)",
+			"quarter": f"YEAR(`{self.field}`) * 10 + QUARTER(`{self.field}`)",
+			"year": f"YEAR(`{self.field}`)",
+			"fiscal_year": f"YEAR(`{self.field}`)",
+		}
+		return expressions[self.strategy]
+
+	def generate_partitions(
+		self, start_year: int, end_year: int, table_name: str
+	) -> list[dict]:
+		return self.strategies[self.strategy](start_year, end_year, table_name)
+
+	def _generate_monthly(
+		self, start_year: int, end_year: int, table_name: str
+	) -> list[dict]:
+		partitions = []
+		for year in range(start_year, end_year + 1):
+			for month in range(1, 13):
+				less_than_value = (year + 1) * 100 + 1 if month == 12 else year * 100 + month + 1
+
+				partitions.append(
+					{
+						"name": f"{frappe.scrub(table_name)}_{year}_month_{month:02d}",
+						"value": less_than_value,
+						"description": f"{year}-{month:02d}",
+					}
 				)
-				return True
+		return partitions
 
-			print(f"\033[34mINFO: Checking uniqueness of (name, {partition_field})...\033[0m")
+	def _generate_quarterly(
+		self, start_year: int, end_year: int, table_name: str
+	) -> list[dict]:
+		partitions = []
+		for year in range(start_year, end_year + 1):
+			for quarter in range(1, 5):
+				less_than_value = (year + 1) * 10 + 1 if quarter == 4 else year * 10 + quarter + 1
 
-			duplicate_check = frappe.db.sql(
-				f"""
-				SELECT COUNT(*) as total,
-				       COUNT(DISTINCT name, `{partition_field}`) as unique_count
-				FROM `{table_name}`
-			""",
-				as_dict=True,
-			)[0]
-
-			if duplicate_check["total"] != duplicate_check["unique_count"]:
-				diff = duplicate_check["total"] - duplicate_check["unique_count"]
-				print(
-					f"\033[31mERROR: Cannot modify primary key - found {diff} duplicate (name, {partition_field}) "
-					f"combinations. Total rows: {duplicate_check['total']}, "
-					f"Unique combinations: {duplicate_check['unique_count']}\033[0m"
+				partitions.append(
+					{
+						"name": f"{frappe.scrub(table_name)}_{year}_quarter_{quarter}",
+						"value": less_than_value,
+						"description": f"{year}-Q{quarter}",
+					}
 				)
+		return partitions
 
-				# Show sample duplicates
-				duplicates = frappe.db.sql(
-					f"""
-					SELECT name, `{partition_field}`, COUNT(*) as cnt
-					FROM `{table_name}`
-					GROUP BY name, `{partition_field}`
-					HAVING cnt > 1
-					LIMIT 5
-				""",
-					as_dict=True,
-				)
+	def _generate_yearly(
+		self, start_year: int, end_year: int, table_name: str
+	) -> list[dict]:
+		partitions = []
+		for year in range(start_year, end_year + 1):
+			partitions.append(
+				{
+					"name": f"{frappe.scrub(table_name)}_{year}",
+					"value": year + 1,
+					"description": str(year),
+				}
+			)
+		return partitions
 
-				if duplicates:
-					print("\033[33mSample duplicates:\033[0m")
-					for dup in duplicates:
-						print(
-							f"  - name: {dup['name']}, {partition_field}: {dup[partition_field]}, count: {dup['cnt']}"
-						)
+	def _generate_fiscal_year(
+		self, start_year: int, end_year: int, table_name: str
+	) -> list[dict]:
+		partitions = []
+		fiscal_years = frappe.get_all(
+			"Fiscal Year",
+			fields=["name", "year_start_date", "year_end_date"],
+			order_by="year_start_date ASC",
+		)
 
-				return False
+		for fiscal_year in fiscal_years:
+			year_start = fiscal_year.year_start_date.year
+			year_end = fiscal_year.year_end_date.year + 1
 
-			print("\033[32m Uniqueness check passed.\033[0m")
+			partitions.append(
+				{
+					"name": f"{frappe.scrub(table_name)}_fiscal_year_{year_start}",
+					"value": year_end,
+					"description": f"FY {year_start}",
+				}
+			)
 
-			if use_percona:
-				alter_parts = []
+		return partitions
 
-				# Add backticks around partition_field in case it has special chars or is a reserved word
-				pk_columns = f"name, `{partition_field}`"
-				alter_parts.append(f"DROP PRIMARY KEY, ADD PRIMARY KEY ({pk_columns})")
 
-				unique_indexes = frappe.db.sql(
-					f"SHOW INDEXES FROM `{table_name}` WHERE Non_unique = 0 AND Key_name != 'PRIMARY'",
-					as_dict=True,
-				)
+class PartitionEngine:
+	def __init__(self, db: DatabaseConnection, use_percona: bool = False):
+		self.db = db
+		self.analyzer = TableAnalyzer(db)
+		self.use_percona = use_percona
 
-				index_columns = {}
-				for index in unique_indexes:
-					index_name = index["Key_name"]
-					column = index["Column_name"]
-					if index_name not in index_columns:
-						index_columns[index_name] = []
-					index_columns[index_name].append(column)
+	def partition_table(
+		self,
+		table: str,
+		partition_field: str,
+		strategy: str = "month",
+		years_back: int = 2,
+		years_ahead: int = 10,
+		dry_run: bool = False,
+	) -> bool:
+		"""
+		Partition a table
 
-				for index_name, columns in index_columns.items():
+		Args:
+		        table: Table name
+		        partition_field: Field to partition on
+		        strategy: 'month', 'quarter', 'year', or 'fiscal_year'
+		        years_back: How many years of historical data
+		        years_ahead: How many years ahead to create partitions
+		        dry_run: If True, only print what would be done
+		"""
+		print(f"\n{'='*80}")
+		print(f"Partitioning Table: {table}")
+		print(f"Strategy: {strategy} | Field: {partition_field}")
+		print(f"{'='*80}\n")
+
+		is_partitioned = self.analyzer.is_partitioned(table)
+
+		if is_partitioned:
+			print(f"Table {table} is already partitioned")
+			return self._add_new_partitions(
+				table, partition_field, strategy, years_back, years_ahead, dry_run
+			)
+
+		# Step 1: Analyze table
+		if not self._analyze_table(table, partition_field):
+			return False
+
+		# Step 2: Modify primary key
+		if not self._ensure_primary_key(table, partition_field, dry_run):
+			return False
+
+		# Step 3: Apply partitioning
+		if not self._apply_partitioning(
+			table, partition_field, strategy, years_back, years_ahead, dry_run
+		):
+			return False
+
+		print(f"\nTable {table} partitioned successfully!\n")
+		return True
+
+	def _analyze_table(self, table: str, field: str) -> bool:
+		"""Analyze table for partitioning readiness"""
+		print("Analyzing table...")
+
+		size_info = self.analyzer.get_table_size(table)
+		print(f"   Rows: {size_info.get('TABLE_ROWS', 0):,}")
+		print(f"   Size: {size_info.get('TOTAL_MB', 0):.2f} MB")
+
+		min_year, max_year = self.analyzer.get_date_range(table, field)
+		if not min_year:
+			print("   No data in table - will use current year for partitions")
+		else:
+			print(f"   Date range: {min_year} to {max_year}")
+		print()
+		return True
+
+	def _ensure_primary_key(self, table: str, partition_field: str, dry_run: bool) -> bool:
+		print("Checking primary key...")
+
+		current_pk = self.analyzer.get_primary_key(table)
+
+		if partition_field in current_pk:
+			print(f"  Primary key already includes '{partition_field}'")
+			print()
+			return True
+
+		# Check uniqueness
+		new_pk = current_pk + [partition_field]
+		is_unique, duplicates = self.analyzer.check_uniqueness(table, new_pk)
+
+		if not is_unique:
+			print(f"   Cannot add '{partition_field}' to PK: {duplicates} duplicates found")
+			return False
+
+		print("  Uniqueness verified - safe to proceed")
+
+		pk_columns = ", ".join([f"`{col}`" for col in new_pk])
+
+		if dry_run:
+			print(f" [DRY RUN] Would modify PK to: ({pk_columns})")
+			print()
+			return True
+
+		unique_indexes = frappe.db.sql(
+			f"SHOW INDEXES FROM `{table}` WHERE Non_unique = 0", as_dict=True
+		)
+
+		index_columns = {}
+		for idx in unique_indexes:
+			idx_name = idx["Key_name"]
+			if idx_name not in index_columns:
+				index_columns[idx_name] = []
+			index_columns[idx_name].append(idx["Column_name"])
+
+		if self.use_percona:
+			print(f"   Modifying PK with Percona to include '{partition_field}'...")
+
+			alter_parts = ["DROP PRIMARY KEY"]
+
+			for idx_name, columns in index_columns.items():
+				if idx_name == "PRIMARY":
+					continue
+				alter_parts.append(f"DROP INDEX `{idx_name}`")
+				if partition_field not in columns:
+					columns.append(partition_field)
+				cols_str = ", ".join([f"`{col}`" for col in columns])
+				alter_parts.append(f"ADD UNIQUE INDEX `{idx_name}` ({cols_str})")
+
+			alter_parts.append(f"ADD PRIMARY KEY ({pk_columns})")
+			alter_statement = ", ".join(alter_parts)
+			success = self._run_percona(table, alter_statement)
+
+			if success:
+				print("Primary key modified successfully")
+			else:
+				print("Failed to modify primary key")
+			print()
+			return success
+		else:
+			print(f"   Modifying PK to include '{partition_field}'...")
+			try:
+				frappe.db.sql(f"ALTER TABLE `{table}` DROP PRIMARY KEY")
+
+				for idx_name, columns in index_columns.items():
+					if idx_name == "PRIMARY":
+						continue
+					frappe.db.sql(f"ALTER TABLE `{table}` DROP INDEX `{idx_name}`")
 					if partition_field not in columns:
 						columns.append(partition_field)
-					columns_str = ", ".join([f"`{col}`" for col in columns])
-					alter_parts.append(
-						f"DROP INDEX `{index_name}`, ADD UNIQUE INDEX `{index_name}` ({columns_str})"
-					)
+					cols_str = ", ".join([f"`{col}`" for col in columns])
+					frappe.db.sql(f"ALTER TABLE `{table}` ADD UNIQUE INDEX `{idx_name}` ({cols_str})")
 
-				alter_statement = ", ".join(alter_parts)
-
-				percona_command = generate_percona_command(table_name, alter_statement)
-				success = run_percona_command(percona_command)
-
-				if success:
-					print(
-						f"\033[32mSUCCESS: Primary key modified in table {table_name} using Percona.\033[0m"
-					)
-					return True
-				else:
-					print(
-						f"\033[31mERROR: Percona failed to modify primary key in table {table_name}.\033[0m"
-					)
-					return False
-			else:
-				drop_pk_sql = f"""
-				ALTER TABLE `{table_name}`
-				DROP PRIMARY KEY;
-				"""
-				frappe.db.sql(drop_pk_sql)
-
-				unique_indexes = frappe.db.sql(
-					f"SHOW INDEXES FROM `{table_name}` WHERE Non_unique = 0", as_dict=True
-				)
-
-				for index in unique_indexes:
-					index_name = index["Key_name"]
-					columns = index["Column_name"]
-					frappe.db.sql(f"ALTER TABLE `{table_name}` DROP INDEX `{index_name}`;")
-					if partition_field not in columns:
-						columns = f"{columns}, `{partition_field}`"
-					frappe.db.sql(
-						f"ALTER TABLE `{table_name}` ADD UNIQUE INDEX `{index_name}` ({columns});"
-					)
-
-				pk_columns = f"name, `{partition_field}`"
-				add_pk_sql = f"""
-					ALTER TABLE `{table_name}`
-					ADD PRIMARY KEY ({pk_columns});
-				"""
-				frappe.db.sql(add_pk_sql)
+				frappe.db.sql(f"ALTER TABLE `{table}` ADD PRIMARY KEY ({pk_columns})")
 				frappe.db.commit()
-				print(
-					f"\033[32mSUCCESS: Primary key modified in table {table_name} to include columns: {pk_columns}.\033[0m"
-				)
+
+				print("Primary key modified successfully")
+				print()
 				return True
-	except Exception as e:
-		print(
-			f"\033[31mERROR: Error modifying primary key in table {table_name}: {e}.\033[0m"
+			except Exception as e:
+				print(f"Failed to modify primary key: {e}")
+				frappe.db.rollback()
+				print()
+				return False
+
+	def _apply_partitioning(
+		self,
+		table: str,
+		field: str,
+		strategy: str,
+		years_back: int,
+		years_ahead: int,
+		dry_run: bool,
+	) -> bool:
+
+		print("Creating partitions...")
+
+		min_year, max_year = self.analyzer.get_date_range(table, field)
+
+		if not min_year:
+			current_year = datetime.now().year
+			start_year = current_year - years_back
+			end_year = current_year + years_ahead
+			print(f"No data found - using years {start_year} to {end_year}")
+		else:
+			start_year = min(min_year, datetime.now().year - years_back)
+			end_year = max(max_year, datetime.now().year + years_ahead)
+
+		partition_strategy = PartitionStrategy(field, strategy)
+		partitions = partition_strategy.generate_partitions(start_year, end_year, table)
+
+		print(f"Generating {len(partitions)} partitions from {start_year} to {end_year}")
+
+		partition_expr = partition_strategy.get_expression()
+		partition_defs = [
+			f"PARTITION {p['name']} VALUES LESS THAN ({p['value']})" for p in partitions
+		]
+
+		alter_stmt = f"PARTITION BY RANGE ({partition_expr}) ({', '.join(partition_defs)})"
+
+		if dry_run:
+			print("\n[DRY RUN] Would create partitions:")
+			for p in partitions[:5]:
+				print(f"      - {p['name']}: {p['description']}")
+			if len(partitions) > 5:
+				print(f"      ... and {len(partitions) - 5} more")
+			print()
+			return True
+
+		if self.use_percona:
+			print("Applying partitioning with Percona (this may take a while)...")
+			success = self._run_percona(table, alter_stmt)
+		else:
+			print("Applying partitioning with direct ALTER...")
+			try:
+				frappe.db.sql(f"ALTER TABLE `{table}` {alter_stmt}")
+				frappe.db.commit()
+				success = True
+			except Exception as e:
+				print(f"Failed: {e}")
+				frappe.db.rollback()
+				success = False
+
+		if success:
+			print("Partitions created successfully")
+		else:
+			print("Failed to create partitions")
+
+		print()
+		return success
+
+	def _add_new_partitions(
+		self,
+		table: str,
+		field: str,
+		strategy: str,
+		years_back: int,
+		years_ahead: int,
+		dry_run: bool,
+	) -> bool:
+		print("Adding new partitions...")
+
+		existing_partitions = self.analyzer.get_existing_partitions(table)
+
+		min_year, max_year = self.analyzer.get_date_range(table, field)
+
+		if not min_year:
+			current_year = datetime.now().year
+			start_year = current_year - years_back
+			end_year = current_year + years_ahead
+		else:
+			start_year = min(min_year, datetime.now().year - years_back)
+			end_year = max(max_year, datetime.now().year + years_ahead)
+
+		partition_strategy = PartitionStrategy(field, strategy)
+		all_partitions = partition_strategy.generate_partitions(start_year, end_year, table)
+
+		new_partitions = [p for p in all_partitions if p["name"] not in existing_partitions]
+
+		if not new_partitions:
+			print(" All partitions already exist")
+			return True
+
+		print(f"Found {len(new_partitions)} new partitions to add")
+
+		if dry_run:
+			print("\n[DRY RUN] Would add partitions:")
+			for p in new_partitions[:5]:
+				print(f"      - {p['name']}: {p['description']}")
+			if len(new_partitions) > 5:
+				print(f"      ... and {len(new_partitions) - 5} more")
+			return True
+
+		# Add each partition
+		for partition in new_partitions:
+			partition_def = (
+				f"PARTITION {partition['name']} VALUES LESS THAN ({partition['value']})"
+			)
+			alter_stmt = f"ADD PARTITION ({partition_def})"
+
+			try:
+				if self.use_percona:
+					self._run_percona(table, alter_stmt)
+				else:
+					frappe.db.sql(f"ALTER TABLE `{table}` {alter_stmt}")
+					frappe.db.commit()
+				print(f"Added partition: {partition['name']}")
+			except Exception as e:
+				print(f"Failed to add {partition['name']}: {e}")
+				if not self.use_percona:
+					frappe.db.rollback()
+
+		return True
+
+	def _run_percona(self, table: str, alter_stmt: str, **options) -> bool:
+		print("\nEnsuring no database locks...")
+		self.db.clear_all_connections()
+
+		dsn = self.db.get_dsn(table)
+		cmd = PerconaConfig.build_command(
+			dsn, self.db.user, self.db.password, alter_stmt, **options
 		)
-		return False
 
+		safe_cmd = [arg if "--password=" not in arg else "--password=***" for arg in cmd]
+		print(f"\n   Command: {' '.join(safe_cmd)}\n")
+		print(f"   {'='*76}")
+		print("   Percona Toolkit Output:")
+		print(f"   {'='*76}\n")
 
-def get_partition_doctypes_extended(partition_doctypes):
-	partition_doctypes_extended = {}
-
-	for doctype, settings in partition_doctypes.items():
-		partition_doctypes_extended[doctype] = settings
-		for child_doctype in [
-			df.options for df in frappe.get_meta(doctype).get_table_fields()
-		]:
-			partition_doctypes_extended[child_doctype] = settings
-
-	return partition_doctypes_extended
-
-
-def get_date_range(doctype, field, doc=None, years_ahead=0):
-	doc_year = None
-	if doc:
-		doc_year = getattr(doc, field)
-		if isinstance(doc_year, date):
-			doc_year = doc_year.year
-		elif isinstance(doc_year, str):
-			doc_year = datetime.strptime(doc_year, "%Y-%m-%d").year
-
-	result = frappe.db.sql(
-		f"""
-		SELECT
-		MIN(`{field}`) AS min_date,
-		MAX(`{field}`) AS max_date
-		FROM `tab{doctype}`""",
-		as_dict=True,
-	)
-	if result and result[0].get("min_date") and result[0].get("max_date"):
-		current_year = frappe.utils.now_datetime().year
-		extended_max_year = current_year + years_ahead
-		if doc_year:
-			min_year = min(result[0].get("min_date").year, doc_year)
-			max_year = max(result[0].get("max_date").year, doc_year, extended_max_year)
-			return min_year, max_year
-
-		return result[0].get("min_date").year, max(
-			result[0].get("max_date").year, extended_max_year
-		)
-	else:
-		current_year = frappe.utils.now_datetime().year
-
-		if doc_year:
-			min_year = min(current_year, doc_year)
-			max_year = max(current_year + years_ahead, doc_year)
-			return min_year, max_year
-
-		return current_year, current_year + years_ahead
-
-
-def get_existing_partitions(table_name):
-	try:
-		existing_partitions = frappe.db.sql(
-			f"""
-			SELECT PARTITION_NAME, PARTITION_DESCRIPTION
-			FROM INFORMATION_SCHEMA.PARTITIONS
-			WHERE TABLE_NAME = '{table_name}'
-			AND PARTITION_NAME IS NOT NULL
-			AND TABLE_SCHEMA = DATABASE()
-		""",
-			as_dict=True,
-		)
-
-		return [p["PARTITION_NAME"] for p in existing_partitions]
-	except Exception as e:
-		print(
-			f"\033[31mERROR: Error getting existing partitions for {table_name}: {e}\033[0m"
-		)
-		return []
-
-
-def is_table_partitioned(table_name):
-	try:
-		partitions = frappe.db.sql(
-			f"""
-			SELECT PARTITION_NAME
-			FROM INFORMATION_SCHEMA.PARTITIONS
-			WHERE TABLE_NAME = '{table_name}'
-			AND PARTITION_NAME IS NOT NULL
-			AND TABLE_SCHEMA = DATABASE()
-			LIMIT 1
-		"""
-		)
-		return len(partitions) > 0
-	except Exception as e:
-		print(
-			f"\033[31mERROR: Error checking if table {table_name} is partitioned: {e}\033[0m"
-		)
-		return False
-
-
-def add_partitions_to_existing_table(
-	table_name, partitions, partition_field, partition_by
-):
-	try:
-		for partition_info in partitions:
-			partition_name = partition_info.split()[1]
-
-			existing = frappe.db.sql(
-				f"""
-				SELECT PARTITION_NAME
-				FROM INFORMATION_SCHEMA.PARTITIONS
-				WHERE TABLE_NAME = '{table_name}'
-				AND PARTITION_NAME = '{partition_name}'
-				AND TABLE_SCHEMA = DATABASE()
-			"""
+		try:
+			process = subprocess.Popen(
+				cmd,
+				stdout=subprocess.PIPE,
+				stderr=subprocess.STDOUT,
+				text=True,
+				bufsize=1,
+				universal_newlines=True,
 			)
 
-			if existing:
-				print(f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m")
-				continue
+			for line in process.stdout:
+				print(f"   {line.rstrip()}")
 
-			add_partition_sql = f"ALTER TABLE `{table_name}` ADD PARTITION ({partition_info})"
-			frappe.db.sql(add_partition_sql)
-			frappe.db.commit()
-			print(f"\033[32mSUCCESS: Added new partition {partition_name}.\033[0m")
+			return_code = process.wait()
+			print(f"\n   {'='*76}")
 
-	except Exception as e:
-		print(f"\033[31mERROR: Error adding partitions to {table_name}: {e}\033[0m")
-		frappe.db.rollback()
+			if return_code == 0:
+				print("Operation completed successfully")
+				return True
+			else:
+				print(f"Operation failed with exit code {return_code}")
+				return False
+
+		except FileNotFoundError:
+			print("\n pt-online-schema-change not found")
+			print("   Install: apt-get install percona-toolkit")
+			return False
+		except KeyboardInterrupt:
+			print("\n\nOperation interrupted by user")
+			return False
+		except Exception as e:
+			print(f"\nError: {e}")
+			return False
 
 
-def create_partition(doc=None, years_ahead=10, use_percona=False):
+def create_partition(
+	doc=None, years_ahead=10, use_percona=False, root_user=None, root_password=None
+):
+	"""
+	Create partitions for doctypes configured in hooks.py
+
+	Args:
+	        doc: Optional document to partition (if provided, only partition that doctype)
+	        years_ahead: Number of years ahead to create partitions
+	        use_percona: Use pt-online-schema-change for partitioning
+	        root_user: Database root user (optional)
+	        root_password: Database root password (optional)
+
+	Example:
+	        # Partition all doctypes from hooks
+	        create_partition(use_percona=True)
+
+	        # Partition specific doctype
+	        doc = frappe.get_doc('Sales Order', 'SO-001')
+	        create_partition(doc=doc)
+	"""
+	from frappe.utils import get_table_name
+
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if not partition_doctypes:
+		print("\nNo partition_doctypes found in hooks")
+		print("Add to hooks.py:")
+		print(
+			"""
+			partition_doctypes = {
+				"Sales Order": {
+					"field": ["transaction_date"],
+					"partition_by": ["month"]
+				}
+			}
+		"""
+		)
+		return False
 
 	if doc:
 		if doc.doctype in partition_doctypes:
-			partition_doctypes = {doc.doctype: partition_doctypes.get(doc.doctype)}
+			partition_doctypes = {doc.doctype: partition_doctypes[doc.doctype]}
 		else:
-			print(f"\033[31mERROR: {doc.doctype} not in partition_doctypes hook.\033[0m")
-			return
+			print(f"ERROR: {doc.doctype} not in partition_doctypes hook")
+			return False
 
-	# Creates the field for child doctypes if it doesn't exists yet
+	db = DatabaseConnection(root_user, root_password)
+	engine = PartitionEngine(db, use_percona)
+	field_mgr = FieldManager()
+
+	success_count = 0
+	total_count = 0
+
 	for doctype, settings in partition_doctypes.items():
-		add_custom_field(doctype, settings.get("field", "posting_date")[0])
+		partition_field = settings.get("field", ["posting_date"])[0]
+		partition_by = settings.get("partition_by", ["month"])[0]
 
-	for doctype, settings in get_partition_doctypes_extended(partition_doctypes).items():
-		table_name = get_table_name(doctype)
-		partition_field = settings.get("field", "posting_date")[0]
-		partition_by = settings.get("partition_by", "fiscal_year")[0]
+		print(f"\n{'='*80}")
+		print(f"Processing: {doctype}")
+		print(f"Field: {partition_field} | Strategy: {partition_by}")
+		print(f"{'='*80}")
 
-		is_partitioned = is_table_partitioned(table_name)
-		existing_partitions = get_existing_partitions(table_name) if is_partitioned else []
+		field_mgr.add_custom_field(doctype, partition_field)
 
-		if not is_partitioned:
-			# Modify primary key and check if successful
-			pk_success = modify_primary_key(table_name, partition_field, use_percona)
+		main_table = get_table_name(doctype)
+		child_tables = []
 
-			if not pk_success:
-				print(
-					f"\033[31mERROR: Skipping partitioning for {doctype} - primary key modification failed.\033[0m"
-				)
-				print(
-					f"\033[33mTIP: Check if the table has duplicate (name, {partition_field}) combinations.\033[0m"
-				)
-				continue
+		meta = frappe.get_meta(doctype)
+		for df in meta.get_table_fields():
+			child_tables.append((df.options, get_table_name(df.options)))
 
-			populate_partition_fields_for_existing_data(doctype, settings)
+		total_count += 1
+		if engine.partition_table(
+			main_table, partition_field, partition_by, 2, years_ahead, dry_run=False
+		):
+			success_count += 1
 
-		partitions = []
-		partition_sql = ""
+			field_mgr.populate_partition_fields(doctype, partition_field)
 
-		start_year, end_year = get_date_range(
-			doctype, partition_field, doc, years_ahead=years_ahead
+			for child_doctype, child_table in child_tables:
+				print(f"\n{'='*80}")
+				print(f"Processing child table: {child_doctype}")
+				print(f"{'='*80}")
+
+				total_count += 1
+				if engine.partition_table(
+					child_table, partition_field, partition_by, 2, years_ahead, dry_run=False
+				):
+					success_count += 1
+
+	print(f"\n{'='*80}")
+	print(f"Summary: {success_count}/{total_count} tables partitioned successfully")
+	print(f"{'='*80}\n")
+
+	return success_count == total_count
+
+
+def analyze_table(doctype: str):
+	from frappe.utils import get_table_name
+
+	db = DatabaseConnection()
+	analyzer = TableAnalyzer(db)
+	table = get_table_name(doctype)
+
+	print(f"\n{'='*80}")
+	print(f"Table Analysis: {table}")
+	print(f"{'='*80}\n")
+
+	size = analyzer.get_table_size(table)
+	print(f"Rows: {size.get('TABLE_ROWS', 0):,}")
+	print(f"Data: {size.get('DATA_MB', 0):.2f} MB")
+	print(f"Index: {size.get('INDEX_MB', 0):.2f} MB")
+	print(f"Total: {size.get('TOTAL_MB', 0):.2f} MB")
+
+	pk = analyzer.get_primary_key(table)
+	print(f"\nPrimary Key: {', '.join(pk)}")
+
+	is_part = analyzer.is_partitioned(table)
+	print(f"Partitioned: {'Yes' if is_part else 'No'}")
+
+	if is_part:
+		partitions = analyzer.get_existing_partitions(table)
+		print(f"Partition Count: {len(partitions)}")
+
+	print()
+
+
+def inspect_partitions(doctype: str):
+	from frappe.utils import get_table_name
+
+	db = DatabaseConnection()
+	table = get_table_name(doctype)
+
+	print(f"\n{'='*80}")
+	print(f"Partition Inspection: {doctype} ({table})")
+	print(f"{'='*80}\n")
+
+	result = db.execute(
+		f"""
+        SELECT
+            PARTITION_NAME,
+            PARTITION_METHOD,
+            PARTITION_EXPRESSION,
+            PARTITION_DESCRIPTION,
+            TABLE_ROWS,
+            ROUND(DATA_LENGTH / 1024 / 1024, 2) as DATA_MB,
+            ROUND(INDEX_LENGTH / 1024 / 1024, 2) as INDEX_MB
+        FROM information_schema.PARTITIONS
+        WHERE TABLE_SCHEMA = '{db.database}'
+        AND TABLE_NAME = '{table}'
+        AND PARTITION_NAME IS NOT NULL
+        ORDER BY PARTITION_ORDINAL_POSITION
+    """
+	)
+
+	if not result:
+		print("Table is NOT partitioned\n")
+		return
+
+	print("Table is partitioned")
+	print(f"Method: {result[0]['PARTITION_METHOD']}")
+	print(f"Expression: {result[0]['PARTITION_EXPRESSION']}")
+	print(f"\nTotal partitions: {len(result)}\n")
+
+	print(f"{'Partition':<40} {'Rows':>10} {'Data MB':>10} {'Index MB':>10}")
+	print(f"{'-'*40} {'-'*10} {'-'*10} {'-'*10}")
+
+	total_rows = 0
+	total_data = 0
+	total_index = 0
+
+	for p in result:
+		print(
+			f"{p['PARTITION_NAME']:<40} {p['TABLE_ROWS']:>10,} {p['DATA_MB']:>10.2f} {p['INDEX_MB']:>10.2f}"
 		)
-		if start_year is None or end_year is None:
-			print(f"\033[34mINFO: No data found for {doctype}, skipping partitioning.\033[0m")
-			continue
+		total_rows += p["TABLE_ROWS"] or 0
+		total_data += p["DATA_MB"] or 0
+		total_index += p["INDEX_MB"] or 0
 
-		if partition_by == "field":
-			partition_values = frappe.db.sql(
-				f"SELECT DISTINCT `{partition_field}` FROM `{table_name}`", as_dict=True
-			)
-			for value in partition_values:
-				partition_value = value[partition_field]
-				partition_name = f"{frappe.scrub(doctype)}_{partition_field}_{partition_value}"
-				if partition_name not in existing_partitions:
-					partitions.append(f"PARTITION {partition_name} VALUES IN ({partition_value})")
-					print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
-				else:
-					print(f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m")
-
-			if not partitions and not is_partitioned:
-				continue
-
-			if not is_partitioned:
-				partition_sql = (
-					f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
-				)
-				partition_sql += ",\n".join(partitions)
-				partition_sql += ");"
-			elif partitions:
-				add_partitions_to_existing_table(
-					table_name, partitions, partition_field, partition_by
-				)
-				continue
-
-		elif partition_by == "fiscal_year":
-			fiscal_years = frappe.get_all(
-				"Fiscal Year",
-				fields=["name", "year_start_date", "year_end_date"],
-				order_by="year_start_date ASC",
-			)
-			for fiscal_year in fiscal_years:
-				year_start = fiscal_year.get("year_start_date").year
-				year_end = fiscal_year.get("year_end_date").year + 1
-				partition_name = f"{frappe.scrub(doctype)}_fiscal_year_{year_start}"
-
-				if partition_name not in existing_partitions:
-					partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({year_end})")
-					print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
-				else:
-					print(f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m")
-
-				if not partitions and not is_partitioned:
-					continue
-
-			if not is_partitioned:
-				partition_sql = (
-					f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
-				)
-				partition_sql += ",\n".join(partitions)
-				partition_sql += ");"
-			elif partitions:
-				add_partitions_to_existing_table(
-					table_name, partitions, partition_field, partition_by
-				)
-				continue
-		else:
-			for year_start in range(start_year, end_year + 1):
-				if partition_by == "quarter":
-					if not is_partitioned:
-						partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 10 + QUARTER(`{partition_field}`)) (\n"
-
-					for quarter in range(1, 5):
-						partition_name = f"{frappe.scrub(doctype)}_{year_start}_quarter_{quarter}"
-
-						if partition_name not in existing_partitions:
-							if quarter < 4:
-								quarter_code = year_start * 10 + (quarter + 1)
-							else:
-								quarter_code = (year_start + 1) * 10 + 1
-
-							partitions.append(
-								f"PARTITION {partition_name} VALUES LESS THAN ({quarter_code})"
-							)
-							print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
-						else:
-							print(
-								f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m"
-							)
-
-				elif partition_by == "month":
-					if not is_partitioned:
-						partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 100 + MONTH(`{partition_field}`)) (\n"
-
-					for month in range(1, 13):
-						partition_name = f"{frappe.scrub(doctype)}_{year_start}_month_{month:02d}"
-
-						if partition_name not in existing_partitions:
-							if month < 12:
-								month_code = year_start * 100 + month + 1
-							else:
-								month_code = (year_start + 1) * 100 + 1
-
-							partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({month_code})")
-							print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
-						else:
-							print(
-								f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m"
-							)
-
-			if is_partitioned and partitions:
-				add_partitions_to_existing_table(
-					table_name, partitions, partition_field, partition_by
-				)
-				continue
-
-			if not partitions:
-				if is_partitioned:
-					print(
-						f"\033[34mINFO: All partitions for {doctype} already exist, skipping.\033[0m"
-					)
-				else:
-					print(
-						f"\033[34mINFO: No need to create partitions for {doctype}, skipping partitioning.\033[0m"
-					)
-				continue
-
-			if not is_partitioned:
-				partition_sql += ",\n".join(partitions)
-				partition_sql += ");"
-
-		if not is_partitioned and partition_sql:
-			try:
-				frappe.db.sql(partition_sql)
-				frappe.db.commit()
-				print(f"\033[32mSUCCESS: Partitioning for {doctype} completed successfully.\033[0m")
-			except Exception as e:
-				print(f"\033[31mERROR: Error while partitioning {doctype}: {e}.\033[0m")
-				frappe.db.rollback()
-		elif is_partitioned:
-			print(
-				f"\033[34mINFO: Table {table_name} is already partitioned. Only new partitions were added.\033[0m"
-			)
+	print(f"{'-'*40} {'-'*10} {'-'*10} {'-'*10}")
+	print(f"{'TOTAL':<40} {total_rows:>10,} {total_data:>10.2f} {total_index:>10.2f}\n")
