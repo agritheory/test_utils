@@ -268,6 +268,181 @@ class FieldManager:
 				print(f"ERROR: error adding {partition_field} to {child_doctype}: {e}")
 
 	@staticmethod
+	def populate_partition_field_for_child(
+		parent_doctype: str, child_doctype: str, partition_field: str, chunk_size: int = 50000
+	):
+		"""Populate partition field in a single child table from parent table"""
+		import time
+
+		print(f"\nINFO: Populating '{partition_field}' in '{child_doctype}'...")
+		sys.stdout.flush()
+
+		if partition_field not in frappe.model.default_fields and not frappe.get_meta(
+			child_doctype
+		)._fields.get(partition_field):
+			print(
+				f"WARNING: Field '{partition_field}' does not exist in '{child_doctype}'. Skipping."
+			)
+			return
+
+		print(f"DEBUG: Counting unpopulated rows in '{child_doctype}'...")
+		sys.stdout.flush()
+		count_start = time.time()
+		count_timeout_seconds = 60
+
+		try:
+			result = frappe.db.sql(
+				f"""
+				SELECT /*+ MAX_EXECUTION_TIME({count_timeout_seconds * 1000}) */ COUNT(*) as cnt
+				FROM `tab{child_doctype}`
+				WHERE `{partition_field}` IS NULL
+				AND parenttype = %s
+			""",
+				(parent_doctype,),
+				as_dict=True,
+			)
+			unpopulated_count = result[0]["cnt"] if result else 0
+
+			count_time = time.time() - count_start
+			if count_time > count_timeout_seconds:
+				print(f"WARNING: Count took {count_time:.1f}s - assuming large table")
+				unpopulated_count = -1
+			else:
+				print(f"DEBUG: Count completed in {count_time:.1f}s")
+		except Exception as e:
+			count_time = time.time() - count_start
+			if "MAX_EXECUTION_TIME" in str(e) or count_time >= count_timeout_seconds:
+				print(
+					f"WARNING: Count query timed out after {count_timeout_seconds}s - assuming large table"
+				)
+			else:
+				print(f"WARNING: Error counting rows: {e}")
+			print("INFO: Proceeding with optimized update (no progress tracking)...")
+			sys.stdout.flush()
+			unpopulated_count = -1
+
+		sys.stdout.flush()
+
+		if unpopulated_count == 0:
+			print(
+				f"INFO: Partition field '{partition_field}' in '{child_doctype}' already populated. Skipping."
+			)
+			return
+
+		if unpopulated_count > 0:
+			print(f"INFO: Found {unpopulated_count:,} rows to update")
+		else:
+			print("INFO: Proceeding with update (count unknown)")
+		sys.stdout.flush()
+
+		try:
+			print(f"DEBUG: Starting UPDATE for '{child_doctype}'...")
+			sys.stdout.flush()
+			update_start = time.time()
+
+			if unpopulated_count > 1000000 or unpopulated_count == -1:
+				print("INFO: Large table detected - using single optimized UPDATE")
+				print("INFO: This may take 5-15 minutes, please wait...")
+				sys.stdout.flush()
+
+				frappe.db.sql(
+					f"""
+					UPDATE `tab{child_doctype}` AS child
+					INNER JOIN `tab{parent_doctype}` AS parent ON child.parent = parent.name
+					SET child.`{partition_field}` = parent.`{partition_field}`
+					WHERE child.`{partition_field}` IS NULL
+					AND child.parenttype = %s
+				""",
+					(parent_doctype,),
+				)
+
+				frappe.db.commit()
+
+				elapsed_time = time.time() - update_start
+				print(
+					f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' (completed in {elapsed_time/60:.1f} minutes)"
+				)
+				sys.stdout.flush()
+
+			elif unpopulated_count > chunk_size:
+				print(f"INFO: Using chunked updates (chunk_size={chunk_size:,})")
+				sys.stdout.flush()
+				total_updated = 0
+				batch_num = 0
+				start_time = time.time()
+
+				while True:
+					batch_num += 1
+					batch_start = time.time()
+
+					frappe.db.sql(
+						f"""
+						UPDATE `tab{child_doctype}` AS child
+						INNER JOIN `tab{parent_doctype}` AS parent ON child.parent = parent.name
+						SET child.`{partition_field}` = parent.`{partition_field}`
+						WHERE child.`{partition_field}` IS NULL
+						AND child.parenttype = %s
+						LIMIT {chunk_size}
+					""",
+						(parent_doctype,),
+					)
+
+					rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+					if rows_affected == 0:
+						break
+
+					total_updated += rows_affected
+					frappe.db.commit()
+
+					batch_time = time.time() - batch_start
+					elapsed_time = time.time() - start_time
+					progress = min(100, (total_updated / unpopulated_count) * 100)
+
+					if total_updated > 0:
+						estimated_total = elapsed_time / (total_updated / unpopulated_count)
+						remaining = estimated_total - elapsed_time
+						eta_mins = remaining / 60
+
+						print(
+							f"  Batch {batch_num}: {rows_affected:,} rows in {batch_time:.1f}s "
+							f"(Total: {total_updated:,}/{unpopulated_count:,} - {progress:.1f}% - ETA: {eta_mins:.1f}m)"
+						)
+					else:
+						print(
+							f"  Batch {batch_num}: Updated {rows_affected:,} rows "
+							f"(Total: {total_updated:,}/{unpopulated_count:,} - {progress:.1f}%)"
+						)
+					sys.stdout.flush()
+
+				total_time = time.time() - start_time
+				print(
+					f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' "
+					f"({total_updated:,} rows in {total_time/60:.1f} minutes)"
+				)
+				sys.stdout.flush()
+			else:
+				frappe.db.sql(
+					f"""
+					UPDATE `tab{child_doctype}` AS child
+					INNER JOIN `tab{parent_doctype}` AS parent ON child.parent = parent.name
+					SET child.`{partition_field}` = parent.`{partition_field}`
+					WHERE child.`{partition_field}` IS NULL
+					AND child.parenttype = %s
+				""",
+					(parent_doctype,),
+				)
+				frappe.db.commit()
+				elapsed_time = time.time() - update_start
+				print(
+					f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' ({elapsed_time:.1f}s)"
+				)
+				sys.stdout.flush()
+		except Exception as e:
+			print(f"ERROR: Error populating '{partition_field}' in '{child_doctype}': {e}")
+			sys.stdout.flush()
+			frappe.db.rollback()
+
+	@staticmethod
 	def populate_partition_fields(
 		doctype: str, partition_field: str, chunk_size: int = 50000
 	):
@@ -622,15 +797,22 @@ class PartitionEngine:
 			print()
 			return True
 
-		# Check uniqueness
 		new_pk = current_pk + [partition_field]
-		is_unique, duplicates = self.analyzer.check_uniqueness(table, new_pk)
 
-		if not is_unique:
-			print(f"   Cannot add '{partition_field}' to PK: {duplicates} duplicates found")
-			return False
+		# If 'name' is in PK, uniqueness is guaranteed since 'name' is always unique in Frappe
+		# Skip the check because COUNT(DISTINCT col1, col2) excludes NULL values,
+		# causing false "duplicates" when partition_field has NULLs
+		if "name" in current_pk:
+			print("  Primary key contains 'name' - uniqueness guaranteed")
+		else:
+			# Only check uniqueness if 'name' is not in PK (rare edge case)
+			is_unique, duplicates = self.analyzer.check_uniqueness(table, new_pk)
 
-		print("  Uniqueness verified - safe to proceed")
+			if not is_unique:
+				print(f"   Cannot add '{partition_field}' to PK: {duplicates} duplicates found")
+				return False
+
+			print("  Uniqueness verified - safe to proceed")
 
 		pk_columns = ", ".join([f"`{col}`" for col in new_pk])
 
@@ -957,8 +1139,6 @@ def create_partition(
 		):
 			success_count += 1
 
-			field_mgr.populate_partition_fields(doctype, partition_field)
-			frappe.db.commit()
 			print(f"\nDEBUG: About to process {len(child_tables)} child tables...")
 
 			for idx, (child_doctype, child_table) in enumerate(child_tables, 1):
@@ -966,6 +1146,11 @@ def create_partition(
 				print(f"\n{'='*80}")
 				print(f"Processing child table: {child_doctype}")
 				print(f"{'='*80}")
+
+				field_mgr.populate_partition_field_for_child(
+					doctype, child_doctype, partition_field
+				)
+				frappe.db.commit()
 
 				total_count += 1
 				if engine.partition_table(
