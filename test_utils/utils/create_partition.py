@@ -1052,7 +1052,7 @@ class PartitionEngine:
 
 	def _run_percona(self, table: str, alter_stmt: str, **options) -> bool:
 		print("\nEnsuring no database locks...")
-		self.db.clear_all_connections()
+		# self.db.clear_all_connections() I think this is not necessary
 
 		dsn = self.db.get_dsn(table)
 		cmd = PerconaConfig.build_command(
