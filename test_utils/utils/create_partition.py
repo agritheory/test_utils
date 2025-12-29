@@ -1,7 +1,6 @@
 import subprocess
 import sys
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
 import frappe
 
 
@@ -18,6 +17,7 @@ class PerconaConfig:
 		"print": True,
 		"no_check_unique_key_change": True,
 		"no_check_alter": True,
+		"preserve_triggers": True,
 		#'set_vars': 'lock_wait_timeout=1,innodb_lock_wait_timeout=1,wait_timeout=28800',
 		#'max_lag': '2s',
 		#'tries': 'create_triggers:300:0.2,drop_triggers:300:0.2,swap_tables:300:0.2',
@@ -164,19 +164,25 @@ class TableAnalyzer:
 		unique = result[0]["unique_count"]
 		return total == unique, total - unique
 
-	def get_date_range(self, table: str, field: str) -> tuple[int | None, int | None]:
-		result = self.db.execute(
-			f"""
-			SELECT
-				YEAR(MIN(`{field}`)) as min_year,
-				YEAR(MAX(`{field}`)) as max_year
-			FROM `{table}`
-			WHERE `{field}` IS NOT NULL
-		"""
-		)
+	def get_date_range(
+		self, table: str, field: str, timeout_seconds: int = 30
+	) -> tuple[int | None, int | None]:
+		try:
+			result = self.db.execute(
+				f"""
+				SELECT /*+ MAX_EXECUTION_TIME({timeout_seconds * 1000}) */
+					YEAR(MIN(`{field}`)) as min_year,
+					YEAR(MAX(`{field}`)) as max_year
+				FROM `{table}`
+				WHERE `{field}` IS NOT NULL
+			"""
+			)
 
-		if result and result[0]["min_year"]:
-			return result[0]["min_year"], result[0]["max_year"]
+			if result and result[0]["min_year"]:
+				return result[0]["min_year"], result[0]["max_year"]
+		except Exception as e:
+			print(f"   WARNING: Date range query timed out or failed: {e}")
+			print("   Using default year range instead")
 		return None, None
 
 	def get_table_size(self, table: str) -> dict:
@@ -325,55 +331,24 @@ class FieldManager:
 
 		if unpopulated_count == 0:
 			print(
-				f"INFO: Partition field '{partition_field}' in '{child_doctype}' already populated. Skipping."
+				f"INFO: Partition field '{partition_field}' in '{child_doctype}' already populated for {parent_doctype}. Skipping."
 			)
-			return
-
-		if unpopulated_count > 0:
-			print(f"INFO: Found {unpopulated_count:,} rows to update")
-		else:
-			print("INFO: Proceeding with update (count unknown)")
-		sys.stdout.flush()
-
-		try:
-			print(f"DEBUG: Starting UPDATE for '{child_doctype}'...")
+		elif unpopulated_count != 0:
+			if unpopulated_count > 0:
+				print(f"INFO: Found {unpopulated_count:,} rows to update for {parent_doctype}")
+			else:
+				print(f"INFO: Proceeding with update for {parent_doctype} (count unknown)")
 			sys.stdout.flush()
-			update_start = time.time()
 
-			if unpopulated_count > 1000000 or unpopulated_count == -1:
-				print("INFO: Large table detected - using single optimized UPDATE")
-				print("INFO: This may take 5-15 minutes, please wait...")
+			try:
+				print(f"DEBUG: Starting UPDATE for '{child_doctype}'...")
 				sys.stdout.flush()
+				update_start = time.time()
 
-				frappe.db.sql(
-					f"""
-					UPDATE `tab{child_doctype}` AS child
-					INNER JOIN `tab{parent_doctype}` AS parent ON child.parent = parent.name
-					SET child.`{partition_field}` = parent.`{partition_field}`
-					WHERE child.`{partition_field}` IS NULL
-					AND child.parenttype = %s
-				""",
-					(parent_doctype,),
-				)
-
-				frappe.db.commit()
-
-				elapsed_time = time.time() - update_start
-				print(
-					f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' (completed in {elapsed_time/60:.1f} minutes)"
-				)
-				sys.stdout.flush()
-
-			elif unpopulated_count > chunk_size:
-				print(f"INFO: Using chunked updates (chunk_size={chunk_size:,})")
-				sys.stdout.flush()
-				total_updated = 0
-				batch_num = 0
-				start_time = time.time()
-
-				while True:
-					batch_num += 1
-					batch_start = time.time()
+				if unpopulated_count > 1000000 or unpopulated_count == -1:
+					print("INFO: Large table detected - using single optimized UPDATE")
+					print("INFO: This may take 5-15 minutes, please wait...")
+					sys.stdout.flush()
 
 					frappe.db.sql(
 						f"""
@@ -382,64 +357,128 @@ class FieldManager:
 						SET child.`{partition_field}` = parent.`{partition_field}`
 						WHERE child.`{partition_field}` IS NULL
 						AND child.parenttype = %s
-						LIMIT {chunk_size}
 					""",
 						(parent_doctype,),
 					)
 
-					rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
-					if rows_affected == 0:
-						break
-
-					total_updated += rows_affected
 					frappe.db.commit()
 
-					batch_time = time.time() - batch_start
-					elapsed_time = time.time() - start_time
-					progress = min(100, (total_updated / unpopulated_count) * 100)
-
-					if total_updated > 0:
-						estimated_total = elapsed_time / (total_updated / unpopulated_count)
-						remaining = estimated_total - elapsed_time
-						eta_mins = remaining / 60
-
-						print(
-							f"  Batch {batch_num}: {rows_affected:,} rows in {batch_time:.1f}s "
-							f"(Total: {total_updated:,}/{unpopulated_count:,} - {progress:.1f}% - ETA: {eta_mins:.1f}m)"
-						)
-					else:
-						print(
-							f"  Batch {batch_num}: Updated {rows_affected:,} rows "
-							f"(Total: {total_updated:,}/{unpopulated_count:,} - {progress:.1f}%)"
-						)
+					elapsed_time = time.time() - update_start
+					print(
+						f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' (completed in {elapsed_time/60:.1f} minutes)"
+					)
 					sys.stdout.flush()
 
-				total_time = time.time() - start_time
+				elif unpopulated_count > chunk_size:
+					print(f"INFO: Using chunked updates (chunk_size={chunk_size:,})")
+					sys.stdout.flush()
+					total_updated = 0
+					batch_num = 0
+					start_time = time.time()
+
+					while True:
+						batch_num += 1
+						batch_start = time.time()
+
+						frappe.db.sql(
+							f"""
+							UPDATE `tab{child_doctype}` AS child
+							INNER JOIN `tab{parent_doctype}` AS parent ON child.parent = parent.name
+							SET child.`{partition_field}` = parent.`{partition_field}`
+							WHERE child.`{partition_field}` IS NULL
+							AND child.parenttype = %s
+							LIMIT {chunk_size}
+						""",
+							(parent_doctype,),
+						)
+
+						rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+						if rows_affected == 0:
+							break
+
+						total_updated += rows_affected
+						frappe.db.commit()
+
+						batch_time = time.time() - batch_start
+						elapsed_time = time.time() - start_time
+						progress = min(100, (total_updated / unpopulated_count) * 100)
+
+						if total_updated > 0:
+							estimated_total = elapsed_time / (total_updated / unpopulated_count)
+							remaining = estimated_total - elapsed_time
+							eta_mins = remaining / 60
+
+							print(
+								f"  Batch {batch_num}: {rows_affected:,} rows in {batch_time:.1f}s "
+								f"(Total: {total_updated:,}/{unpopulated_count:,} - {progress:.1f}% - ETA: {eta_mins:.1f}m)"
+							)
+						else:
+							print(
+								f"  Batch {batch_num}: Updated {rows_affected:,} rows "
+								f"(Total: {total_updated:,}/{unpopulated_count:,} - {progress:.1f}%)"
+							)
+						sys.stdout.flush()
+
+					total_time = time.time() - start_time
+					print(
+						f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' "
+						f"({total_updated:,} rows in {total_time/60:.1f} minutes)"
+					)
+					sys.stdout.flush()
+				else:
+					frappe.db.sql(
+						f"""
+						UPDATE `tab{child_doctype}` AS child
+						INNER JOIN `tab{parent_doctype}` AS parent ON child.parent = parent.name
+						SET child.`{partition_field}` = parent.`{partition_field}`
+						WHERE child.`{partition_field}` IS NULL
+						AND child.parenttype = %s
+					""",
+						(parent_doctype,),
+					)
+					frappe.db.commit()
+					elapsed_time = time.time() - update_start
+					print(
+						f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' ({elapsed_time:.1f}s)"
+					)
+					sys.stdout.flush()
+			except Exception as e:
+				print(f"ERROR: Error populating '{partition_field}' in '{child_doctype}': {e}")
+				sys.stdout.flush()
+				frappe.db.rollback()
+
+		# Now handle remaining NULLs from other parent types by using creation date as fallback
+		print("INFO: Checking for remaining NULL values from other parent types...")
+		sys.stdout.flush()
+
+		try:
+			remaining_nulls = frappe.db.sql(
+				f"""
+				SELECT COUNT(*) as cnt FROM `tab{child_doctype}`
+				WHERE `{partition_field}` IS NULL
+			""",
+				as_dict=True,
+			)[0]["cnt"]
+
+			if remaining_nulls > 0:
 				print(
-					f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' "
-					f"({total_updated:,} rows in {total_time/60:.1f} minutes)"
+					f"INFO: Found {remaining_nulls:,} rows with NULL from other parent types - using creation date as fallback"
 				)
 				sys.stdout.flush()
-			else:
+
 				frappe.db.sql(
 					f"""
-					UPDATE `tab{child_doctype}` AS child
-					INNER JOIN `tab{parent_doctype}` AS parent ON child.parent = parent.name
-					SET child.`{partition_field}` = parent.`{partition_field}`
-					WHERE child.`{partition_field}` IS NULL
-					AND child.parenttype = %s
-				""",
-					(parent_doctype,),
+					UPDATE `tab{child_doctype}`
+					SET `{partition_field}` = DATE(`creation`)
+					WHERE `{partition_field}` IS NULL
+				"""
 				)
 				frappe.db.commit()
-				elapsed_time = time.time() - update_start
-				print(
-					f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' ({elapsed_time:.1f}s)"
-				)
-				sys.stdout.flush()
+				print(f"SUCCESS: Set fallback date for {remaining_nulls:,} rows")
+			else:
+				print(f"INFO: No remaining NULL values in '{child_doctype}'")
 		except Exception as e:
-			print(f"ERROR: Error populating '{partition_field}' in '{child_doctype}': {e}")
-			sys.stdout.flush()
+			print(f"ERROR: Error setting fallback dates: {e}")
 			frappe.db.rollback()
 
 	@staticmethod
