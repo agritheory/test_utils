@@ -1,7 +1,12 @@
 import subprocess
 import sys
+import time
 from datetime import datetime
 import frappe
+
+# Threshold for using Percona vs direct ALTER (rows)
+# Tables with fewer rows use direct ALTER (faster, no trigger issues)
+PERCONA_THRESHOLD_ROWS = 100000
 
 # Mapping of doctypes to their actual date field
 # We'll create virtual columns to normalize to 'posting_date' for doctypes that use transaction_date
@@ -88,6 +93,50 @@ class DatabaseConnection:
 	def get_dsn(self, table: str) -> str:
 		return PerconaConfig.build_dsn(self.host, self.database, table)
 
+	def kill_blocking_queries(self, table: str, max_wait: int = 60) -> bool:
+		"""Kill queries that might be blocking operations on a table"""
+		print(f"INFO: Checking for blocking queries on {table}...")
+
+		try:
+			# Find queries accessing this table or waiting for locks
+			blocking = self.execute(
+				f"""
+				SELECT ID, USER, TIME, STATE, INFO
+				FROM information_schema.PROCESSLIST
+				WHERE DB = '{self.database}'
+				AND ID != CONNECTION_ID()
+				AND (
+					INFO LIKE '%{table}%'
+					OR STATE LIKE '%lock%'
+					OR STATE LIKE '%Waiting%'
+				)
+				AND TIME > 5
+				ORDER BY TIME DESC
+			"""
+			)
+
+			if blocking:
+				print(f"WARNING: Found {len(blocking)} potentially blocking queries:")
+				for q in blocking[:5]:
+					print(f"  - ID {q['ID']}: {q['STATE']} ({q['TIME']}s) - {(q['INFO'] or '')[:80]}")
+
+				for q in blocking:
+					try:
+						frappe.db.sql(f"KILL {q['ID']}")
+						print(f"  Killed query ID {q['ID']}")
+					except Exception as e:
+						print(f"  Could not kill {q['ID']}: {e}")
+
+				time.sleep(2)
+				return True
+			else:
+				print("INFO: No blocking queries found")
+				return False
+
+		except Exception as e:
+			print(f"WARNING: Could not check blocking queries: {e}")
+			return False
+
 	def clear_all_connections(self):
 		try:
 			print("Unlocking tables on current connection...")
@@ -122,8 +171,6 @@ class DatabaseConnection:
 						print(f"Could not kill connection {conn['ID']}: {e}")
 
 				if killed_count > 0:
-					import time
-
 					print("Waiting 3 seconds for locks to clear...")
 					time.sleep(3)
 
@@ -164,6 +211,18 @@ class TableAnalyzer:
 		"""
 		)
 		return result[0]["cnt"] > 0
+
+	def get_row_count(self, table: str) -> int:
+		"""Get approximate row count from information_schema (fast)"""
+		result = self.db.execute(
+			f"""
+			SELECT TABLE_ROWS
+			FROM information_schema.TABLES
+			WHERE TABLE_SCHEMA = '{self.db.database}'
+			AND TABLE_NAME = '{table}'
+			"""
+		)
+		return result[0]["TABLE_ROWS"] if result else 0
 
 	def get_primary_key(self, table: str) -> list[str]:
 		result = self.db.execute(
@@ -454,8 +513,6 @@ class FieldManager:
 		Handles parent tables that may not have posting_date by checking
 		DOCTYPE_DATE_FIELD_MAP and creating virtual columns if needed.
 		"""
-		import time
-
 		table = f"tab{child_doctype}"
 
 		print(
@@ -620,8 +677,6 @@ class FieldManager:
 		parent_doctype: str, child_doctype: str, partition_field: str, chunk_size: int = 50000
 	):
 		"""Populate partition field in a single child table from parent table"""
-		import time
-
 		print(f"\nINFO: Populating '{partition_field}' in '{child_doctype}'...")
 		sys.stdout.flush()
 
@@ -794,8 +849,6 @@ class FieldManager:
 		doctype: str, partition_field: str, chunk_size: int = 50000
 	):
 		"""Populate partition field in child tables from parent table"""
-		import time
-
 		parent_meta = frappe.get_meta(doctype)
 
 		for df in parent_meta.get_table_fields():
@@ -914,6 +967,56 @@ class PartitionEngine:
 		self.analyzer = TableAnalyzer(db)
 		self.use_percona = use_percona
 
+	def _should_use_percona(self, table: str) -> bool:
+		"""Determine if Percona should be used based on table size"""
+		if not self.use_percona:
+			return False
+
+		row_count = self.analyzer.get_row_count(table)
+
+		if row_count < PERCONA_THRESHOLD_ROWS:
+			print(
+				f"INFO: Table has {row_count:,} rows (< {PERCONA_THRESHOLD_ROWS:,}) - using direct ALTER"
+			)
+			return False
+		else:
+			print(
+				f"INFO: Table has {row_count:,} rows (>= {PERCONA_THRESHOLD_ROWS:,}) - using Percona"
+			)
+			return True
+
+	def _direct_alter_pk(
+		self, table: str, partition_field: str, pk_columns: str, index_columns: dict
+	) -> bool:
+		"""Perform direct ALTER TABLE to modify primary key"""
+		try:
+			# Kill blocking queries first
+			self.db.kill_blocking_queries(table)
+
+			# Commit any pending transaction
+			frappe.db.commit()
+
+			frappe.db.sql(f"ALTER TABLE `{table}` DROP PRIMARY KEY")
+
+			for idx_name, columns in index_columns.items():
+				if idx_name == "PRIMARY":
+					continue
+				frappe.db.sql(f"ALTER TABLE `{table}` DROP INDEX `{idx_name}`")
+				if partition_field not in columns:
+					columns.append(partition_field)
+				cols_str = ", ".join([f"`{col}`" for col in columns])
+				frappe.db.sql(f"ALTER TABLE `{table}` ADD UNIQUE INDEX `{idx_name}` ({cols_str})")
+
+			frappe.db.sql(f"ALTER TABLE `{table}` ADD PRIMARY KEY ({pk_columns})")
+			frappe.db.commit()
+
+			print("Primary key modified successfully")
+			return True
+		except Exception as e:
+			print(f"Failed to modify primary key: {e}")
+			frappe.db.rollback()
+			return False
+
 	def partition_table(
 		self,
 		table: str,
@@ -1010,8 +1113,14 @@ class PartitionEngine:
 				index_columns[idx_name] = []
 			index_columns[idx_name].append(idx["Column_name"])
 
-		if self.use_percona:
+		# Determine if we should use Percona for this table based on size
+		use_percona_for_table = self._should_use_percona(table)
+
+		if use_percona_for_table:
 			print(f"   Modifying PK with Percona to include '{partition_field}'...")
+
+			# Kill any blocking queries first
+			self.db.kill_blocking_queries(table)
 
 			alter_parts = ["DROP PRIMARY KEY"]
 
@@ -1031,34 +1140,16 @@ class PartitionEngine:
 			if success:
 				print("Primary key modified successfully")
 			else:
-				print("Failed to modify primary key")
+				print("Percona failed, falling back to direct ALTER...")
+				# Fallback to direct ALTER
+				success = self._direct_alter_pk(table, partition_field, pk_columns, index_columns)
 			print()
 			return success
 		else:
-			print(f"   Modifying PK to include '{partition_field}'...")
-			try:
-				frappe.db.sql(f"ALTER TABLE `{table}` DROP PRIMARY KEY")
-
-				for idx_name, columns in index_columns.items():
-					if idx_name == "PRIMARY":
-						continue
-					frappe.db.sql(f"ALTER TABLE `{table}` DROP INDEX `{idx_name}`")
-					if partition_field not in columns:
-						columns.append(partition_field)
-					cols_str = ", ".join([f"`{col}`" for col in columns])
-					frappe.db.sql(f"ALTER TABLE `{table}` ADD UNIQUE INDEX `{idx_name}` ({cols_str})")
-
-				frappe.db.sql(f"ALTER TABLE `{table}` ADD PRIMARY KEY ({pk_columns})")
-				frappe.db.commit()
-
-				print("Primary key modified successfully")
-				print()
-				return True
-			except Exception as e:
-				print(f"Failed to modify primary key: {e}")
-				frappe.db.rollback()
-				print()
-				return False
+			print(f"   Modifying PK with direct ALTER to include '{partition_field}'...")
+			success = self._direct_alter_pk(table, partition_field, pk_columns, index_columns)
+			print()
+			return success
 
 	def _apply_partitioning(
 		self,
@@ -1104,19 +1195,26 @@ class PartitionEngine:
 			print()
 			return True
 
-		if self.use_percona:
-			print("Applying partitioning with Percona (this may take a while)...")
-			success = self._run_percona(table, alter_stmt)
-		else:
-			print("Applying partitioning with direct ALTER...")
-			try:
-				frappe.db.sql(f"ALTER TABLE `{table}` {alter_stmt}")
-				frappe.db.commit()
-				success = True
-			except Exception as e:
-				print(f"Failed: {e}")
-				frappe.db.rollback()
-				success = False
+		# NOTE: Percona pt-online-schema-change does NOT support partitioning operations
+		# We must use native ALTER TABLE for partitioning
+		# This is generally fast as it's primarily a metadata operation for RANGE partitioning
+		print("Applying partitioning with native ALTER TABLE...")
+		print(
+			"NOTE: Partitioning is primarily a metadata operation and should be relatively fast"
+		)
+
+		try:
+			# Kill blocking queries first
+			self.db.kill_blocking_queries(table)
+			frappe.db.commit()
+
+			frappe.db.sql(f"ALTER TABLE `{table}` {alter_stmt}")
+			frappe.db.commit()
+			success = True
+		except Exception as e:
+			print(f"Failed: {e}")
+			frappe.db.rollback()
+			success = False
 
 		if success:
 			print("Partitions created successfully")
@@ -1190,6 +1288,9 @@ class PartitionEngine:
 
 	def _run_percona(self, table: str, alter_stmt: str, **options) -> bool:
 		print("\nEnsuring no database locks...")
+
+		# Kill blocking queries before starting
+		self.db.kill_blocking_queries(table)
 
 		dsn = self.db.get_dsn(table)
 		cmd = PerconaConfig.build_command(
@@ -1600,3 +1701,225 @@ def populate_partition_fields(doc, event=None):
 
 		for row in doc.get(child_fieldname) or []:
 			setattr(row, "posting_date", date_value)
+
+
+def preflight_check(
+	doctype: str, root_user: str = None, root_password: str = None
+) -> dict:
+	"""
+	Run pre-flight checks before partitioning to identify potential issues.
+
+	Args:
+	        doctype: The doctype to check (e.g., 'Sales Order')
+
+	Returns:
+	        dict with check results including issues and warnings
+
+	Example:
+	        >>> preflight_check('Sales Order')
+	"""
+	from frappe.utils import get_table_name
+
+	db = DatabaseConnection(root_user, root_password)
+	analyzer = TableAnalyzer(db)
+	table = get_table_name(doctype)
+	issues = []
+	warnings = []
+
+	print(f"\n{'='*80}")
+	print(f"Pre-flight Check: {doctype}")
+	print(f"{'='*80}\n")
+
+	# Check table size
+	size = analyzer.get_table_size(table)
+	rows = size.get("TABLE_ROWS", 0)
+	size_mb = size.get("TOTAL_MB", 0)
+	print(f"Table Size: {rows:,} rows, {size_mb:.2f} MB")
+
+	if rows > 10_000_000:
+		warnings.append(f"Large table ({rows:,} rows) - operations may take significant time")
+
+	# Check if already partitioned
+	if analyzer.is_partitioned(table):
+		print("✓ Table is already partitioned")
+	else:
+		print("○ Table is NOT partitioned")
+
+	# Check primary key
+	pk = analyzer.get_primary_key(table)
+	print(f"Primary Key: {pk}")
+
+	if "posting_date" in pk:
+		print("✓ Primary key already includes 'posting_date'")
+	else:
+		print("○ Primary key needs modification to include 'posting_date'")
+
+	# Check date field
+	date_field = DOCTYPE_DATE_FIELD_MAP.get(doctype, "posting_date")
+	if db.column_exists(table, date_field):
+		print(f"✓ Date field '{date_field}' exists")
+
+		# Check for NULL values
+		null_count = frappe.db.sql(
+			f"SELECT COUNT(*) FROM `{table}` WHERE `{date_field}` IS NULL"
+		)[0][0]
+		if null_count > 0:
+			warnings.append(
+				f"{null_count:,} rows have NULL {date_field} - will use fallback dates"
+			)
+	else:
+		issues.append(f"Date field '{date_field}' does not exist")
+
+	# Check disk space (rough estimate - partitioning may temporarily need 2x space)
+	if size_mb > 10000:  # > 10GB
+		warnings.append(
+			f"Large table ({size_mb/1024:.1f} GB) - ensure sufficient disk space for rebuild"
+		)
+
+	# Check child tables
+	meta = frappe.get_meta(doctype)
+	child_tables = [df.options for df in meta.get_table_fields()]
+	print(f"\nChild Tables: {len(child_tables)}")
+
+	for child in child_tables:
+		child_table = get_table_name(child)
+		child_size = analyzer.get_table_size(child_table)
+		child_rows = child_size.get("TABLE_ROWS", 0)
+		print(f"  - {child}: {child_rows:,} rows")
+
+		if child_rows > 50_000_000:
+			warnings.append(f"Child table '{child}' is very large ({child_rows:,} rows)")
+
+	# Summary
+	print(f"\n{'='*80}")
+	if issues:
+		print("ISSUES (must fix before proceeding):")
+		for issue in issues:
+			print(f"  ✗ {issue}")
+
+	if warnings:
+		print("WARNINGS:")
+		for warning in warnings:
+			print(f"  ⚠ {warning}")
+
+	if not issues and not warnings:
+		print("✓ All checks passed!")
+
+	print(f"{'='*80}\n")
+
+	return {
+		"doctype": doctype,
+		"table": table,
+		"rows": rows,
+		"size_mb": size_mb,
+		"issues": issues,
+		"warnings": warnings,
+		"can_proceed": len(issues) == 0,
+	}
+
+
+def get_partition_progress(doctype: str) -> dict:
+	"""
+	Check the progress of partitioning for a doctype.
+	Useful for resuming interrupted operations.
+
+	Args:
+	        doctype: The doctype to check (e.g., 'Sales Order')
+
+	Returns:
+	        dict with partition progress for main table and all child tables
+
+	Example:
+	        >>> get_partition_progress('Sales Order')
+	"""
+	from frappe.utils import get_table_name
+
+	db = DatabaseConnection()
+	analyzer = TableAnalyzer(db)
+
+	main_table = get_table_name(doctype)
+	meta = frappe.get_meta(doctype)
+
+	progress = {
+		"doctype": doctype,
+		"main_table": {
+			"table": main_table,
+			"partitioned": analyzer.is_partitioned(main_table),
+			"has_posting_date": db.column_exists(main_table, "posting_date"),
+			"pk_includes_posting_date": "posting_date" in analyzer.get_primary_key(main_table),
+		},
+		"child_tables": [],
+		"ready_for_partition": True,
+	}
+
+	print(f"\n{'='*80}")
+	print(f"Partition Progress: {doctype}")
+	print(f"{'='*80}\n")
+
+	# Main table status
+	mt = progress["main_table"]
+	print(f"Main Table: {main_table}")
+	print(f"  - Has posting_date: {'✓' if mt['has_posting_date'] else '✗'}")
+	print(
+		f"  - PK includes posting_date: {'✓' if mt['pk_includes_posting_date'] else '✗'}"
+	)
+	print(f"  - Partitioned: {'✓' if mt['partitioned'] else '✗'}")
+
+	if not mt["partitioned"]:
+		progress["ready_for_partition"] = False
+
+	print("\nChild Tables:")
+
+	for df in meta.get_table_fields():
+		child_doctype = df.options
+		child_table = get_table_name(child_doctype)
+
+		has_col = db.column_exists(child_table, "posting_date")
+		null_count = 0
+		if has_col:
+			try:
+				null_count = frappe.db.sql(
+					f"SELECT COUNT(*) FROM `{child_table}` WHERE `posting_date` IS NULL"
+				)[0][0]
+			except Exception:
+				null_count = -1  # Unknown
+
+		is_partitioned = analyzer.is_partitioned(child_table)
+		pk_ready = "posting_date" in analyzer.get_primary_key(child_table)
+
+		child_info = {
+			"doctype": child_doctype,
+			"table": child_table,
+			"has_posting_date": has_col,
+			"null_count": null_count,
+			"pk_includes_posting_date": pk_ready,
+			"partitioned": is_partitioned,
+		}
+		progress["child_tables"].append(child_info)
+
+		if not is_partitioned:
+			progress["ready_for_partition"] = False
+
+		status_icons = []
+		status_icons.append("col:✓" if has_col else "col:✗")
+		if has_col:
+			status_icons.append(f"nulls:{null_count:,}" if null_count >= 0 else "nulls:?")
+		status_icons.append("pk:✓" if pk_ready else "pk:✗")
+		status_icons.append("part:✓" if is_partitioned else "part:✗")
+
+		print(f"  - {child_doctype}: [{' | '.join(status_icons)}]")
+
+	print(f"\n{'='*80}")
+	if progress["ready_for_partition"]:
+		print("✓ All tables are partitioned!")
+	else:
+		not_done = []
+		if not mt["partitioned"]:
+			not_done.append(main_table)
+		not_done.extend(
+			[c["table"] for c in progress["child_tables"] if not c["partitioned"]]
+		)
+		print(f"○ Tables pending: {len(not_done)}")
+	print(f"{'='*80}\n")
+
+	return progress
