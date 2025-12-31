@@ -986,9 +986,16 @@ class PartitionEngine:
 			return True
 
 	def _direct_alter_pk(
-		self, table: str, partition_field: str, pk_columns: str, index_columns: dict
+		self, table: str, pk_field: str, pk_columns: str, index_columns: dict
 	) -> bool:
-		"""Perform direct ALTER TABLE to modify primary key"""
+		"""Perform direct ALTER TABLE to modify primary key
+
+		Args:
+		        table: Table name
+		        pk_field: The field to add to primary key (real field, not virtual)
+		        pk_columns: Comma-separated list of PK columns
+		        index_columns: Dict of index name -> column list
+		"""
 		try:
 			# Kill blocking queries first
 			self.db.kill_blocking_queries(table)
@@ -996,17 +1003,27 @@ class PartitionEngine:
 			# Commit any pending transaction
 			frappe.db.commit()
 
-			frappe.db.sql(f"ALTER TABLE `{table}` DROP PRIMARY KEY")
+			# Check if PRIMARY KEY exists before trying to drop it
+			current_pk = self.analyzer.get_primary_key(table)
+			if current_pk:
+				print(f"  Dropping existing PRIMARY KEY: {current_pk}")
+				frappe.db.sql(f"ALTER TABLE `{table}` DROP PRIMARY KEY")
+			else:
+				print("  No existing PRIMARY KEY to drop")
 
 			for idx_name, columns in index_columns.items():
 				if idx_name == "PRIMARY":
 					continue
-				frappe.db.sql(f"ALTER TABLE `{table}` DROP INDEX `{idx_name}`")
-				if partition_field not in columns:
-					columns.append(partition_field)
-				cols_str = ", ".join([f"`{col}`" for col in columns])
-				frappe.db.sql(f"ALTER TABLE `{table}` ADD UNIQUE INDEX `{idx_name}` ({cols_str})")
+				try:
+					frappe.db.sql(f"ALTER TABLE `{table}` DROP INDEX `{idx_name}`")
+					if pk_field not in columns:
+						columns.append(pk_field)
+					cols_str = ", ".join([f"`{col}`" for col in columns])
+					frappe.db.sql(f"ALTER TABLE `{table}` ADD UNIQUE INDEX `{idx_name}` ({cols_str})")
+				except Exception as idx_e:
+					print(f"  WARNING: Could not modify index {idx_name}: {idx_e}")
 
+			print(f"  Adding PRIMARY KEY ({pk_columns})")
 			frappe.db.sql(f"ALTER TABLE `{table}` ADD PRIMARY KEY ({pk_columns})")
 			frappe.db.commit()
 
@@ -1025,10 +1042,32 @@ class PartitionEngine:
 		years_back: int = 2,
 		years_ahead: int = 10,
 		dry_run: bool = False,
+		pk_field: str = None,
 	) -> bool:
+		"""
+		Partition a table by the specified field.
+
+		Args:
+		        table: Table name
+		        partition_field: Field to use for partition expression
+		        strategy: Partition strategy (month, quarter, year, fiscal_year)
+		        years_back: Years of history to partition
+		        years_ahead: Future years to create partitions for
+		        dry_run: If True, only show what would be done
+		        pk_field: Field to add to primary key. Defaults to partition_field.
+		                  Use this when partition_field is virtual (can't be in PK).
+		                  For parent tables with transaction_date, pk_field should be
+		                  the real field (transaction_date), not virtual posting_date.
+		"""
+		# Default pk_field to partition_field if not specified
+		if pk_field is None:
+			pk_field = partition_field
+
 		print(f"\n{'='*80}")
 		print(f"Partitioning Table: {table}")
-		print(f"Strategy: {strategy} | Field: {partition_field}")
+		print(
+			f"Strategy: {strategy} | Partition Field: {partition_field} | PK Field: {pk_field}"
+		)
 		print(f"{'='*80}\n")
 
 		is_partitioned = self.analyzer.is_partitioned(table)
@@ -1043,11 +1082,11 @@ class PartitionEngine:
 		if not self._analyze_table(table, partition_field):
 			return False
 
-		# Step 2: Modify primary key
-		if not self._ensure_primary_key(table, partition_field, dry_run):
+		# Step 2: Modify primary key (uses pk_field, which must be a real column)
+		if not self._ensure_primary_key(table, pk_field, dry_run):
 			return False
 
-		# Step 3: Apply partitioning
+		# Step 3: Apply partitioning (uses partition_field for the expression)
 		if not self._apply_partitioning(
 			table, partition_field, strategy, years_back, years_ahead, dry_run
 		):
@@ -1072,25 +1111,38 @@ class PartitionEngine:
 		print()
 		return True
 
-	def _ensure_primary_key(self, table: str, partition_field: str, dry_run: bool) -> bool:
+	def _ensure_primary_key(self, table: str, pk_field: str, dry_run: bool) -> bool:
+		"""Ensure primary key includes the pk_field.
+
+		Args:
+		        table: Table name
+		        pk_field: The REAL field to add to PK (not virtual column)
+		        dry_run: If True, only show what would be done
+		"""
 		print("Checking primary key...")
 
 		current_pk = self.analyzer.get_primary_key(table)
 
-		if partition_field in current_pk:
-			print(f"  Primary key already includes '{partition_field}'")
+		if pk_field in current_pk:
+			print(f"  Primary key already includes '{pk_field}'")
 			print()
 			return True
 
-		new_pk = current_pk + [partition_field]
+		new_pk = current_pk + [pk_field]
 
-		if "name" in current_pk:
-			print("  Primary key contains 'name' - uniqueness guaranteed")
+		# Ensure 'name' is always in the PK for Frappe tables
+		if "name" not in new_pk:
+			new_pk = ["name"] + [pk_field]
+			print(f"  WARNING: 'name' was not in PK, adding it: {new_pk}")
+
+		if "name" in new_pk:
+			# If 'name' is in the PK, uniqueness is guaranteed since 'name' is always unique
+			print("  Primary key will include 'name' - uniqueness guaranteed")
 		else:
 			is_unique, duplicates = self.analyzer.check_uniqueness(table, new_pk)
 
 			if not is_unique:
-				print(f"   Cannot add '{partition_field}' to PK: {duplicates} duplicates found")
+				print(f"   Cannot add '{pk_field}' to PK: {duplicates} duplicates found")
 				return False
 
 			print("  Uniqueness verified - safe to proceed")
@@ -1117,7 +1169,7 @@ class PartitionEngine:
 		use_percona_for_table = self._should_use_percona(table)
 
 		if use_percona_for_table:
-			print(f"   Modifying PK with Percona to include '{partition_field}'...")
+			print(f"   Modifying PK with Percona to include '{pk_field}'...")
 
 			# Kill any blocking queries first
 			self.db.kill_blocking_queries(table)
@@ -1128,8 +1180,8 @@ class PartitionEngine:
 				if idx_name == "PRIMARY":
 					continue
 				alter_parts.append(f"DROP INDEX `{idx_name}`")
-				if partition_field not in columns:
-					columns.append(partition_field)
+				if pk_field not in columns:
+					columns.append(pk_field)
 				cols_str = ", ".join([f"`{col}`" for col in columns])
 				alter_parts.append(f"ADD UNIQUE INDEX `{idx_name}` ({cols_str})")
 
@@ -1142,12 +1194,12 @@ class PartitionEngine:
 			else:
 				print("Percona failed, falling back to direct ALTER...")
 				# Fallback to direct ALTER
-				success = self._direct_alter_pk(table, partition_field, pk_columns, index_columns)
+				success = self._direct_alter_pk(table, pk_field, pk_columns, index_columns)
 			print()
 			return success
 		else:
-			print(f"   Modifying PK with direct ALTER to include '{partition_field}'...")
-			success = self._direct_alter_pk(table, partition_field, pk_columns, index_columns)
+			print(f"   Modifying PK with direct ALTER to include '{pk_field}'...")
+			success = self._direct_alter_pk(table, pk_field, pk_columns, index_columns)
 			print()
 			return success
 
@@ -1392,12 +1444,15 @@ def create_partition(
 		print(f"Original Field: {original_partition_field} | Strategy: {partition_by}")
 		print(f"{'='*80}")
 
-		# Step 1: Ensure virtual posting_date exists for doctypes using transaction_date
-		field_mgr.ensure_virtual_posting_date(doctype, db)
+		# Get the actual date field for this doctype (transaction_date or posting_date)
+		actual_date_field = DOCTYPE_DATE_FIELD_MAP.get(doctype, original_partition_field)
+		print(f"INFO: Doctype uses '{actual_date_field}' as its date field")
 
-		# Always use posting_date for partitioning (normalized)
-		partition_field = "posting_date"
-		print(f"INFO: Using normalized partition field: '{partition_field}'")
+		# Step 1: Ensure virtual posting_date exists for doctypes using transaction_date
+		# This is ONLY for normalizing child table population, NOT for PK
+		if actual_date_field == "transaction_date":
+			field_mgr.ensure_virtual_posting_date(doctype, db)
+			print("INFO: Virtual 'posting_date' created for child table normalization")
 
 		main_table = get_table_name(doctype)
 		child_tables = []
@@ -1406,10 +1461,20 @@ def create_partition(
 		for df in meta.get_table_fields():
 			child_tables.append((df.options, get_table_name(df.options)))
 
-		# Partition main table
+		# Partition main table using REAL date field for both PK and partition
+		# Parent tables use their actual date field (transaction_date or posting_date)
 		total_count += 1
+		print(
+			f"INFO: Partitioning parent table with field='{actual_date_field}', pk_field='{actual_date_field}'"
+		)
 		if engine.partition_table(
-			main_table, partition_field, partition_by, 2, years_ahead, dry_run=False
+			main_table,
+			partition_field=actual_date_field,  # Use real field for partition expression
+			strategy=partition_by,
+			years_back=2,
+			years_ahead=years_ahead,
+			dry_run=False,
+			pk_field=actual_date_field,  # Use real field for PK (not virtual)
 		):
 			success_count += 1
 
@@ -1435,10 +1500,20 @@ def create_partition(
 				field_mgr.populate_posting_date_for_child(child_doctype, db)
 				frappe.db.commit()
 
-				# Partition child table using posting_date
+				# Partition child table using posting_date (REAL column, not virtual)
+				# Child tables always use posting_date for both PK and partition
 				total_count += 1
+				print(
+					"INFO: Partitioning child table with field='posting_date', pk_field='posting_date'"
+				)
 				if engine.partition_table(
-					child_table, partition_field, partition_by, 2, years_ahead, dry_run=False
+					child_table,
+					partition_field="posting_date",  # Real column for partition
+					strategy=partition_by,
+					years_back=2,
+					years_ahead=years_ahead,
+					dry_run=False,
+					pk_field="posting_date",  # Real column for PK
 				):
 					success_count += 1
 
