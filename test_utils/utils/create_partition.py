@@ -1679,7 +1679,6 @@ def check_partition_status(doctype: str) -> dict:
 		if not is_child_partitioned:
 			result["all_partitioned"] = False
 
-	# Print summary
 	print(f"\n{'='*80}")
 	print(f"Partition Status: {doctype}")
 	print(f"{'='*80}\n")
@@ -1776,121 +1775,6 @@ def populate_partition_fields(doc, event=None):
 
 		for row in doc.get(child_fieldname) or []:
 			setattr(row, "posting_date", date_value)
-
-
-def preflight_check(
-	doctype: str, root_user: str = None, root_password: str = None
-) -> dict:
-	"""
-	Run pre-flight checks before partitioning to identify potential issues.
-
-	Args:
-	        doctype: The doctype to check (e.g., 'Sales Order')
-
-	Returns:
-	        dict with check results including issues and warnings
-
-	Example:
-	        >>> preflight_check('Sales Order')
-	"""
-	from frappe.utils import get_table_name
-
-	db = DatabaseConnection(root_user, root_password)
-	analyzer = TableAnalyzer(db)
-	table = get_table_name(doctype)
-	issues = []
-	warnings = []
-
-	print(f"\n{'='*80}")
-	print(f"Pre-flight Check: {doctype}")
-	print(f"{'='*80}\n")
-
-	# Check table size
-	size = analyzer.get_table_size(table)
-	rows = size.get("TABLE_ROWS", 0)
-	size_mb = size.get("TOTAL_MB", 0)
-	print(f"Table Size: {rows:,} rows, {size_mb:.2f} MB")
-
-	if rows > 10_000_000:
-		warnings.append(f"Large table ({rows:,} rows) - operations may take significant time")
-
-	# Check if already partitioned
-	if analyzer.is_partitioned(table):
-		print("✓ Table is already partitioned")
-	else:
-		print("○ Table is NOT partitioned")
-
-	# Check primary key
-	pk = analyzer.get_primary_key(table)
-	print(f"Primary Key: {pk}")
-
-	if "posting_date" in pk:
-		print("✓ Primary key already includes 'posting_date'")
-	else:
-		print("○ Primary key needs modification to include 'posting_date'")
-
-	# Check date field
-	date_field = DOCTYPE_DATE_FIELD_MAP.get(doctype, "posting_date")
-	if db.column_exists(table, date_field):
-		print(f"✓ Date field '{date_field}' exists")
-
-		# Check for NULL values
-		null_count = frappe.db.sql(
-			f"SELECT COUNT(*) FROM `{table}` WHERE `{date_field}` IS NULL"
-		)[0][0]
-		if null_count > 0:
-			warnings.append(
-				f"{null_count:,} rows have NULL {date_field} - will use fallback dates"
-			)
-	else:
-		issues.append(f"Date field '{date_field}' does not exist")
-
-	# Check disk space (rough estimate - partitioning may temporarily need 2x space)
-	if size_mb > 10000:  # > 10GB
-		warnings.append(
-			f"Large table ({size_mb/1024:.1f} GB) - ensure sufficient disk space for rebuild"
-		)
-
-	# Check child tables
-	meta = frappe.get_meta(doctype)
-	child_tables = [df.options for df in meta.get_table_fields()]
-	print(f"\nChild Tables: {len(child_tables)}")
-
-	for child in child_tables:
-		child_table = get_table_name(child)
-		child_size = analyzer.get_table_size(child_table)
-		child_rows = child_size.get("TABLE_ROWS", 0)
-		print(f"  - {child}: {child_rows:,} rows")
-
-		if child_rows > 50_000_000:
-			warnings.append(f"Child table '{child}' is very large ({child_rows:,} rows)")
-
-	# Summary
-	print(f"\n{'='*80}")
-	if issues:
-		print("ISSUES (must fix before proceeding):")
-		for issue in issues:
-			print(f"  ✗ {issue}")
-
-	if warnings:
-		print("WARNINGS:")
-		for warning in warnings:
-			print(f"  ⚠ {warning}")
-
-	if not issues and not warnings:
-		print("✓ All checks passed!")
-
-	print(f"{'='*80}\n")
-
-	return {
-		"doctype": doctype,
-		"table": table,
-		"rows": rows,
-		"size_mb": size_mb,
-		"issues": issues,
-		"warnings": warnings,
-		"can_proceed": len(issues) == 0,
-	}
 
 
 def get_partition_progress(doctype: str) -> dict:
@@ -1998,3 +1882,164 @@ def get_partition_progress(doctype: str) -> dict:
 	print(f"{'='*80}\n")
 
 	return progress
+
+
+def get_largest_tables(limit=50, include_child_tables=True):
+	"""
+	Get the tables with the most rows in the ERPNext instance.
+
+	Args:
+	    limit: Number of tables to return
+	    include_child_tables: If False, excludes tables that are child doctypes
+	"""
+	db_name = frappe.conf.db_name
+
+	query = f"""
+        SELECT
+            TABLE_NAME,
+            TABLE_ROWS,
+            ROUND(DATA_LENGTH / 1024 / 1024, 2) as DATA_MB,
+            ROUND(INDEX_LENGTH / 1024 / 1024, 2) as INDEX_MB,
+            ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as TOTAL_MB
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = '{db_name}'
+        AND TABLE_TYPE = 'BASE TABLE'
+        AND TABLE_NAME LIKE 'tab%'
+        ORDER BY TABLE_ROWS DESC
+        LIMIT {limit * 2}
+    """
+
+	results = frappe.db.sql(query, as_dict=True)
+	output = []
+	for row in results:
+		table_name = row["TABLE_NAME"]
+		doctype = table_name[3:] if table_name.startswith("tab") else table_name
+
+		is_child = False
+		try:
+			meta = frappe.get_meta(doctype)
+			is_child = meta.istable
+		except Exception:
+			pass
+
+		if not include_child_tables and is_child:
+			continue
+
+		output.append(
+			{
+				"doctype": doctype,
+				"table": table_name,
+				"rows": row["TABLE_ROWS"] or 0,
+				"data_mb": row["DATA_MB"] or 0,
+				"index_mb": row["INDEX_MB"] or 0,
+				"total_mb": row["TOTAL_MB"] or 0,
+				"is_child": is_child,
+			}
+		)
+
+		if len(output) >= limit:
+			break
+
+	return output
+
+
+def print_largest_tables(limit=50, include_child_tables=True):
+	"""Print a formatted table of the largest tables"""
+
+	tables = get_largest_tables(limit, include_child_tables)
+
+	print(f"\n{'='*100}")
+	print(f"Top {limit} Largest Tables in ERPNext")
+	print(f"{'='*100}\n")
+	print(
+		f"{'#':<4} {'Doctype':<45} {'Rows':>12} {'Data MB':>10} {'Total MB':>10} {'Type':<8}"
+	)
+	print(f"{'-'*4} {'-'*45} {'-'*12} {'-'*10} {'-'*10} {'-'*8}")
+
+	total_rows = 0
+	total_size = 0
+
+	for i, t in enumerate(tables, 1):
+		table_type = "Child" if t["is_child"] else "Parent"
+		print(
+			f"{i:<4} {t['doctype']:<45} {t['rows']:>12,} {t['data_mb']:>10.2f} {t['total_mb']:>10.2f} {table_type:<8}"
+		)
+		total_rows += t["rows"]
+		total_size += t["total_mb"]
+
+	print(f"{'-'*4} {'-'*45} {'-'*12} {'-'*10} {'-'*10} {'-'*8}")
+	print(f"{'':4} {'TOTAL':<45} {total_rows:>12,} {'':>10} {total_size:>10.2f}")
+	print()
+
+
+def get_partition_candidates(min_rows=100000):
+	"""Get tables that are good candidates for partitioning"""
+
+	tables = get_largest_tables(limit=100, include_child_tables=False)
+
+	candidates = []
+
+	for t in tables:
+		if t["rows"] < min_rows:
+			continue
+
+		doctype = t["doctype"]
+		try:
+			meta = frappe.get_meta(doctype)
+			has_date_field = False
+			date_field = None
+
+			for field in ["posting_date", "transaction_date", "creation"]:
+				if meta.has_field(field) or field == "creation":
+					has_date_field = True
+					date_field = field
+					break
+
+			if has_date_field:
+				child_tables = [df.options for df in meta.get_table_fields()]
+				candidates.append(
+					{
+						**t,
+						"date_field": date_field,
+						"child_count": len(child_tables),
+						"child_tables": child_tables,
+					}
+				)
+		except Exception:
+			pass
+
+	return candidates
+
+
+def print_partition_candidates(min_rows=100000, limit=20):
+	"""Print tables that are good candidates for partitioning"""
+
+	candidates = get_partition_candidates(min_rows)
+	print(f"\n{'='*110}")
+	print(f"Partition Candidates (tables with >= {min_rows:,} rows)")
+	print(f"{'='*110}\n")
+
+	if not candidates:
+		print(f"No tables found with >= {min_rows:,} rows")
+		return
+
+	print(
+		f"{'#':<4} {'Doctype':<40} {'Rows':>12} {'Size MB':>10} {'Date Field':<18} {'Children':<8}"
+	)
+	print(f"{'-'*4} {'-'*40} {'-'*12} {'-'*10} {'-'*18} {'-'*8}")
+
+	for i, t in enumerate(candidates, 1):
+		print(
+			f"{i:<4} {t['doctype']:<40} {t['rows']:>12,} {t['total_mb']:>10.2f} {t['date_field']:<18} {t['child_count']:<8}"
+		)
+
+	print()
+
+	print("Suggested partition_doctypes config for hooks.py:")
+	print("-" * 50)
+	print("partition_doctypes = {")
+	for t in candidates[:limit]:
+		field = t["date_field"]
+		print(f'    "{t["doctype"]}": {{"field": ["{field}"], "partition_by": ["month"]}},')
+	print("}")
+	print()
