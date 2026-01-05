@@ -1305,7 +1305,7 @@ class PartitionEngine:
 		new_partitions = [p for p in all_partitions if p["name"] not in existing_partitions]
 
 		if not new_partitions:
-			print(" All partitions already exist")
+			print("   All partitions already exist")
 			return True
 
 		print(f"Found {len(new_partitions)} new partitions to add")
@@ -1318,25 +1318,36 @@ class PartitionEngine:
 				print(f"      ... and {len(new_partitions) - 5} more")
 			return True
 
+		# NOTE: Always use native ALTER TABLE for adding partitions
+		# Adding partitions is a fast metadata-only operation - Percona is unnecessary
+		# and causes lock/trigger issues on busy tables (it tries to copy the entire table)
+		print("Adding partitions with native ALTER TABLE (metadata operation)...")
+
+		success_count = 0
 		for partition in new_partitions:
 			partition_def = (
 				f"PARTITION {partition['name']} VALUES LESS THAN ({partition['value']})"
 			)
-			alter_stmt = f"ADD PARTITION ({partition_def})"
+			alter_stmt = f"ALTER TABLE `{table}` ADD PARTITION ({partition_def})"
 
 			try:
-				if self.use_percona:
-					self._run_percona(table, alter_stmt)
-				else:
-					frappe.db.sql(f"ALTER TABLE `{table}` {alter_stmt}")
-					frappe.db.commit()
-				print(f"Added partition: {partition['name']}")
+				# Kill blocking queries before each partition add
+				self.db.kill_blocking_queries(table)
+				frappe.db.sql(alter_stmt)
+				frappe.db.commit()
+				print(f"   Added partition: {partition['name']}")
+				success_count += 1
 			except Exception as e:
-				print(f"Failed to add {partition['name']}: {e}")
-				if not self.use_percona:
+				error_msg = str(e)
+				if "Duplicate partition" in error_msg or "already exists" in error_msg.lower():
+					print(f"   Partition {partition['name']} already exists, skipping...")
+					success_count += 1
+				else:
+					print(f"   Failed to add {partition['name']}: {e}")
 					frappe.db.rollback()
 
-		return True
+		print(f"\nAdded {success_count}/{len(new_partitions)} partitions successfully")
+		return success_count == len(new_partitions)
 
 	def _run_percona(self, table: str, alter_stmt: str, **options) -> bool:
 		print("\nEnsuring no database locks...")
