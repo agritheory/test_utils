@@ -436,7 +436,10 @@ class FieldManager:
 
 	@staticmethod
 	def populate_posting_date_for_child(
-		child_doctype: str, db: DatabaseConnection, chunk_size: int = 50000
+		child_doctype: str,
+		db: DatabaseConnection,
+		chunk_size: int = 50000,
+		max_retries: int = 3,
 	):
 		"""
 		Populate posting_date in a child table from ALL parent types.
@@ -476,99 +479,167 @@ class FieldManager:
 			print(f"\nINFO: Processing parent type: {parent_type}")
 			sys.stdout.flush()
 
+			# Check if this parent type needs processing (skip if no NULL rows)
+			try:
+				null_count = frappe.db.sql(
+					f"""
+					SELECT COUNT(*) as cnt
+					FROM `{table}`
+					WHERE `posting_date` IS NULL
+					AND parenttype = %s
+				""",
+					(parent_type,),
+					as_dict=True,
+				)[0]["cnt"]
+
+				if null_count == 0:
+					print(f"INFO: No NULL rows for {parent_type} - skipping")
+					continue
+
+				print(f"INFO: Found {null_count:,} NULL rows for {parent_type}")
+				sys.stdout.flush()
+			except Exception as e:
+				print(f"WARNING: Could not check NULL count for {parent_type}: {e}")
+				print("INFO: Proceeding with update anyway...")
+
 			# Check if parent table has posting_date column
 			parent_table = f"tab{parent_type}"
 			if not db.column_exists(parent_table, "posting_date"):
 				date_field = DOCTYPE_DATE_FIELD_MAP.get(parent_type)
 				if date_field and date_field != "posting_date":
 					print(f"WARNING: Parent '{parent_type}' uses '{date_field}' - using that instead")
-					try:
-						update_start = time.time()
 
-						frappe.db.sql(
-							f"""
-							UPDATE `{table}` AS child
-							INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
-							SET child.`posting_date` = parent.`{date_field}`
-							WHERE child.`posting_date` IS NULL
-							AND child.parenttype = %s
-						""",
-							(parent_type,),
-						)
+					# Retry logic for lock timeouts
+					for attempt in range(max_retries):
+						try:
+							if attempt > 0:
+								print(f"  Retry attempt {attempt + 1}/{max_retries}")
+								db.kill_blocking_queries(table, max_wait=60)
+								time.sleep(2**attempt)  # Exponential backoff: 2s, 4s, 8s
+								sys.stdout.flush()
 
-						rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
-						frappe.db.commit()
+							update_start = time.time()
 
-						elapsed = time.time() - update_start
-						print(
-							f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} using '{date_field}' in {elapsed:.1f}s"
-						)
-						sys.stdout.flush()
-						continue
+							frappe.db.sql(
+								f"""
+								UPDATE `{table}` AS child
+								INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
+								SET child.`posting_date` = parent.`{date_field}`
+								WHERE child.`posting_date` IS NULL
+								AND child.parenttype = %s
+							""",
+								(parent_type,),
+							)
 
-					except Exception as e:
-						print(f"ERROR: Failed to update for {parent_type} using '{date_field}': {e}")
-						frappe.db.rollback()
-						continue
+							rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+							frappe.db.commit()
+
+							elapsed = time.time() - update_start
+							print(
+								f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} using '{date_field}' in {elapsed:.1f}s"
+							)
+							sys.stdout.flush()
+							break  # Success, exit retry loop
+
+						except Exception as e:
+							if "Lock wait timeout" in str(e) and attempt < max_retries - 1:
+								print(f"  Lock timeout - will retry in {2 ** (attempt + 1)}s...")
+								frappe.db.rollback()
+								continue
+							else:
+								print(f"ERROR: Failed to update for {parent_type} using '{date_field}': {e}")
+								frappe.db.rollback()
+								break
+					continue
 				else:
 					# Fallback to creation date
 					print(f"WARNING: Parent '{parent_type}' has no posting_date - using creation date")
-					try:
-						update_start = time.time()
 
-						frappe.db.sql(
-							f"""
-							UPDATE `{table}` AS child
-							INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
-							SET child.`posting_date` = DATE(parent.`creation`)
-							WHERE child.`posting_date` IS NULL
-							AND child.parenttype = %s
-						""",
-							(parent_type,),
-						)
+					# Retry logic for lock timeouts
+					for attempt in range(max_retries):
+						try:
+							if attempt > 0:
+								print(f"  Retry attempt {attempt + 1}/{max_retries}")
+								db.kill_blocking_queries(table, max_wait=60)
+								time.sleep(2**attempt)  # Exponential backoff
+								sys.stdout.flush()
 
-						rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
-						frappe.db.commit()
+							update_start = time.time()
 
-						elapsed = time.time() - update_start
-						print(
-							f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} using 'creation' in {elapsed:.1f}s"
-						)
-						sys.stdout.flush()
-						continue
+							frappe.db.sql(
+								f"""
+								UPDATE `{table}` AS child
+								INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
+								SET child.`posting_date` = DATE(parent.`creation`)
+								WHERE child.`posting_date` IS NULL
+								AND child.parenttype = %s
+							""",
+								(parent_type,),
+							)
 
-					except Exception as e:
-						print(f"ERROR: Failed to update for {parent_type} using 'creation': {e}")
-						frappe.db.rollback()
-						continue
+							rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+							frappe.db.commit()
+
+							elapsed = time.time() - update_start
+							print(
+								f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} using 'creation' in {elapsed:.1f}s"
+							)
+							sys.stdout.flush()
+							break  # Success, exit retry loop
+
+						except Exception as e:
+							if "Lock wait timeout" in str(e) and attempt < max_retries - 1:
+								print(f"  Lock timeout - will retry in {2 ** (attempt + 1)}s...")
+								frappe.db.rollback()
+								continue
+							else:
+								print(f"ERROR: Failed to update for {parent_type} using 'creation': {e}")
+								frappe.db.rollback()
+								break
+					continue
 
 			# Parent has posting_date (real or virtual)
-			try:
-				update_start = time.time()
+			# Retry logic for lock timeouts
+			for attempt in range(max_retries):
+				try:
+					if attempt > 0:
+						print(f"  Retry attempt {attempt + 1}/{max_retries}")
+						db.kill_blocking_queries(table, max_wait=60)
+						time.sleep(2**attempt)  # Exponential backoff
+						sys.stdout.flush()
 
-				frappe.db.sql(
-					f"""
-					UPDATE `{table}` AS child
-					INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
-					SET child.`posting_date` = parent.`posting_date`
-					WHERE child.`posting_date` IS NULL
-					AND child.parenttype = %s
-				""",
-					(parent_type,),
-				)
+					update_start = time.time()
 
-				rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
-				frappe.db.commit()
+					frappe.db.sql(
+						f"""
+						UPDATE `{table}` AS child
+						INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
+						SET child.`posting_date` = parent.`posting_date`
+						WHERE child.`posting_date` IS NULL
+						AND child.parenttype = %s
+					""",
+						(parent_type,),
+					)
 
-				elapsed = time.time() - update_start
-				print(
-					f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} in {elapsed:.1f}s"
-				)
-				sys.stdout.flush()
+					rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+					frappe.db.commit()
 
-			except Exception as e:
-				print(f"ERROR: Failed to update for {parent_type}: {e}")
-				frappe.db.rollback()
+					elapsed = time.time() - update_start
+					print(
+						f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} in {elapsed:.1f}s"
+					)
+					sys.stdout.flush()
+					break  # Success, exit retry loop
+
+				except Exception as e:
+					if "Lock wait timeout" in str(e) and attempt < max_retries - 1:
+						print(f"  Lock timeout - will retry in {2 ** (attempt + 1)}s...")
+						frappe.db.rollback()
+						continue
+					else:
+						print(f"ERROR: Failed to update for {parent_type}: {e}")
+						frappe.db.rollback()
+						break
 
 		# Handle remaining NULLs with creation date fallback
 		print("\nINFO: Checking for remaining NULL values...")
