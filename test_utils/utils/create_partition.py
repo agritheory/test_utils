@@ -1,501 +1,1966 @@
-try:
-	from datetime import date, datetime
+import subprocess
+import sys
+import time
+from datetime import datetime
+import frappe
 
-	import frappe
-	from frappe.utils import get_table_name
-except Exception as e:
-	raise (e)
+# Tables with fewer rows use direct ALTER
+PERCONA_THRESHOLD_ROWS = 100000
+
+# We'll create virtual columns to normalize to 'posting_date' for doctypes that use transaction_date
+DOCTYPE_DATE_FIELD_MAP = {
+	"Sales Order": "transaction_date",
+	"Sales Invoice": "posting_date",
+	"Delivery Note": "posting_date",
+	"Purchase Order": "transaction_date",
+	"Purchase Invoice": "posting_date",
+	"Purchase Receipt": "posting_date",
+	"Quotation": "transaction_date",
+	"Supplier Quotation": "transaction_date",
+	"Material Request": "transaction_date",
+	"Stock Entry": "posting_date",
+	"POS Invoice": "posting_date",
+}
+
+# Doctypes that need a virtual posting_date column (they use transaction_date)
+DOCTYPES_NEEDING_VIRTUAL_POSTING_DATE = [
+	doctype
+	for doctype, field in DOCTYPE_DATE_FIELD_MAP.items()
+	if field == "transaction_date"
+]
 
 
-def add_custom_field(parent_doctype, partition_field):
-	# Skip creation of standard fields
-	if partition_field in frappe.model.default_fields:
-		if partition_field != "creation":
-			return
+class PerconaConfig:
+	DEFAULT_OPTIONS = {
+		"chunk_size": 10000,
+		"max_load": "Threads_running=100",
+		"critical_load": "Threads_running=200",
+		"recursion_method": "none",
+		"progress": "time,30",
+		"print": True,
+		"no_check_unique_key_change": True,
+		"no_check_alter": True,
+		"preserve_triggers": True,
+	}
 
-		parent_doctype_meta = frappe.get_meta(parent_doctype)
-		partition_docfield = frappe._dict(
-			{
-				"fieldname": "creation",
-				"fieldtype": "Datetime",
-				"label": "Creation",
-				"options": "",
-				"default": "",
-			}
+	@classmethod
+	def build_dsn(cls, host: str, database: str, table: str) -> str:
+		return f"h={host},D={database},t={table}"
+
+	@classmethod
+	def build_command(
+		cls, dsn: str, user: str, password: str, alter: str, **kwargs
+	) -> list[str]:
+		options = {**cls.DEFAULT_OPTIONS, **kwargs}
+
+		cmd = [
+			"pt-online-schema-change",
+			f"--alter={alter}",
+			dsn,
+			f"--user={user}",
+			f"--password={password}",
+			"--execute",
+		]
+
+		for key, value in options.items():
+			if isinstance(value, bool):
+				if value:
+					cmd.append(f'--{key.replace("_", "-")}')
+			else:
+				cmd.append(f'--{key.replace("_", "-")}={value}')
+
+		return cmd
+
+
+class DatabaseConnection:
+	def __init__(self, root_user: str | None = None, root_password: str | None = None):
+		self.config = frappe.get_site_config()
+		self.host = self.config.get("db_host", "localhost")
+		self.port = self.config.get("db_port", 3306)
+		self.database = self.config.get("db_name")
+		self.user = root_user or self.config.get("root_login") or self.config.get("db_user")
+		self.password = (
+			root_password
+			or self.config.get("root_password")
+			or self.config.get("db_password", "")
 		)
-	else:
-		parent_doctype_meta = frappe.get_meta(parent_doctype)
-		partition_docfield = parent_doctype_meta._fields.get(partition_field)
-		if not partition_docfield:
-			# V13 compatibility
-			partition_docfields = list(
-				filter(lambda x: x.get("fieldname") == partition_field, parent_doctype_meta.fields)
-			)
-			partition_docfield = partition_docfields[0] if partition_docfields else None
-		if not partition_docfield:
-			raise ValueError(
-				f"Partition field {partition_field} does not exist for {parent_doctype}"
-			)
 
-	for child_doctype in [df.options for df in parent_doctype_meta.get_table_fields()]:
-		if frappe.get_all(
-			"Custom Field", filters={"dt": child_doctype, "fieldname": partition_field}
-		) or frappe.get_meta(child_doctype)._fields.get(partition_field):
-			continue
-		print(
-			f"\033[34mINFO: Adding {partition_field} to {child_doctype} for {parent_doctype}\033[0m"
-		)
-		custom_field = frappe.get_doc(
-			{
-				"doctype": "Custom Field",
-				"dt": child_doctype,
-				"fieldname": partition_docfield.fieldname,
-				"fieldtype": partition_docfield.fieldtype,
-				"label": partition_docfield.label,
-				"options": partition_docfield.options,
-				"default": partition_docfield.default,
-				"read_only": 1,
-				"hidden": 1,
-			}
-		)
+	def execute(self, query: str, as_dict: bool = True):
+		return frappe.db.sql(query, as_dict=as_dict)
+
+	def get_dsn(self, table: str) -> str:
+		return PerconaConfig.build_dsn(self.host, self.database, table)
+
+	def kill_blocking_queries(self, table: str, max_wait: int = 60) -> bool:
+		"""Kill queries that might be blocking operations on a table"""
+		print(f"INFO: Checking for blocking queries on {table}...")
+
 		try:
-			custom_field.insert()
+			# Find queries accessing this table or waiting for locks
+			blocking = self.execute(
+				f"""
+				SELECT ID, USER, TIME, STATE, INFO
+				FROM information_schema.PROCESSLIST
+				WHERE DB = '{self.database}'
+				AND ID != CONNECTION_ID()
+				AND (
+					INFO LIKE '%{table}%'
+					OR STATE LIKE '%lock%'
+					OR STATE LIKE '%Waiting%'
+				)
+				AND TIME > 5
+				ORDER BY TIME DESC
+			"""
+			)
+
+			if blocking:
+				print(f"WARNING: Found {len(blocking)} potentially blocking queries:")
+				for q in blocking[:5]:
+					print(f"  - ID {q['ID']}: {q['STATE']} ({q['TIME']}s) - {(q['INFO'] or '')[:80]}")
+
+				for q in blocking:
+					try:
+						frappe.db.sql(f"KILL {q['ID']}")
+						print(f"  Killed query ID {q['ID']}")
+					except Exception as e:
+						print(f"  Could not kill {q['ID']}: {e}")
+
+				time.sleep(2)
+				return True
+			else:
+				print("INFO: No blocking queries found")
+				return False
+
 		except Exception as e:
+			print(f"WARNING: Could not check blocking queries: {e}")
+			return False
+
+	def clear_all_connections(self):
+		try:
+			print("Unlocking tables on current connection...")
+			try:
+				frappe.db.sql("UNLOCK TABLES")
+				frappe.db.commit()
+				print("Tables unlocked and transaction committed")
+			except Exception as e:
+				print(f"Error unlocking tables: {e}")
+
+			connections = self.execute(
+				f"""
+				SELECT ID, USER, TIME, STATE, COMMAND, INFO
+				FROM information_schema.PROCESSLIST
+				WHERE DB = '{self.database}'
+				AND ID != CONNECTION_ID()
+			"""
+			)
+
+			if connections:
+				print(f"Found {len(connections)} active connection(s) - killing them...")
+				killed_count = 0
+
+				for conn in connections:
+					try:
+						frappe.db.sql(f"KILL {conn['ID']}")
+						print(
+							f"Killed connection ID {conn['ID']} (Command: {conn['COMMAND']}, Time: {conn['TIME']}s)"
+						)
+						killed_count += 1
+					except Exception as e:
+						print(f"Could not kill connection {conn['ID']}: {e}")
+
+				if killed_count > 0:
+					print("Waiting 3 seconds for locks to clear...")
+					time.sleep(3)
+
+				return killed_count > 0
+			else:
+				print("No other connections found")
+				return False
+		except Exception as e:
+			print(f"Error clearing connections: {e}")
+			return False
+
+	def column_exists(self, table: str, column: str) -> bool:
+		result = self.execute(
+			f"""
+			SELECT COUNT(*) as cnt
+			FROM information_schema.COLUMNS
+			WHERE TABLE_SCHEMA = '{self.database}'
+			AND TABLE_NAME = '{table}'
+			AND COLUMN_NAME = '{column}'
+		"""
+		)
+		return result[0]["cnt"] > 0
+
+
+class TableAnalyzer:
+	def __init__(self, db: DatabaseConnection):
+		self.db = db
+
+	def is_partitioned(self, table: str) -> bool:
+		result = self.db.execute(
+			f"""
+			SELECT COUNT(*) as cnt
+			FROM information_schema.PARTITIONS
+			WHERE TABLE_SCHEMA = '{self.db.database}'
+			AND TABLE_NAME = '{table}'
+			AND PARTITION_NAME IS NOT NULL
+		"""
+		)
+		return result[0]["cnt"] > 0
+
+	def get_row_count(self, table: str) -> int:
+		result = self.db.execute(
+			f"""
+			SELECT TABLE_ROWS
+			FROM information_schema.TABLES
+			WHERE TABLE_SCHEMA = '{self.db.database}'
+			AND TABLE_NAME = '{table}'
+			"""
+		)
+		return result[0]["TABLE_ROWS"] if result else 0
+
+	def get_primary_key(self, table: str) -> list[str]:
+		result = self.db.execute(
+			f"""
+			SELECT COLUMN_NAME
+			FROM information_schema.KEY_COLUMN_USAGE
+			WHERE TABLE_SCHEMA = '{self.db.database}'
+			AND TABLE_NAME = '{table}'
+			AND CONSTRAINT_NAME = 'PRIMARY'
+			ORDER BY ORDINAL_POSITION
+		"""
+		)
+		return [row["COLUMN_NAME"] for row in result]
+
+	def check_uniqueness(self, table: str, columns: list[str]) -> tuple[bool, int]:
+		col_list = ", ".join([f"`{c}`" for c in columns])
+		result = self.db.execute(
+			f"""
+			SELECT
+				COUNT(*) as total,
+				COUNT(DISTINCT {col_list}) as unique_count
+			FROM `{table}`
+		"""
+		)
+
+		total = result[0]["total"]
+		unique = result[0]["unique_count"]
+		return total == unique, total - unique
+
+	def get_date_range(
+		self, table: str, field: str, timeout_seconds: int = 30
+	) -> tuple[int | None, int | None]:
+		try:
+			result = self.db.execute(
+				f"""
+				SELECT /*+ MAX_EXECUTION_TIME({timeout_seconds * 1000}) */
+					YEAR(MIN(`{field}`)) as min_year,
+					YEAR(MAX(`{field}`)) as max_year
+				FROM `{table}`
+				WHERE `{field}` IS NOT NULL
+			"""
+			)
+
+			if result and result[0]["min_year"]:
+				return result[0]["min_year"], result[0]["max_year"]
+		except Exception as e:
+			print(f"   WARNING: Date range query timed out or failed: {e}")
+			print("   Using default year range instead")
+		return None, None
+
+	def get_table_size(self, table: str) -> dict:
+		result = self.db.execute(
+			f"""
+			SELECT
+				TABLE_ROWS,
+				ROUND(DATA_LENGTH / 1024 / 1024, 2) as DATA_MB,
+				ROUND(INDEX_LENGTH / 1024 / 1024, 2) as INDEX_MB,
+				ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as TOTAL_MB
+			FROM information_schema.TABLES
+			WHERE TABLE_SCHEMA = '{self.db.database}'
+			AND TABLE_NAME = '{table}'
+		"""
+		)
+		return result[0] if result else {}
+
+	def get_existing_partitions(self, table: str) -> list[str]:
+		result = self.db.execute(
+			f"""
+			SELECT PARTITION_NAME
+			FROM information_schema.PARTITIONS
+			WHERE TABLE_SCHEMA = '{self.db.database}'
+			AND TABLE_NAME = '{table}'
+			AND PARTITION_NAME IS NOT NULL
+		"""
+		)
+		return [row["PARTITION_NAME"] for row in result]
+
+
+class FieldManager:
+	@staticmethod
+	def ensure_virtual_posting_date(doctype: str, db: DatabaseConnection) -> bool:
+		"""
+		Add a virtual posting_date column to doctypes that use transaction_date.
+		This normalizes the date field so all shared child tables can use 'posting_date'.
+		Also creates the Custom Field metadata so Frappe recognizes the field.
+		"""
+		if doctype not in DOCTYPES_NEEDING_VIRTUAL_POSTING_DATE:
+			return True  # Doctype already uses posting_date
+
+		table = f"tab{doctype}"
+
+		if db.column_exists(table, "posting_date"):
+			print(f"INFO: Virtual 'posting_date' column already exists in {doctype}")
+		else:
 			print(
-				f"\033[31mERROR: error adding {partition_field} to {child_doctype} for {parent_doctype}: {e}\033[0m"
+				f"INFO: Adding virtual 'posting_date' column to {doctype} (derived from transaction_date)"
 			)
-			continue
-
-
-def populate_partition_fields(doc, event):
-	partition_doctypes = frappe.get_hooks("partition_doctypes")
-
-	if doc.doctype not in partition_doctypes.keys():
-		return
-
-	partition_field = partition_doctypes[doc.doctype]["field"][0]
-
-	for child_doctype_fieldname in [
-		(df.options, df.fieldname) for df in frappe.get_meta(doc.doctype).get_table_fields()
-	]:
-		child_doctype = child_doctype_fieldname[0]
-		child_fieldname = child_doctype_fieldname[1]
-
-		if not frappe.get_meta(child_doctype)._fields.get(partition_field):
-			add_custom_field(doc.doctype, partition_field)
-
-		for row in getattr(doc, child_fieldname):
-			setattr(row, partition_field, doc.get(partition_field))
-
-
-def populate_partition_fields_for_existing_data(doctype=None, settings=None):
-	if doctype and settings:
-		partition_doctypes = {doctype: settings}
-	else:
-		partition_doctypes = frappe.get_hooks("partition_doctypes")
-
-	for doctype, settings in partition_doctypes.items():
-		partition_field = settings["field"][0]
-		for child_doctype in [
-			df.options for df in frappe.get_meta(doctype).get_table_fields()
-		]:
-			if partition_field not in frappe.model.default_fields and not frappe.get_meta(
-				child_doctype
-			)._fields.get(partition_field):
-				print(
-					f"\033[33mWARNING: Field '{partition_field}' does not exist in child doctype '{child_doctype}'. Skipping.\033[0m"
-				)
-				continue
-
-			unpopulated_count = frappe.db.count(
-				child_doctype, filters={partition_field: ["is", "not set"], "parenttype": doctype}
-			)
-
-			if unpopulated_count == 0:
-				print(
-					f"\033[34mINFO: Partition field '{partition_field}' in child table '{child_doctype}' is already populated. Skipping.\033[0m"
-				)
-				continue
 
 			try:
 				frappe.db.sql(
 					f"""
-					UPDATE `tab{child_doctype}` AS child
-					INNER JOIN `tab{doctype}` AS parent ON child.parent = parent.name
-					SET child.{partition_field} = parent.{partition_field}
-					WHERE child.{partition_field} IS NULL
+					ALTER TABLE `{table}`
+					ADD COLUMN `posting_date` DATE
+					GENERATED ALWAYS AS (`transaction_date`) VIRTUAL
 				"""
 				)
 				frappe.db.commit()
+				print(f"SUCCESS: Added virtual 'posting_date' column to {doctype}")
+			except Exception as e:
+				if "Duplicate column name" in str(e):
+					print(f"INFO: Column 'posting_date' already exists in {doctype}")
+				else:
+					print(f"ERROR: Failed to add virtual column to {doctype}: {e}")
+					return False
+
+		if not frappe.get_all(
+			"Custom Field", filters={"dt": doctype, "fieldname": "posting_date"}
+		) and not frappe.get_meta(doctype)._fields.get("posting_date"):
+			print(f"INFO: Creating Custom Field metadata for 'posting_date' in {doctype}")
+			try:
+				custom_field = frappe.get_doc(
+					{
+						"doctype": "Custom Field",
+						"dt": doctype,
+						"fieldname": "posting_date",
+						"fieldtype": "Date",
+						"label": "Posting Date",
+						"read_only": 1,
+						"hidden": 1,
+						"is_virtual": 1,
+						"description": "Virtual field derived from transaction_date for partitioning",
+					}
+				)
+				custom_field.flags.ignore_validate = True
+				custom_field.insert(ignore_permissions=True)
+				frappe.db.commit()
+				print(f"SUCCESS: Created Custom Field metadata for 'posting_date' in {doctype}")
+			except Exception as e:
+				print(f"WARNING: Could not create Custom Field metadata for {doctype}: {e}")
+		else:
+			print(f"INFO: Custom Field metadata for 'posting_date' already exists in {doctype}")
+
+		return True
+
+	@staticmethod
+	def add_posting_date_to_child(child_doctype: str, db: DatabaseConnection) -> bool:
+		"""
+		Add posting_date column to a child table if it doesn't exist.
+		Uses direct ALTER TABLE for speed on large tables.
+		"""
+		table = f"tab{child_doctype}"
+
+		if db.column_exists(table, "posting_date"):
+			print(f"INFO: Column 'posting_date' already exists in {child_doctype}")
+			return True
+
+		print(f"INFO: Adding 'posting_date' column to {child_doctype}")
+
+		try:
+			frappe.db.sql(
+				f"""
+				ALTER TABLE `{table}`
+				ADD COLUMN `posting_date` DATE NULL,
+				ALGORITHM=INPLACE, LOCK=NONE
+			"""
+			)
+			frappe.db.commit()
+			print(f"SUCCESS: Added 'posting_date' column to {child_doctype} (online DDL)")
+		except Exception as e:
+			if "Duplicate column name" in str(e):
+				print("INFO: Column 'posting_date' already exists in database")
+			elif "ALGORITHM=INPLACE" in str(e):
+				# Fallback to regular ALTER if online DDL not supported
+				try:
+					frappe.db.sql(
+						f"""
+						ALTER TABLE `{table}`
+						ADD COLUMN `posting_date` DATE NULL
+					"""
+					)
+					frappe.db.commit()
+					print(f"SUCCESS: Added 'posting_date' column to {child_doctype}")
+				except Exception as e2:
+					if "Duplicate column name" not in str(e2):
+						print(f"ERROR: Failed to add column: {e2}")
+						return False
+			else:
+				print(f"ERROR: Failed to add column: {e}")
+				return False
+
+		if not frappe.get_all(
+			"Custom Field", filters={"dt": child_doctype, "fieldname": "posting_date"}
+		) and not frappe.get_meta(child_doctype)._fields.get("posting_date"):
+			try:
+				custom_field = frappe.get_doc(
+					{
+						"doctype": "Custom Field",
+						"dt": child_doctype,
+						"fieldname": "posting_date",
+						"fieldtype": "Date",
+						"label": "Posting Date",
+						"read_only": 1,
+						"hidden": 1,
+					}
+				)
+				custom_field.insert(ignore_permissions=True)
+				frappe.db.commit()
 				print(
-					f"\033[32mSUCCESS: Partition field {partition_field} in child table {child_doctype} populated.\033[0m"
+					f"SUCCESS: Created Custom Field metadata for 'posting_date' in {child_doctype}"
 				)
 			except Exception as e:
-				print(
-					f"\033[31mERROR: Error populating partition field {partition_field} in child table {child_doctype}: {e}.\033[0m"
-				)
+				print(f"WARNING: Could not create Custom Field metadata (column exists): {e}")
 
+		return True
 
-def primary_key_exists(table_name):
-	try:
-		result = frappe.db.sql(
-			f"""
-		SELECT COUNT(*)
-		FROM information_schema.TABLE_CONSTRAINTS
-		WHERE TABLE_NAME = '{table_name}'
-		AND CONSTRAINT_TYPE = 'PRIMARY KEY';
+	@staticmethod
+	def populate_posting_date_for_child(
+		child_doctype: str, db: DatabaseConnection, chunk_size: int = 50000
+	):
 		"""
-		)
-		return result[0][0] > 0
-	except Exception as e:
-		print(f"\033[31mERROR: error checking primary key existence: {e}\033[0m")
-		return False
+		Populate posting_date in a child table from ALL parent types.
+		Handles parent tables that may not have posting_date by checking
+		DOCTYPE_DATE_FIELD_MAP and creating virtual columns if needed.
+		"""
+		table = f"tab{child_doctype}"
 
-
-def modify_primary_key(table_name, partition_field):
-	try:
-		if primary_key_exists(table_name):
-
-			pk_info = frappe.db.sql(
-				f"SHOW KEYS FROM `{table_name}` WHERE Key_name = 'PRIMARY'", as_dict=True
-			)
-			current_pk_columns = [row["Column_name"] for row in pk_info]
-
-			if partition_field in current_pk_columns:
-				print(
-					f"\033[34mINFO: primary key in table {table_name} already includes the partition field `{partition_field}`. No changes needed.\033[0m"
-				)
-				return
-
-			drop_pk_sql = f"""
-			ALTER TABLE `{table_name}`
-			DROP PRIMARY KEY;
-			"""
-			frappe.db.sql(drop_pk_sql)
-
-			unique_indexes = frappe.db.sql(
-				f"SHOW INDEXES FROM `{table_name}` WHERE Non_unique = 0", as_dict=True
-			)
-
-			for index in unique_indexes:
-				index_name = index["Key_name"]
-				columns = index["Column_name"]
-				frappe.db.sql(f"ALTER TABLE `{table_name}` DROP INDEX `{index_name}`;")
-				if partition_field not in columns:
-					columns = f"{columns}, `{partition_field}`"
-				frappe.db.sql(
-					f"ALTER TABLE `{table_name}` ADD UNIQUE INDEX `{index_name}` ({columns});"
-				)
-
-			pk_columns = f"name, {partition_field}"
-			add_pk_sql = f"""
-			ALTER TABLE `{table_name}`
-			ADD PRIMARY KEY ({pk_columns});
-			"""
-			frappe.db.sql(add_pk_sql)
-			frappe.db.commit()
-			print(
-				f"\033[32mSUCCESS: Primary key modified in table {table_name} to include columns: {pk_columns}.\033[0m"
-			)
-	except Exception as e:
 		print(
-			f"\033[31mERROR: Error modifying primary key in table {table_name}: {e}.\033[0m"
+			f"\nINFO: Populating 'posting_date' in '{child_doctype}' from all parent types..."
 		)
+		sys.stdout.flush()
 
+		if not db.column_exists(table, "posting_date"):
+			print(f"ERROR: Column 'posting_date' does not exist in '{child_doctype}'")
+			return
 
-def get_partition_doctypes_extended(partition_doctypes):
-	partition_doctypes_extended = {}
-
-	for doctype, settings in partition_doctypes.items():
-		partition_doctypes_extended[doctype] = settings
-		for child_doctype in [
-			df.options for df in frappe.get_meta(doctype).get_table_fields()
-		]:
-			partition_doctypes_extended[child_doctype] = settings
-
-	return partition_doctypes_extended
-
-
-def get_date_range(doctype, field, doc=None, years_ahead=0):
-	doc_year = None
-	if doc:
-		doc_year = getattr(doc, field)
-		if isinstance(doc_year, date):
-			doc_year = doc_year.year
-		elif isinstance(doc_year, str):
-			doc_year = datetime.strptime(doc_year, "%Y-%m-%d").year
-
-	result = frappe.db.sql(
-		f"""
-		SELECT
-		MIN(`{field}`) AS min_date,
-		MAX(`{field}`) AS max_date
-		FROM `tab{doctype}`""",
-		as_dict=True,
-	)
-	if result and result[0].get("min_date") and result[0].get("max_date"):
-		current_year = frappe.utils.now_datetime().year
-		extended_max_year = current_year + years_ahead
-		if doc_year:
-			min_year = min(result[0].get("min_date").year, doc_year)
-			max_year = max(result[0].get("max_date").year, doc_year, extended_max_year)
-			return min_year, max_year
-
-		return result[0].get("min_date").year, max(
-			result[0].get("max_date").year, extended_max_year
-		)
-	else:
-		current_year = frappe.utils.now_datetime().year
-
-		if doc_year:
-			min_year = min(current_year, doc_year)
-			max_year = max(current_year + years_ahead, doc_year)
-			return min_year, max_year
-
-		return current_year, current_year + years_ahead
-
-
-def get_existing_partitions(table_name):
-	try:
-		existing_partitions = frappe.db.sql(
-			f"""
-			SELECT PARTITION_NAME, PARTITION_DESCRIPTION
-			FROM INFORMATION_SCHEMA.PARTITIONS
-			WHERE TABLE_NAME = '{table_name}'
-			AND PARTITION_NAME IS NOT NULL
-			AND TABLE_SCHEMA = DATABASE()
-		""",
+		# Get all parent types for this child
+		parent_types = frappe.db.sql(
+			f"SELECT DISTINCT parenttype FROM `{table}` WHERE parenttype IS NOT NULL AND parenttype != ''",
 			as_dict=True,
 		)
+		parent_types = [r["parenttype"] for r in parent_types]
 
-		return [p["PARTITION_NAME"] for p in existing_partitions]
-	except Exception as e:
-		print(
-			f"\033[31mERROR: Error getting existing partitions for {table_name}: {e}\033[0m"
-		)
-		return []
+		print(f"INFO: Found {len(parent_types)} parent types: {parent_types}")
+		sys.stdout.flush()
 
+		# First, ensure all parent types that need virtual posting_date have it
+		for parent_type in parent_types:
+			if parent_type in DOCTYPES_NEEDING_VIRTUAL_POSTING_DATE:
+				print(
+					f"INFO: Ensuring virtual 'posting_date' exists for parent type: {parent_type}"
+				)
+				FieldManager.ensure_virtual_posting_date(parent_type, db)
 
-def is_table_partitioned(table_name):
-	try:
-		partitions = frappe.db.sql(
-			f"""
-			SELECT PARTITION_NAME
-			FROM INFORMATION_SCHEMA.PARTITIONS
-			WHERE TABLE_NAME = '{table_name}'
-			AND PARTITION_NAME IS NOT NULL
-			AND TABLE_SCHEMA = DATABASE()
-			LIMIT 1
-		"""
-		)
-		return len(partitions) > 0
-	except Exception as e:
-		print(
-			f"\033[31mERROR: Error checking if table {table_name} is partitioned: {e}\033[0m"
-		)
-		return False
+		for parent_type in parent_types:
+			print(f"\nINFO: Processing parent type: {parent_type}")
+			sys.stdout.flush()
 
+			# Check if parent table has posting_date column
+			parent_table = f"tab{parent_type}"
+			if not db.column_exists(parent_table, "posting_date"):
+				date_field = DOCTYPE_DATE_FIELD_MAP.get(parent_type)
+				if date_field and date_field != "posting_date":
+					print(f"WARNING: Parent '{parent_type}' uses '{date_field}' - using that instead")
+					try:
+						update_start = time.time()
 
-def add_partitions_to_existing_table(
-	table_name, partitions, partition_field, partition_by
-):
-	try:
-		for partition_info in partitions:
-			partition_name = partition_info.split()[1]
+						frappe.db.sql(
+							f"""
+							UPDATE `{table}` AS child
+							INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
+							SET child.`posting_date` = parent.`{date_field}`
+							WHERE child.`posting_date` IS NULL
+							AND child.parenttype = %s
+						""",
+							(parent_type,),
+						)
 
-			existing = frappe.db.sql(
+						rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+						frappe.db.commit()
+
+						elapsed = time.time() - update_start
+						print(
+							f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} using '{date_field}' in {elapsed:.1f}s"
+						)
+						sys.stdout.flush()
+						continue
+
+					except Exception as e:
+						print(f"ERROR: Failed to update for {parent_type} using '{date_field}': {e}")
+						frappe.db.rollback()
+						continue
+				else:
+					# Fallback to creation date
+					print(f"WARNING: Parent '{parent_type}' has no posting_date - using creation date")
+					try:
+						update_start = time.time()
+
+						frappe.db.sql(
+							f"""
+							UPDATE `{table}` AS child
+							INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
+							SET child.`posting_date` = DATE(parent.`creation`)
+							WHERE child.`posting_date` IS NULL
+							AND child.parenttype = %s
+						""",
+							(parent_type,),
+						)
+
+						rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+						frappe.db.commit()
+
+						elapsed = time.time() - update_start
+						print(
+							f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} using 'creation' in {elapsed:.1f}s"
+						)
+						sys.stdout.flush()
+						continue
+
+					except Exception as e:
+						print(f"ERROR: Failed to update for {parent_type} using 'creation': {e}")
+						frappe.db.rollback()
+						continue
+
+			# Parent has posting_date (real or virtual)
+			try:
+				update_start = time.time()
+
+				frappe.db.sql(
+					f"""
+					UPDATE `{table}` AS child
+					INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
+					SET child.`posting_date` = parent.`posting_date`
+					WHERE child.`posting_date` IS NULL
+					AND child.parenttype = %s
+				""",
+					(parent_type,),
+				)
+
+				rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+				frappe.db.commit()
+
+				elapsed = time.time() - update_start
+				print(
+					f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} in {elapsed:.1f}s"
+				)
+				sys.stdout.flush()
+
+			except Exception as e:
+				print(f"ERROR: Failed to update for {parent_type}: {e}")
+				frappe.db.rollback()
+
+		# Handle remaining NULLs with creation date fallback
+		print("\nINFO: Checking for remaining NULL values...")
+		sys.stdout.flush()
+
+		try:
+			remaining_nulls = frappe.db.sql(
+				f"SELECT COUNT(*) as cnt FROM `{table}` WHERE `posting_date` IS NULL", as_dict=True
+			)[0]["cnt"]
+
+			if remaining_nulls > 0:
+				print(
+					f"INFO: Found {remaining_nulls:,} remaining NULL rows - using creation date as fallback"
+				)
+				sys.stdout.flush()
+
+				frappe.db.sql(
+					f"""
+					UPDATE `{table}`
+					SET `posting_date` = DATE(`creation`)
+					WHERE `posting_date` IS NULL
+				"""
+				)
+				frappe.db.commit()
+				print(f"SUCCESS: Set fallback date for {remaining_nulls:,} rows")
+			else:
+				print(f"INFO: No remaining NULL values in '{child_doctype}'")
+		except Exception as e:
+			print(f"ERROR: Error setting fallback dates: {e}")
+			frappe.db.rollback()
+
+	@staticmethod
+	def populate_partition_field_for_child(
+		parent_doctype: str, child_doctype: str, partition_field: str, chunk_size: int = 50000
+	):
+		"""Populate partition field in a single child table from parent table"""
+		print(f"\nINFO: Populating '{partition_field}' in '{child_doctype}'...")
+		sys.stdout.flush()
+
+		if partition_field not in frappe.model.default_fields and not frappe.get_meta(
+			child_doctype
+		)._fields.get(partition_field):
+			print(
+				f"WARNING: Field '{partition_field}' does not exist in '{child_doctype}'. Skipping."
+			)
+			return
+
+		print(f"DEBUG: Counting unpopulated rows in '{child_doctype}'...")
+		sys.stdout.flush()
+		count_start = time.time()
+		count_timeout_seconds = 60
+
+		try:
+			result = frappe.db.sql(
 				f"""
-				SELECT PARTITION_NAME
-				FROM INFORMATION_SCHEMA.PARTITIONS
-				WHERE TABLE_NAME = '{table_name}'
-				AND PARTITION_NAME = '{partition_name}'
-				AND TABLE_SCHEMA = DATABASE()
-			"""
+				SELECT /*+ MAX_EXECUTION_TIME({count_timeout_seconds * 1000}) */ COUNT(*) as cnt
+				FROM `tab{child_doctype}`
+				WHERE `{partition_field}` IS NULL
+				AND parenttype = %s
+			""",
+				(parent_doctype,),
+				as_dict=True,
+			)
+			unpopulated_count = result[0]["cnt"] if result else 0
+
+			count_time = time.time() - count_start
+			if count_time > count_timeout_seconds:
+				print(f"WARNING: Count took {count_time:.1f}s - assuming large table")
+				unpopulated_count = -1
+			else:
+				print(f"DEBUG: Count completed in {count_time:.1f}s")
+		except Exception as e:
+			count_time = time.time() - count_start
+			if "MAX_EXECUTION_TIME" in str(e) or count_time >= count_timeout_seconds:
+				print(
+					f"WARNING: Count query timed out after {count_timeout_seconds}s - assuming large table"
+				)
+			else:
+				print(f"WARNING: Error counting rows: {e}")
+			print("INFO: Proceeding with optimized update (no progress tracking)...")
+			sys.stdout.flush()
+			unpopulated_count = -1
+
+		sys.stdout.flush()
+
+		if unpopulated_count == 0:
+			print(
+				f"INFO: Partition field '{partition_field}' in '{child_doctype}' already populated for {parent_doctype}. Skipping."
+			)
+		elif unpopulated_count != 0:
+			if unpopulated_count > 0:
+				print(f"INFO: Found {unpopulated_count:,} rows to update for {parent_doctype}")
+			else:
+				print(f"INFO: Proceeding with update for {parent_doctype} (count unknown)")
+			sys.stdout.flush()
+
+			try:
+				print(f"DEBUG: Starting UPDATE for '{child_doctype}'...")
+				sys.stdout.flush()
+				update_start = time.time()
+
+				if unpopulated_count > 1000000 or unpopulated_count == -1:
+					print("INFO: Large table detected - using single optimized UPDATE")
+					print("INFO: This may take 5-15 minutes, please wait...")
+					sys.stdout.flush()
+
+					frappe.db.sql(
+						f"""
+						UPDATE `tab{child_doctype}` AS child
+						INNER JOIN `tab{parent_doctype}` AS parent ON child.parent = parent.name
+						SET child.`{partition_field}` = parent.`{partition_field}`
+						WHERE child.`{partition_field}` IS NULL
+						AND child.parenttype = %s
+					""",
+						(parent_doctype,),
+					)
+
+					frappe.db.commit()
+
+					elapsed_time = time.time() - update_start
+					print(
+						f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' (completed in {elapsed_time/60:.1f} minutes)"
+					)
+					sys.stdout.flush()
+
+				elif unpopulated_count > chunk_size:
+					print(f"INFO: Using chunked updates (chunk_size={chunk_size:,})")
+					sys.stdout.flush()
+					total_updated = 0
+					batch_num = 0
+					start_time = time.time()
+
+					while True:
+						batch_num += 1
+						batch_start = time.time()
+
+						frappe.db.sql(
+							f"""
+							UPDATE `tab{child_doctype}` AS child
+							INNER JOIN `tab{parent_doctype}` AS parent ON child.parent = parent.name
+							SET child.`{partition_field}` = parent.`{partition_field}`
+							WHERE child.`{partition_field}` IS NULL
+							AND child.parenttype = %s
+							LIMIT {chunk_size}
+						""",
+							(parent_doctype,),
+						)
+
+						rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+						if rows_affected == 0:
+							break
+
+						total_updated += rows_affected
+						frappe.db.commit()
+
+						batch_time = time.time() - batch_start
+						elapsed_time = time.time() - start_time
+						progress = min(100, (total_updated / unpopulated_count) * 100)
+
+						if total_updated > 0:
+							estimated_total = elapsed_time / (total_updated / unpopulated_count)
+							remaining = estimated_total - elapsed_time
+							eta_mins = remaining / 60
+
+							print(
+								f"  Batch {batch_num}: {rows_affected:,} rows in {batch_time:.1f}s "
+								f"(Total: {total_updated:,}/{unpopulated_count:,} - {progress:.1f}% - ETA: {eta_mins:.1f}m)"
+							)
+						else:
+							print(
+								f"  Batch {batch_num}: Updated {rows_affected:,} rows "
+								f"(Total: {total_updated:,}/{unpopulated_count:,} - {progress:.1f}%)"
+							)
+						sys.stdout.flush()
+
+					total_time = time.time() - start_time
+					print(
+						f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' "
+						f"({total_updated:,} rows in {total_time/60:.1f} minutes)"
+					)
+					sys.stdout.flush()
+				else:
+					frappe.db.sql(
+						f"""
+						UPDATE `tab{child_doctype}` AS child
+						INNER JOIN `tab{parent_doctype}` AS parent ON child.parent = parent.name
+						SET child.`{partition_field}` = parent.`{partition_field}`
+						WHERE child.`{partition_field}` IS NULL
+						AND child.parenttype = %s
+					""",
+						(parent_doctype,),
+					)
+					frappe.db.commit()
+					elapsed_time = time.time() - update_start
+					print(
+						f"SUCCESS: Populated '{partition_field}' in '{child_doctype}' ({elapsed_time:.1f}s)"
+					)
+					sys.stdout.flush()
+			except Exception as e:
+				print(f"ERROR: Error populating '{partition_field}' in '{child_doctype}': {e}")
+				sys.stdout.flush()
+				frappe.db.rollback()
+
+	@staticmethod
+	def populate_partition_fields(
+		doctype: str, partition_field: str, chunk_size: int = 50000
+	):
+		"""Populate partition field in child tables from parent table"""
+		parent_meta = frappe.get_meta(doctype)
+
+		for df in parent_meta.get_table_fields():
+			child_doctype = df.options
+			FieldManager.populate_partition_field_for_child(
+				doctype, child_doctype, partition_field, chunk_size
 			)
 
-			if existing:
-				print(f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m")
-				continue
 
-			add_partition_sql = f"ALTER TABLE `{table_name}` ADD PARTITION ({partition_info})"
-			frappe.db.sql(add_partition_sql)
+class PartitionStrategy:
+	def __init__(self, field: str, strategy: str = "month"):
+		self.field = field
+		self.strategy = strategy
+		self.strategies = {
+			"month": self._generate_monthly,
+			"quarter": self._generate_quarterly,
+			"year": self._generate_yearly,
+			"fiscal_year": self._generate_fiscal_year,
+		}
+
+		if strategy not in self.strategies:
+			raise ValueError(
+				f"Invalid strategy: {strategy}. Use: {list(self.strategies.keys())}"
+			)
+
+	def get_expression(self) -> str:
+		expressions = {
+			"month": f"YEAR(`{self.field}`) * 100 + MONTH(`{self.field}`)",
+			"quarter": f"YEAR(`{self.field}`) * 10 + QUARTER(`{self.field}`)",
+			"year": f"YEAR(`{self.field}`)",
+			"fiscal_year": f"YEAR(`{self.field}`)",
+		}
+		return expressions[self.strategy]
+
+	def generate_partitions(
+		self, start_year: int, end_year: int, table_name: str
+	) -> list[dict]:
+		return self.strategies[self.strategy](start_year, end_year, table_name)
+
+	def _generate_monthly(
+		self, start_year: int, end_year: int, table_name: str
+	) -> list[dict]:
+		partitions = []
+		for year in range(start_year, end_year + 1):
+			for month in range(1, 13):
+				less_than_value = (year + 1) * 100 + 1 if month == 12 else year * 100 + month + 1
+
+				partitions.append(
+					{
+						"name": f"{frappe.scrub(table_name)}_{year}_month_{month:02d}",
+						"value": less_than_value,
+						"description": f"{year}-{month:02d}",
+					}
+				)
+		return partitions
+
+	def _generate_quarterly(
+		self, start_year: int, end_year: int, table_name: str
+	) -> list[dict]:
+		partitions = []
+		for year in range(start_year, end_year + 1):
+			for quarter in range(1, 5):
+				less_than_value = (year + 1) * 10 + 1 if quarter == 4 else year * 10 + quarter + 1
+
+				partitions.append(
+					{
+						"name": f"{frappe.scrub(table_name)}_{year}_quarter_{quarter}",
+						"value": less_than_value,
+						"description": f"{year}-Q{quarter}",
+					}
+				)
+		return partitions
+
+	def _generate_yearly(
+		self, start_year: int, end_year: int, table_name: str
+	) -> list[dict]:
+		partitions = []
+		for year in range(start_year, end_year + 1):
+			partitions.append(
+				{
+					"name": f"{frappe.scrub(table_name)}_{year}",
+					"value": year + 1,
+					"description": str(year),
+				}
+			)
+		return partitions
+
+	def _generate_fiscal_year(
+		self, start_year: int, end_year: int, table_name: str
+	) -> list[dict]:
+		partitions = []
+		fiscal_years = frappe.get_all(
+			"Fiscal Year",
+			fields=["name", "year_start_date", "year_end_date"],
+			order_by="year_start_date ASC",
+		)
+
+		for fiscal_year in fiscal_years:
+			year_start = fiscal_year.year_start_date.year
+			year_end = fiscal_year.year_end_date.year + 1
+
+			partitions.append(
+				{
+					"name": f"{frappe.scrub(table_name)}_fiscal_year_{year_start}",
+					"value": year_end,
+					"description": f"FY {year_start}",
+				}
+			)
+
+		return partitions
+
+
+class PartitionEngine:
+	def __init__(self, db: DatabaseConnection, use_percona: bool = False):
+		self.db = db
+		self.analyzer = TableAnalyzer(db)
+		self.use_percona = use_percona
+
+	def _should_use_percona(self, table: str) -> bool:
+		if not self.use_percona:
+			return False
+
+		row_count = self.analyzer.get_row_count(table)
+
+		if row_count < PERCONA_THRESHOLD_ROWS:
+			print(
+				f"INFO: Table has {row_count:,} rows (< {PERCONA_THRESHOLD_ROWS:,}) - using direct ALTER"
+			)
+			return False
+		else:
+			print(
+				f"INFO: Table has {row_count:,} rows (>= {PERCONA_THRESHOLD_ROWS:,}) - using Percona"
+			)
+			return True
+
+	def _direct_alter_pk(
+		self, table: str, pk_field: str, pk_columns: str, index_columns: dict
+	) -> bool:
+		"""Perform direct ALTER TABLE to modify primary key
+
+		Args:
+		        table: Table name
+		        pk_field: The field to add to primary key (real field, not virtual)
+		        pk_columns: Comma-separated list of PK columns
+		        index_columns: Dict of index name -> column list
+		"""
+		try:
+			self.db.kill_blocking_queries(table)
 			frappe.db.commit()
-			print(f"\033[32mSUCCESS: Added new partition {partition_name}.\033[0m")
 
-	except Exception as e:
-		print(f"\033[31mERROR: Error adding partitions to {table_name}: {e}\033[0m")
-		frappe.db.rollback()
+			current_pk = self.analyzer.get_primary_key(table)
+			if current_pk:
+				print(f"  Dropping existing PRIMARY KEY: {current_pk}")
+				frappe.db.sql(f"ALTER TABLE `{table}` DROP PRIMARY KEY")
+			else:
+				print("  No existing PRIMARY KEY to drop")
+
+			for idx_name, columns in index_columns.items():
+				if idx_name == "PRIMARY":
+					continue
+				try:
+					frappe.db.sql(f"ALTER TABLE `{table}` DROP INDEX `{idx_name}`")
+					if pk_field not in columns:
+						columns.append(pk_field)
+					cols_str = ", ".join([f"`{col}`" for col in columns])
+					frappe.db.sql(f"ALTER TABLE `{table}` ADD UNIQUE INDEX `{idx_name}` ({cols_str})")
+				except Exception as idx_e:
+					print(f"  WARNING: Could not modify index {idx_name}: {idx_e}")
+
+			print(f"  Adding PRIMARY KEY ({pk_columns})")
+			frappe.db.sql(f"ALTER TABLE `{table}` ADD PRIMARY KEY ({pk_columns})")
+			frappe.db.commit()
+
+			print("Primary key modified successfully")
+			return True
+		except Exception as e:
+			print(f"Failed to modify primary key: {e}")
+			frappe.db.rollback()
+			return False
+
+	def partition_table(
+		self,
+		table: str,
+		partition_field: str,
+		strategy: str = "month",
+		years_back: int = 2,
+		years_ahead: int = 10,
+		dry_run: bool = False,
+		pk_field: str = None,
+	) -> bool:
+		"""
+		Partition a table by the specified field.
+
+		Args:
+		        table: Table name
+		        partition_field: Field to use for partition expression
+		        strategy: Partition strategy (month, quarter, year, fiscal_year)
+		        years_back: Years of history to partition
+		        years_ahead: Future years to create partitions for
+		        dry_run: If True, only show what would be done
+		        pk_field: Field to add to primary key. Defaults to partition_field.
+		                  Use this when partition_field is virtual (can't be in PK).
+		                  For parent tables with transaction_date, pk_field should be
+		                  the real field (transaction_date), not virtual posting_date.
+		"""
+		if pk_field is None:
+			pk_field = partition_field
+
+		print(f"\n{'='*80}")
+		print(f"Partitioning Table: {table}")
+		print(
+			f"Strategy: {strategy} | Partition Field: {partition_field} | PK Field: {pk_field}"
+		)
+		print(f"{'='*80}\n")
+
+		is_partitioned = self.analyzer.is_partitioned(table)
+
+		if is_partitioned:
+			print(f"Table {table} is already partitioned")
+			return self._add_new_partitions(
+				table, partition_field, strategy, years_back, years_ahead, dry_run
+			)
+
+		# Step 1: Analyze table
+		if not self._analyze_table(table, partition_field):
+			return False
+
+		# Step 2: Modify primary key (uses pk_field, which must be a real column)
+		if not self._ensure_primary_key(table, pk_field, dry_run):
+			return False
+
+		# Step 3: Apply partitioning (uses partition_field for the expression)
+		if not self._apply_partitioning(
+			table, partition_field, strategy, years_back, years_ahead, dry_run
+		):
+			return False
+
+		print(f"\nTable {table} partitioned successfully!\n")
+		return True
+
+	def _analyze_table(self, table: str, field: str) -> bool:
+		"""Analyze table for partitioning readiness"""
+		print("Analyzing table...")
+
+		size_info = self.analyzer.get_table_size(table)
+		print(f"   Rows: {size_info.get('TABLE_ROWS', 0):,}")
+		print(f"   Size: {size_info.get('TOTAL_MB', 0):.2f} MB")
+
+		min_year, max_year = self.analyzer.get_date_range(table, field)
+		if not min_year:
+			print("   No data in table - will use current year for partitions")
+		else:
+			print(f"   Date range: {min_year} to {max_year}")
+		print()
+		return True
+
+	def _ensure_primary_key(self, table: str, pk_field: str, dry_run: bool) -> bool:
+		"""Ensure primary key includes the pk_field.
+
+		Args:
+		        table: Table name
+		        pk_field: The REAL field to add to PK (not virtual column)
+		        dry_run: If True, only show what would be done
+		"""
+		print("Checking primary key...")
+
+		current_pk = self.analyzer.get_primary_key(table)
+
+		if pk_field in current_pk:
+			print(f"  Primary key already includes '{pk_field}'")
+			print()
+			return True
+
+		new_pk = current_pk + [pk_field]
+
+		if "name" not in new_pk:
+			new_pk = ["name"] + [pk_field]
+			print(f"  WARNING: 'name' was not in PK, adding it: {new_pk}")
+
+		if "name" in new_pk:
+			print("  Primary key will include 'name' - uniqueness guaranteed")
+		else:
+			is_unique, duplicates = self.analyzer.check_uniqueness(table, new_pk)
+
+			if not is_unique:
+				print(f"   Cannot add '{pk_field}' to PK: {duplicates} duplicates found")
+				return False
+
+			print("  Uniqueness verified - safe to proceed")
+
+		pk_columns = ", ".join([f"`{col}`" for col in new_pk])
+
+		if dry_run:
+			print(f" [DRY RUN] Would modify PK to: ({pk_columns})")
+			print()
+			return True
+
+		unique_indexes = frappe.db.sql(
+			f"SHOW INDEXES FROM `{table}` WHERE Non_unique = 0", as_dict=True
+		)
+
+		index_columns = {}
+		for idx in unique_indexes:
+			idx_name = idx["Key_name"]
+			if idx_name not in index_columns:
+				index_columns[idx_name] = []
+			index_columns[idx_name].append(idx["Column_name"])
+
+		use_percona_for_table = self._should_use_percona(table)
+
+		if use_percona_for_table:
+			print(f"   Modifying PK with Percona to include '{pk_field}'...")
+
+			self.db.kill_blocking_queries(table)
+
+			alter_parts = ["DROP PRIMARY KEY"]
+
+			for idx_name, columns in index_columns.items():
+				if idx_name == "PRIMARY":
+					continue
+				alter_parts.append(f"DROP INDEX `{idx_name}`")
+				if pk_field not in columns:
+					columns.append(pk_field)
+				cols_str = ", ".join([f"`{col}`" for col in columns])
+				alter_parts.append(f"ADD UNIQUE INDEX `{idx_name}` ({cols_str})")
+
+			alter_parts.append(f"ADD PRIMARY KEY ({pk_columns})")
+			alter_statement = ", ".join(alter_parts)
+			success = self._run_percona(table, alter_statement)
+
+			if success:
+				print("Primary key modified successfully")
+			else:
+				print("Percona failed, falling back to direct ALTER...")
+				# Fallback to direct ALTER
+				success = self._direct_alter_pk(table, pk_field, pk_columns, index_columns)
+			print()
+			return success
+		else:
+			print(f"   Modifying PK with direct ALTER to include '{pk_field}'...")
+			success = self._direct_alter_pk(table, pk_field, pk_columns, index_columns)
+			print()
+			return success
+
+	def _apply_partitioning(
+		self,
+		table: str,
+		field: str,
+		strategy: str,
+		years_back: int,
+		years_ahead: int,
+		dry_run: bool,
+	) -> bool:
+
+		print("Creating partitions...")
+
+		min_year, max_year = self.analyzer.get_date_range(table, field)
+
+		if not min_year:
+			current_year = datetime.now().year
+			start_year = current_year - years_back
+			end_year = current_year + years_ahead
+			print(f"No data found - using years {start_year} to {end_year}")
+		else:
+			start_year = min(min_year, datetime.now().year - years_back)
+			end_year = max(max_year, datetime.now().year + years_ahead)
+
+		partition_strategy = PartitionStrategy(field, strategy)
+		partitions = partition_strategy.generate_partitions(start_year, end_year, table)
+
+		print(f"Generating {len(partitions)} partitions from {start_year} to {end_year}")
+
+		partition_expr = partition_strategy.get_expression()
+		partition_defs = [
+			f"PARTITION {p['name']} VALUES LESS THAN ({p['value']})" for p in partitions
+		]
+
+		alter_stmt = f"PARTITION BY RANGE ({partition_expr}) ({', '.join(partition_defs)})"
+
+		if dry_run:
+			print("\n[DRY RUN] Would create partitions:")
+			for p in partitions[:5]:
+				print(f"      - {p['name']}: {p['description']}")
+			if len(partitions) > 5:
+				print(f"      ... and {len(partitions) - 5} more")
+			print()
+			return True
+
+		# NOTE: Percona pt-online-schema-change does NOT support partitioning operations
+		# We must use native ALTER TABLE for partitioning
+		# This is generally fast as it's primarily a metadata operation for RANGE partitioning
+		print("Applying partitioning with native ALTER TABLE...")
+		print(
+			"NOTE: Partitioning is primarily a metadata operation and should be relatively fast"
+		)
+
+		try:
+			self.db.kill_blocking_queries(table)
+			frappe.db.commit()
+
+			frappe.db.sql(f"ALTER TABLE `{table}` {alter_stmt}")
+			frappe.db.commit()
+			success = True
+		except Exception as e:
+			print(f"Failed: {e}")
+			frappe.db.rollback()
+			success = False
+
+		if success:
+			print("Partitions created successfully")
+		else:
+			print("Failed to create partitions")
+
+		print()
+		return success
+
+	def _add_new_partitions(
+		self,
+		table: str,
+		field: str,
+		strategy: str,
+		years_back: int,
+		years_ahead: int,
+		dry_run: bool,
+	) -> bool:
+		print("Adding new partitions...")
+
+		existing_partitions = self.analyzer.get_existing_partitions(table)
+
+		min_year, max_year = self.analyzer.get_date_range(table, field)
+
+		if not min_year:
+			current_year = datetime.now().year
+			start_year = current_year - years_back
+			end_year = current_year + years_ahead
+		else:
+			start_year = min(min_year, datetime.now().year - years_back)
+			end_year = max(max_year, datetime.now().year + years_ahead)
+
+		partition_strategy = PartitionStrategy(field, strategy)
+		all_partitions = partition_strategy.generate_partitions(start_year, end_year, table)
+
+		new_partitions = [p for p in all_partitions if p["name"] not in existing_partitions]
+
+		if not new_partitions:
+			print("   All partitions already exist")
+			return True
+
+		print(f"Found {len(new_partitions)} new partitions to add")
+
+		if dry_run:
+			print("\n[DRY RUN] Would add partitions:")
+			for p in new_partitions[:5]:
+				print(f"      - {p['name']}: {p['description']}")
+			if len(new_partitions) > 5:
+				print(f"      ... and {len(new_partitions) - 5} more")
+			return True
+
+		# NOTE: Always use native ALTER TABLE for adding partitions
+		# Adding partitions is a fast metadata-only operation - Percona is unnecessary
+		# and causes lock/trigger issues on busy tables (it tries to copy the entire table)
+		print("Adding partitions with native ALTER TABLE (metadata operation)...")
+
+		success_count = 0
+		for partition in new_partitions:
+			partition_def = (
+				f"PARTITION {partition['name']} VALUES LESS THAN ({partition['value']})"
+			)
+			alter_stmt = f"ALTER TABLE `{table}` ADD PARTITION ({partition_def})"
+
+			try:
+				self.db.kill_blocking_queries(table)
+				frappe.db.sql(alter_stmt)
+				frappe.db.commit()
+				print(f"   Added partition: {partition['name']}")
+				success_count += 1
+			except Exception as e:
+				error_msg = str(e)
+				if "Duplicate partition" in error_msg or "already exists" in error_msg.lower():
+					print(f"   Partition {partition['name']} already exists, skipping...")
+					success_count += 1
+				else:
+					print(f"   Failed to add {partition['name']}: {e}")
+					frappe.db.rollback()
+
+		print(f"\nAdded {success_count}/{len(new_partitions)} partitions successfully")
+		return success_count == len(new_partitions)
+
+	def _run_percona(self, table: str, alter_stmt: str, **options) -> bool:
+		print("\nEnsuring no database locks...")
+
+		self.db.kill_blocking_queries(table)
+
+		dsn = self.db.get_dsn(table)
+		cmd = PerconaConfig.build_command(
+			dsn, self.db.user, self.db.password, alter_stmt, **options
+		)
+
+		safe_cmd = [arg if "--password=" not in arg else "--password=***" for arg in cmd]
+		print(f"\n   Command: {' '.join(safe_cmd)}\n")
+		print(f"   {'='*76}")
+		print("   Percona Toolkit Output:")
+		print(f"   {'='*76}\n")
+
+		try:
+			process = subprocess.Popen(
+				cmd,
+				stdout=subprocess.PIPE,
+				stderr=subprocess.STDOUT,
+				text=True,
+				bufsize=1,
+				universal_newlines=True,
+			)
+
+			for line in process.stdout:
+				print(f"   {line.rstrip()}")
+
+			return_code = process.wait()
+			print(f"\n   {'='*76}")
+
+			if return_code == 0:
+				print("Operation completed successfully")
+				return True
+			else:
+				print(f"Operation failed with exit code {return_code}")
+				return False
+
+		except FileNotFoundError:
+			print("\n pt-online-schema-change not found")
+			print("   Install: apt-get install percona-toolkit")
+			return False
+		except KeyboardInterrupt:
+			print("\n\nOperation interrupted by user")
+			return False
+		except Exception as e:
+			print(f"\nError: {e}")
+			return False
 
 
-def create_partition(doc=None, years_ahead=10):
+def create_partition(
+	doc=None, years_ahead=10, use_percona=False, root_user=None, root_password=None
+):
+	"""
+	Create partitions for doctypes configured in hooks.py
+
+	All doctypes are normalized to use 'posting_date' as the partition field.
+	For doctypes that use 'transaction_date', a virtual column is created.
+	"""
+	from frappe.utils import get_table_name
+
 	partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if not partition_doctypes:
+		print("\nNo partition_doctypes found in hooks")
+		print("Add to hooks.py:")
+		print(
+			"""
+			partition_doctypes = {
+				"Sales Order": {
+					"field": ["transaction_date"],
+					"partition_by": ["month"]
+				}
+			}
+		"""
+		)
+		return False
 
 	if doc:
 		if doc.doctype in partition_doctypes:
-			partition_doctypes = {doc.doctype: partition_doctypes.get(doc.doctype)}
+			partition_doctypes = {doc.doctype: partition_doctypes[doc.doctype]}
 		else:
-			print(f"\033[31mERROR: {doc.doctype} not in partition_doctypes hook.\033[0m")
-			return
+			print(f"ERROR: {doc.doctype} not in partition_doctypes hook")
+			return False
 
-	# Creates the field for child doctypes if it doesn't exists yet
+	db = DatabaseConnection(root_user, root_password)
+	engine = PartitionEngine(db, use_percona)
+	field_mgr = FieldManager()
+
+	success_count = 0
+	total_count = 0
+	processed_child_tables = set()
+
 	for doctype, settings in partition_doctypes.items():
-		add_custom_field(doctype, settings.get("field", "posting_date")[0])
+		original_partition_field = settings.get("field", ["posting_date"])[0]
+		partition_by = settings.get("partition_by", ["month"])[0]
 
-	for doctype, settings in get_partition_doctypes_extended(partition_doctypes).items():
-		table_name = get_table_name(doctype)
-		partition_field = settings.get("field", "posting_date")[0]
-		partition_by = settings.get("partition_by", "fiscal_year")[0]
+		print(f"\n{'='*80}")
+		print(f"Processing: {doctype}")
+		print(f"Original Field: {original_partition_field} | Strategy: {partition_by}")
+		print(f"{'='*80}")
 
-		is_partitioned = is_table_partitioned(table_name)
-		existing_partitions = get_existing_partitions(table_name) if is_partitioned else []
+		# Get the actual date field for this doctype (transaction_date or posting_date)
+		actual_date_field = DOCTYPE_DATE_FIELD_MAP.get(doctype, original_partition_field)
+		print(f"INFO: Doctype uses '{actual_date_field}' as its date field")
 
-		if not is_partitioned:
-			modify_primary_key(table_name, partition_field)
-			populate_partition_fields_for_existing_data(doctype, settings)
+		# Step 1: Ensure virtual posting_date exists for doctypes using transaction_date
+		# This is ONLY for normalizing child table population, NOT for PK
+		if actual_date_field == "transaction_date":
+			field_mgr.ensure_virtual_posting_date(doctype, db)
+			print("INFO: Virtual 'posting_date' created for child table normalization")
 
-		partitions = []
-		partition_sql = ""
+		main_table = get_table_name(doctype)
+		child_tables = []
 
-		start_year, end_year = get_date_range(
-			doctype, partition_field, doc, years_ahead=years_ahead
+		meta = frappe.get_meta(doctype)
+		for df in meta.get_table_fields():
+			child_tables.append((df.options, get_table_name(df.options)))
+
+		# Partition main table using REAL date field for both PK and partition
+		# Parent tables use their actual date field (transaction_date or posting_date)
+		total_count += 1
+		print(
+			f"INFO: Partitioning parent table with field='{actual_date_field}', pk_field='{actual_date_field}'"
 		)
-		if start_year is None or end_year is None:
-			print(f"\033[34mINFO: No data found for {doctype}, skipping partitioning.\033[0m")
-			continue
+		if engine.partition_table(
+			main_table,
+			partition_field=actual_date_field,  # Use real field for partition expression
+			strategy=partition_by,
+			years_back=2,
+			years_ahead=years_ahead,
+			dry_run=False,
+			pk_field=actual_date_field,  # Use real field for PK (not virtual)
+		):
+			success_count += 1
 
-		if partition_by == "field":
-			partition_values = frappe.db.sql(
-				f"SELECT DISTINCT `{partition_field}` FROM `{table_name}`", as_dict=True
-			)
-			for value in partition_values:
-				partition_value = value[partition_field]
-				partition_name = f"{frappe.scrub(doctype)}_{partition_field}_{partition_value}"
-				if partition_name not in existing_partitions:
-					partitions.append(f"PARTITION {partition_name} VALUES IN ({partition_value})")
-					print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
-				else:
-					print(f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m")
+			print(f"\nDEBUG: About to process {len(child_tables)} child tables...")
 
-			if not partitions and not is_partitioned:
-				continue
+			for idx, (child_doctype, child_table) in enumerate(child_tables, 1):
+				print(f"\nDEBUG: Processing child {idx}/{len(child_tables)}: {child_doctype}")
+				print(f"\n{'='*80}")
+				print(f"Processing child table: {child_doctype}")
+				print(f"{'='*80}")
 
-			if not is_partitioned:
-				partition_sql = (
-					f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
-				)
-				partition_sql += ",\n".join(partitions)
-				partition_sql += ");"
-			elif partitions:
-				add_partitions_to_existing_table(
-					table_name, partitions, partition_field, partition_by
-				)
-				continue
-
-		elif partition_by == "fiscal_year":
-			fiscal_years = frappe.get_all(
-				"Fiscal Year",
-				fields=["name", "year_start_date", "year_end_date"],
-				order_by="year_start_date ASC",
-			)
-			for fiscal_year in fiscal_years:
-				year_start = fiscal_year.get("year_start_date").year
-				year_end = fiscal_year.get("year_end_date").year + 1
-				partition_name = f"{frappe.scrub(doctype)}_fiscal_year_{year_start}"
-
-				if partition_name not in existing_partitions:
-					partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({year_end})")
-					print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
-				else:
-					print(f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m")
-
-				if not partitions and not is_partitioned:
+				# Skip if already processed (shared child table)
+				if child_table in processed_child_tables:
+					print(f"INFO: {child_doctype} already processed, skipping...")
 					continue
 
-			if not is_partitioned:
-				partition_sql = (
-					f"ALTER TABLE `{table_name}` PARTITION BY LIST (`{partition_field}`) (\n"
-				)
-				partition_sql += ",\n".join(partitions)
-				partition_sql += ");"
-			elif partitions:
-				add_partitions_to_existing_table(
-					table_name, partitions, partition_field, partition_by
-				)
-				continue
-		else:
-			for year_start in range(start_year, end_year + 1):
-				if partition_by == "quarter":
-					if not is_partitioned:
-						partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 10 + QUARTER(`{partition_field}`)) (\n"
+				processed_child_tables.add(child_table)
 
-					for quarter in range(1, 5):
-						partition_name = f"{frappe.scrub(doctype)}_{year_start}_quarter_{quarter}"
+				# Add posting_date column to child table
+				field_mgr.add_posting_date_to_child(child_doctype, db)
 
-						if partition_name not in existing_partitions:
-							if quarter < 4:
-								quarter_code = year_start * 10 + (quarter + 1)
-							else:
-								quarter_code = (year_start + 1) * 10 + 1
-
-							partitions.append(
-								f"PARTITION {partition_name} VALUES LESS THAN ({quarter_code})"
-							)
-							print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
-						else:
-							print(
-								f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m"
-							)
-
-				elif partition_by == "month":
-					if not is_partitioned:
-						partition_sql = f"ALTER TABLE `{table_name}` PARTITION BY RANGE (YEAR(`{partition_field}`) * 100 + MONTH(`{partition_field}`)) (\n"
-
-					for month in range(1, 13):
-						partition_name = f"{frappe.scrub(doctype)}_{year_start}_month_{month:02d}"
-
-						if partition_name not in existing_partitions:
-							if month < 12:
-								month_code = year_start * 100 + month + 1
-							else:
-								month_code = (year_start + 1) * 100 + 1
-
-							partitions.append(f"PARTITION {partition_name} VALUES LESS THAN ({month_code})")
-							print(f"\033[34mINFO: Creating partition {partition_name} for {doctype}.\033[0m")
-						else:
-							print(
-								f"\033[33mINFO: Partition {partition_name} already exists, skipping.\033[0m"
-							)
-
-			if is_partitioned and partitions:
-				add_partitions_to_existing_table(
-					table_name, partitions, partition_field, partition_by
-				)
-				continue
-
-			if not partitions:
-				if is_partitioned:
-					print(
-						f"\033[34mINFO: All partitions for {doctype} already exist, skipping.\033[0m"
-					)
-				else:
-					print(
-						f"\033[34mINFO: No need to create partitions for {doctype}, skipping partitioning.\033[0m"
-					)
-				continue
-
-			if not is_partitioned:
-				partition_sql += ",\n".join(partitions)
-				partition_sql += ");"
-
-		if not is_partitioned and partition_sql:
-			try:
-				frappe.db.sql(partition_sql)
+				# Populate posting_date from all parent types
+				field_mgr.populate_posting_date_for_child(child_doctype, db)
 				frappe.db.commit()
-				print(f"\033[32mSUCCESS: Partitioning for {doctype} completed successfully.\033[0m")
-			except Exception as e:
-				print(f"\033[31mERROR: Error while partitioning {doctype}: {e}.\033[0m")
-				frappe.db.rollback()
-		elif is_partitioned:
-			print(
-				f"\033[34mINFO: Table {table_name} is already partitioned. Only new partitions were added.\033[0m"
-			)
+
+				# Partition child table using posting_date (REAL column, not virtual)
+				# Child tables always use posting_date for both PK and partition
+				total_count += 1
+				print(
+					"INFO: Partitioning child table with field='posting_date', pk_field='posting_date'"
+				)
+				if engine.partition_table(
+					child_table,
+					partition_field="posting_date",  # Real column for partition
+					strategy=partition_by,
+					years_back=2,
+					years_ahead=years_ahead,
+					dry_run=False,
+					pk_field="posting_date",  # Real column for PK
+				):
+					success_count += 1
+
+				print(f"DEBUG: Completed child {idx}/{len(child_tables)}: {child_doctype}")
+
+	print(f"\n{'='*80}")
+	print(f"Summary: {success_count}/{total_count} tables partitioned successfully")
+	print(f"{'='*80}\n")
+	return success_count == total_count
+
+
+def populate_partition_fields(doc, event=None):
+	if doc.doctype not in DOCTYPE_DATE_FIELD_MAP:
+		partition_doctypes = frappe.get_hooks("partition_doctypes") or {}
+		if doc.doctype not in partition_doctypes:
+			return
+
+	source_date_field = DOCTYPE_DATE_FIELD_MAP.get(doc.doctype)
+
+	if not source_date_field:
+		partition_doctypes = frappe.get_hooks("partition_doctypes") or {}
+		if doc.doctype in partition_doctypes:
+			source_date_field = partition_doctypes[doc.doctype].get("field", ["posting_date"])[0]
+		else:
+			return
+
+	date_value = doc.get(source_date_field) or doc.get("posting_date")
+
+	if not date_value:
+		return
+
+	meta = frappe.get_meta(doc.doctype)
+
+	for df in meta.get_table_fields():
+		child_doctype = df.options
+		child_fieldname = df.fieldname
+		child_meta = frappe.get_meta(child_doctype)
+		if not child_meta._fields.get("posting_date"):
+			if not frappe.get_all(
+				"Custom Field", filters={"dt": child_doctype, "fieldname": "posting_date"}
+			):
+				try:
+					custom_field = frappe.get_doc(
+						{
+							"doctype": "Custom Field",
+							"dt": child_doctype,
+							"fieldname": "posting_date",
+							"fieldtype": "Date",
+							"label": "Posting Date",
+							"read_only": 1,
+							"hidden": 1,
+						}
+					)
+					custom_field.insert(ignore_permissions=True)
+					frappe.db.commit()
+				except Exception:
+					pass
+
+			child_meta = frappe.get_meta(child_doctype, cached=False)
+			if not child_meta._fields.get("posting_date"):
+				continue
+
+		for row in doc.get(child_fieldname) or []:
+			setattr(row, "posting_date", date_value)
+
+
+def analyze_table(doctype: str):
+	from frappe.utils import get_table_name
+
+	db = DatabaseConnection()
+	analyzer = TableAnalyzer(db)
+	table = get_table_name(doctype)
+
+	print(f"\n{'='*80}")
+	print(f"Table Analysis: {table}")
+	print(f"{'='*80}\n")
+
+	size = analyzer.get_table_size(table)
+	print(f"Rows: {size.get('TABLE_ROWS', 0):,}")
+	print(f"Data: {size.get('DATA_MB', 0):.2f} MB")
+	print(f"Index: {size.get('INDEX_MB', 0):.2f} MB")
+	print(f"Total: {size.get('TOTAL_MB', 0):.2f} MB")
+
+	pk = analyzer.get_primary_key(table)
+	print(f"\nPrimary Key: {', '.join(pk)}")
+
+	is_part = analyzer.is_partitioned(table)
+	print(f"Partitioned: {'Yes' if is_part else 'No'}")
+
+	if is_part:
+		partitions = analyzer.get_existing_partitions(table)
+		print(f"Partition Count: {len(partitions)}")
+
+	print()
+
+
+def inspect_partitions(doctype: str):
+	from frappe.utils import get_table_name
+
+	db = DatabaseConnection()
+	table = get_table_name(doctype)
+
+	print(f"\n{'='*80}")
+	print(f"Partition Inspection: {doctype} ({table})")
+	print(f"{'='*80}\n")
+
+	result = db.execute(
+		f"""
+		SELECT
+			PARTITION_NAME,
+			PARTITION_METHOD,
+			PARTITION_EXPRESSION,
+			PARTITION_DESCRIPTION,
+			TABLE_ROWS,
+			ROUND(DATA_LENGTH / 1024 / 1024, 2) as DATA_MB,
+			ROUND(INDEX_LENGTH / 1024 / 1024, 2) as INDEX_MB
+		FROM information_schema.PARTITIONS
+		WHERE TABLE_SCHEMA = '{db.database}'
+		AND TABLE_NAME = '{table}'
+		AND PARTITION_NAME IS NOT NULL
+		ORDER BY PARTITION_ORDINAL_POSITION
+	"""
+	)
+
+	if not result:
+		print("Table is NOT partitioned\n")
+		return
+
+	print("Table is partitioned")
+	print(f"Method: {result[0]['PARTITION_METHOD']}")
+	print(f"Expression: {result[0]['PARTITION_EXPRESSION']}")
+	print(f"\nTotal partitions: {len(result)}\n")
+
+	print(f"{'Partition':<40} {'Rows':>10} {'Data MB':>10} {'Index MB':>10}")
+	print(f"{'-'*40} {'-'*10} {'-'*10} {'-'*10}")
+
+	total_rows = 0
+	total_data = 0
+	total_index = 0
+
+	for p in result:
+		print(
+			f"{p['PARTITION_NAME']:<40} {p['TABLE_ROWS']:>10,} {p['DATA_MB']:>10.2f} {p['INDEX_MB']:>10.2f}"
+		)
+		total_rows += p["TABLE_ROWS"] or 0
+		total_data += p["DATA_MB"] or 0
+		total_index += p["INDEX_MB"] or 0
+
+	print(f"{'-'*40} {'-'*10} {'-'*10} {'-'*10}")
+	print(f"{'TOTAL':<40} {total_rows:>10,} {total_data:>10.2f} {total_index:>10.2f}\n")
+
+
+def check_partition_status(doctype: str) -> dict:
+	"""
+	Check if a doctype and all its child doctypes are partitioned.
+
+	Args:
+	        doctype: The parent doctype to check (e.g., 'Sales Order')
+
+	Returns:
+	        dict with partition status for main table and all child tables
+
+	Example:
+	        >>> check_partition_status('Sales Order')
+	        {
+	                'doctype': 'Sales Order',
+	                'main_table': {'table': 'tabSales Order', 'partitioned': True, 'partitions': 96},
+	                'child_tables': [
+	                        {'doctype': 'Sales Order Item', 'table': 'tabSales Order Item', 'partitioned': True, 'partitions': 96},
+	                        ...
+	                ],
+	                'all_partitioned': True
+	        }
+	"""
+	from frappe.utils import get_table_name
+
+	db = DatabaseConnection()
+	analyzer = TableAnalyzer(db)
+
+	main_table = get_table_name(doctype)
+	meta = frappe.get_meta(doctype)
+
+	result = {
+		"doctype": doctype,
+		"main_table": {"table": main_table, "partitioned": False, "partitions": 0},
+		"child_tables": [],
+		"all_partitioned": True,
+	}
+
+	# Check main table
+	is_partitioned = analyzer.is_partitioned(main_table)
+	partitions = analyzer.get_existing_partitions(main_table) if is_partitioned else []
+	result["main_table"]["partitioned"] = is_partitioned
+	result["main_table"]["partitions"] = len(partitions)
+
+	if not is_partitioned:
+		result["all_partitioned"] = False
+
+	# Check child tables
+	for df in meta.get_table_fields():
+		child_doctype = df.options
+		child_table = get_table_name(child_doctype)
+
+		is_child_partitioned = analyzer.is_partitioned(child_table)
+		child_partitions = (
+			analyzer.get_existing_partitions(child_table) if is_child_partitioned else []
+		)
+
+		child_info = {
+			"doctype": child_doctype,
+			"table": child_table,
+			"partitioned": is_child_partitioned,
+			"partitions": len(child_partitions),
+		}
+		result["child_tables"].append(child_info)
+
+		if not is_child_partitioned:
+			result["all_partitioned"] = False
+
+	print(f"\n{'='*80}")
+	print(f"Partition Status: {doctype}")
+	print(f"{'='*80}\n")
+
+	status_icon = "✓" if result["main_table"]["partitioned"] else "✗"
+	print(
+		f"{status_icon} {main_table}: {'Partitioned' if result['main_table']['partitioned'] else 'NOT Partitioned'}",
+		end="",
+	)
+	if result["main_table"]["partitioned"]:
+		print(f" ({result['main_table']['partitions']} partitions)")
+	else:
+		print()
+
+	for child in result["child_tables"]:
+		status_icon = "✓" if child["partitioned"] else "✗"
+		print(
+			f"  {status_icon} {child['table']}: {'Partitioned' if child['partitioned'] else 'NOT Partitioned'}",
+			end="",
+		)
+		if child["partitioned"]:
+			print(f" ({child['partitions']} partitions)")
+		else:
+			print()
+
+	print()
+	if result["all_partitioned"]:
+		print("✓ All tables are partitioned!")
+	else:
+		not_partitioned = []
+		if not result["main_table"]["partitioned"]:
+			not_partitioned.append(main_table)
+		not_partitioned.extend(
+			[c["table"] for c in result["child_tables"] if not c["partitioned"]]
+		)
+		print(f"✗ Tables NOT partitioned: {', '.join(not_partitioned)}")
+
+	print()
+	return result
+
+
+def get_partition_progress(doctype: str) -> dict:
+	"""
+	Check the progress of partitioning for a doctype.
+	Useful for resuming interrupted operations.
+
+	Args:
+	        doctype: The doctype to check (e.g., 'Sales Order')
+
+	Returns:
+	        dict with partition progress for main table and all child tables
+
+	Example:
+	        >>> get_partition_progress('Sales Order')
+	"""
+	from frappe.utils import get_table_name
+
+	db = DatabaseConnection()
+	analyzer = TableAnalyzer(db)
+
+	main_table = get_table_name(doctype)
+	meta = frappe.get_meta(doctype)
+
+	progress = {
+		"doctype": doctype,
+		"main_table": {
+			"table": main_table,
+			"partitioned": analyzer.is_partitioned(main_table),
+			"has_posting_date": db.column_exists(main_table, "posting_date"),
+			"pk_includes_posting_date": "posting_date" in analyzer.get_primary_key(main_table),
+		},
+		"child_tables": [],
+		"ready_for_partition": True,
+	}
+
+	print(f"\n{'='*80}")
+	print(f"Partition Progress: {doctype}")
+	print(f"{'='*80}\n")
+
+	# Main table status
+	mt = progress["main_table"]
+	print(f"Main Table: {main_table}")
+	print(f"  - Has posting_date: {'✓' if mt['has_posting_date'] else '✗'}")
+	print(
+		f"  - PK includes posting_date: {'✓' if mt['pk_includes_posting_date'] else '✗'}"
+	)
+	print(f"  - Partitioned: {'✓' if mt['partitioned'] else '✗'}")
+
+	if not mt["partitioned"]:
+		progress["ready_for_partition"] = False
+
+	print("\nChild Tables:")
+
+	for df in meta.get_table_fields():
+		child_doctype = df.options
+		child_table = get_table_name(child_doctype)
+
+		has_col = db.column_exists(child_table, "posting_date")
+		null_count = 0
+		if has_col:
+			try:
+				null_count = frappe.db.sql(
+					f"SELECT COUNT(*) FROM `{child_table}` WHERE `posting_date` IS NULL"
+				)[0][0]
+			except Exception:
+				null_count = -1  # Unknown
+
+		is_partitioned = analyzer.is_partitioned(child_table)
+		pk_ready = "posting_date" in analyzer.get_primary_key(child_table)
+
+		child_info = {
+			"doctype": child_doctype,
+			"table": child_table,
+			"has_posting_date": has_col,
+			"null_count": null_count,
+			"pk_includes_posting_date": pk_ready,
+			"partitioned": is_partitioned,
+		}
+		progress["child_tables"].append(child_info)
+
+		if not is_partitioned:
+			progress["ready_for_partition"] = False
+
+		status_icons = []
+		status_icons.append("col:✓" if has_col else "col:✗")
+		if has_col:
+			status_icons.append(f"nulls:{null_count:,}" if null_count >= 0 else "nulls:?")
+		status_icons.append("pk:✓" if pk_ready else "pk:✗")
+		status_icons.append("part:✓" if is_partitioned else "part:✗")
+
+		print(f"  - {child_doctype}: [{' | '.join(status_icons)}]")
+
+	print(f"\n{'='*80}")
+	if progress["ready_for_partition"]:
+		print("✓ All tables are partitioned!")
+	else:
+		not_done = []
+		if not mt["partitioned"]:
+			not_done.append(main_table)
+		not_done.extend(
+			[c["table"] for c in progress["child_tables"] if not c["partitioned"]]
+		)
+		print(f"○ Tables pending: {len(not_done)}")
+	print(f"{'='*80}\n")
+
+	return progress
+
+
+def get_largest_tables(limit=50, include_child_tables=True):
+	"""
+	Get the tables with the most rows in the ERPNext instance.
+
+	Args:
+	    limit: Number of tables to return
+	    include_child_tables: If False, excludes tables that are child doctypes
+	"""
+	db_name = frappe.conf.db_name
+
+	query = f"""
+        SELECT
+            TABLE_NAME,
+            TABLE_ROWS,
+            ROUND(DATA_LENGTH / 1024 / 1024, 2) as DATA_MB,
+            ROUND(INDEX_LENGTH / 1024 / 1024, 2) as INDEX_MB,
+            ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as TOTAL_MB
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = '{db_name}'
+        AND TABLE_TYPE = 'BASE TABLE'
+        AND TABLE_NAME LIKE 'tab%'
+        ORDER BY TABLE_ROWS DESC
+        LIMIT {limit * 2}
+    """
+
+	results = frappe.db.sql(query, as_dict=True)
+	output = []
+	for row in results:
+		table_name = row["TABLE_NAME"]
+		doctype = table_name[3:] if table_name.startswith("tab") else table_name
+
+		is_child = False
+		try:
+			meta = frappe.get_meta(doctype)
+			is_child = meta.istable
+		except Exception:
+			pass
+
+		if not include_child_tables and is_child:
+			continue
+
+		output.append(
+			{
+				"doctype": doctype,
+				"table": table_name,
+				"rows": row["TABLE_ROWS"] or 0,
+				"data_mb": row["DATA_MB"] or 0,
+				"index_mb": row["INDEX_MB"] or 0,
+				"total_mb": row["TOTAL_MB"] or 0,
+				"is_child": is_child,
+			}
+		)
+
+		if len(output) >= limit:
+			break
+
+	return output
+
+
+def print_largest_tables(limit=50, include_child_tables=True):
+	"""Print a formatted table of the largest tables"""
+
+	tables = get_largest_tables(limit, include_child_tables)
+
+	print(f"\n{'='*100}")
+	print(f"Top {limit} Largest Tables in ERPNext")
+	print(f"{'='*100}\n")
+	print(
+		f"{'#':<4} {'Doctype':<45} {'Rows':>12} {'Data MB':>10} {'Total MB':>10} {'Type':<8}"
+	)
+	print(f"{'-'*4} {'-'*45} {'-'*12} {'-'*10} {'-'*10} {'-'*8}")
+
+	total_rows = 0
+	total_size = 0
+
+	for i, t in enumerate(tables, 1):
+		table_type = "Child" if t["is_child"] else "Parent"
+		print(
+			f"{i:<4} {t['doctype']:<45} {t['rows']:>12,} {t['data_mb']:>10.2f} {t['total_mb']:>10.2f} {table_type:<8}"
+		)
+		total_rows += t["rows"]
+		total_size += t["total_mb"]
+
+	print(f"{'-'*4} {'-'*45} {'-'*12} {'-'*10} {'-'*10} {'-'*8}")
+	print(f"{'':4} {'TOTAL':<45} {total_rows:>12,} {'':>10} {total_size:>10.2f}")
+	print()
+
+
+def get_partition_candidates(min_rows=100000):
+	"""Get tables that are good candidates for partitioning"""
+
+	tables = get_largest_tables(limit=100, include_child_tables=False)
+
+	candidates = []
+
+	for t in tables:
+		if t["rows"] < min_rows:
+			continue
+
+		doctype = t["doctype"]
+		try:
+			meta = frappe.get_meta(doctype)
+			has_date_field = False
+			date_field = None
+
+			for field in ["posting_date", "transaction_date", "creation"]:
+				if meta.has_field(field) or field == "creation":
+					has_date_field = True
+					date_field = field
+					break
+
+			if has_date_field:
+				child_tables = [df.options for df in meta.get_table_fields()]
+				candidates.append(
+					{
+						**t,
+						"date_field": date_field,
+						"child_count": len(child_tables),
+						"child_tables": child_tables,
+					}
+				)
+		except Exception:
+			pass
+
+	return candidates
+
+
+def print_partition_candidates(min_rows=100000, limit=20):
+	"""Print tables that are good candidates for partitioning"""
+
+	candidates = get_partition_candidates(min_rows)
+	print(f"\n{'='*110}")
+	print(f"Partition Candidates (tables with >= {min_rows:,} rows)")
+	print(f"{'='*110}\n")
+
+	if not candidates:
+		print(f"No tables found with >= {min_rows:,} rows")
+		return
+
+	print(
+		f"{'#':<4} {'Doctype':<40} {'Rows':>12} {'Size MB':>10} {'Date Field':<18} {'Children':<8}"
+	)
+	print(f"{'-'*4} {'-'*40} {'-'*12} {'-'*10} {'-'*18} {'-'*8}")
+
+	for i, t in enumerate(candidates, 1):
+		print(
+			f"{i:<4} {t['doctype']:<40} {t['rows']:>12,} {t['total_mb']:>10.2f} {t['date_field']:<18} {t['child_count']:<8}"
+		)
+
+	print()
+
+	print("Suggested partition_doctypes config for hooks.py:")
+	print("-" * 50)
+	print("partition_doctypes = {")
+	for t in candidates[:limit]:
+		field = t["date_field"]
+		print(f'    "{t["doctype"]}": {{"field": ["{field}"], "partition_by": ["month"]}},')
+	print("}")
+	print()

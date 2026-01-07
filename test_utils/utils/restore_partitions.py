@@ -1,371 +1,947 @@
-import csv
 import datetime
 import gzip
-import importlib.resources
 import ipaddress
 import json
 import os
-import shlex
 import shutil
 import subprocess
-import sys
 
-import frappe
 import pymysql
 
+import frappe
 
-def get_mariadb_host():
-	try:
-		db_host = get_config().db_host
-		if db_host in ["localhost", "127.0.0.1"]:
-			return db_host
 
-		try:
-			ipaddress.ip_address(db_host)
-			return db_host
-		except ValueError:
-			result = subprocess.run(["getent", "hosts", db_host], capture_output=True, text=True)
-			return result.stdout.split()[0] if result.stdout else None
-	except Exception as e:
-		print(f"\033[31mERROR: Error getting MariaDB Host: {e}.\033[0m")
+def _escape_tsv_value(value):
+	r"""
+	Escape a value for TSV format compatible with MySQL LOAD DATA INFILE.
+	Returns \N for NULL, properly escapes special characters.
+	"""
+	if value is None:
+		return "\\N"  # MySQL NULL marker (literal backslash-N)
+
+	s = str(value)
+	s = s.replace("\\", "\\\\")
+	s = s.replace("\t", "\\t")
+	s = s.replace("\n", "\\n")
+	s = s.replace("\r", "\\r")
+	s = s.replace("\0", "\\0")
+	return s
+
+
+def _unescape_tsv_value(value):
+	r"""
+	Unescape a TSV value, returning None for NULL marker.
+	Reverses the escaping done by _escape_tsv_value.
+	"""
+	if value == "\\N":
 		return None
 
+	result = []
+	i = 0
+	while i < len(value):
+		if value[i] == "\\" and i + 1 < len(value):
+			next_char = value[i + 1]
+			if next_char == "\\":
+				result.append("\\")
+			elif next_char == "t":
+				result.append("\t")
+			elif next_char == "n":
+				result.append("\n")
+			elif next_char == "r":
+				result.append("\r")
+			elif next_char == "0":
+				result.append("\0")
+			elif next_char == "N":
+				return None
+			else:
+				result.append(value[i])
+				result.append(next_char)
+			i += 2
+		else:
+			result.append(value[i])
+			i += 1
 
-def get_child_doctypes(doctype):
-	doctype_meta = frappe.get_meta(doctype)
-	return [df.options for df in doctype_meta.get_table_fields()]
+	return "".join(result)
 
 
-def get_partitioned_tables():
-	partitioned_tables = []
-	partition_doctypes = frappe.get_hooks("partition_doctypes")
-	for doctype in partition_doctypes.keys():
-		partitioned_tables.append(f"tab{doctype}")
-		for child_doctype in get_child_doctypes(doctype):
-			partitioned_tables.append(f"tab{child_doctype}")
-	return list(set(partitioned_tables))
+class SiteConnection:
+	def __init__(self, site_name: str):
+		self.site_name = site_name
+		self.config = frappe.get_site_config()
+		self.host = self._get_mariadb_host()
+		self.port = int(self.config.get("db_port", 3306))
+		self.database = self.config.get("db_name")
+		self.user = self.config.get("db_name")
+		self.password = self.config.get("db_password")
 
+	def _get_mariadb_host(self) -> str:
+		try:
+			db_host = self.config.get("db_host", "localhost")
 
-def dump_schema_only(site, backup_dir, compress):
-	exclude_tables = list(
-		set(frappe.get_hooks("exclude_tables") + get_partitioned_tables())
-	)
-	schema_dump_file = f"{backup_dir}/schema_dump.sql"
-	try:
-		command = (
-			f"mysqldump -u {site['user']} -p{site['password']} -h {site['host']} {site['db']} "
-			f"--no-data " + shlex.join(exclude_tables)
+			try:
+				result = subprocess.run(
+					["getent", "hosts", db_host], capture_output=True, text=True
+				)
+				if result.stdout:
+					return result.stdout.split()[0]
+			except Exception:
+				pass
+
+			try:
+				ipaddress.ip_address(db_host)
+				return db_host
+			except ValueError:
+				pass
+
+			return db_host
+		except Exception as e:
+			print(f"ERROR: Error getting MariaDB Host: {e}")
+			return "localhost"
+
+	def get_connection(self):
+		return pymysql.connect(
+			host=self.host,
+			port=self.port,
+			user=self.user,
+			password=self.password,
+			database=self.database,
 		)
 
-		if compress:
-			compressed_file_path = f"{schema_dump_file}.gz"
-			with gzip.open(compressed_file_path, "wb") as f:
-				process = subprocess.run(command, shell=True, capture_output=True, check=True)
-				f.write(process.stdout)
-			print(
-				f"\033[32mSUCCESS: Schema dump completed and compressed successfully. File saved as {compressed_file_path}.\033[0m"
-			)
-			return compressed_file_path
+	def to_dict(self) -> dict:
+		return {
+			"name": self.site_name,
+			"host": self.host,
+			"port": self.port,
+			"db": self.database,
+			"db_name": self.database,
+			"user": self.user,
+			"password": self.password,
+		}
+
+
+class PartitionAnalyzer:
+	@staticmethod
+	def get_child_doctypes(doctype: str) -> list[str]:
+		return [df.options for df in frappe.get_meta(doctype).get_table_fields()]
+
+	@staticmethod
+	def get_partitioned_tables() -> list[str]:
+		partitioned_tables = []
+		for doctype in frappe.get_hooks("partition_doctypes"):
+			partitioned_tables.append(f"tab{doctype}")
+			for child_doctype in PartitionAnalyzer.get_child_doctypes(doctype):
+				partitioned_tables.append(f"tab{child_doctype}")
+		return list(set(partitioned_tables))
+
+	@staticmethod
+	def get_last_n_partitions(table_names: list[str], n: int) -> dict[str, list[str]]:
+		table_names_list = "', '".join(table_names)
+		query = f"""
+			SELECT TABLE_NAME, PARTITION_NAME
+			FROM information_schema.PARTITIONS
+			WHERE TABLE_NAME IN ('{table_names_list}')
+			AND TABLE_ROWS > 0
+			ORDER BY TABLE_NAME, PARTITION_ORDINAL_POSITION DESC
+		"""
+		partitions = frappe.db.sql(query, as_dict=True)
+		result = {}
+		for partition in partitions:
+			table_name = partition["TABLE_NAME"]
+			partition_name = partition["PARTITION_NAME"]
+			if table_name not in result:
+				result[table_name] = []
+			result[table_name].append(partition_name)
+		final_result = {}
+		for table_name, partitions in result.items():
+			final_result[table_name] = partitions[:n]
+		return final_result
+
+	@staticmethod
+	def get_partitions_to_backup(
+		partitioned_doctypes_to_restore: list | None = None, last_n_partitions: int = 1
+	) -> dict[str, list[str]]:
+		if partitioned_doctypes_to_restore:
+			tables_partitions = partitioned_doctypes_to_restore
 		else:
-			with open(schema_dump_file, "w") as f:
-				subprocess.run(
-					command, shell=True, stdout=f, stderr=subprocess.PIPE, text=True, check=True
-				)
-			print(
-				f"\033[32mSUCCESS: Schema dump completed successfully. File saved as {schema_dump_file}.\033[0m"
-			)
-			return schema_dump_file
-	except subprocess.CalledProcessError as e:
-		print(f"\033[31mERROR: Error during schema dump: {e.stderr}.: {e}.\033[0m")
-	except Exception as e:
-		print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
+			tables_partitions = frappe.get_hooks("partition_doctypes")
+		table_names = []
+		for doctype in tables_partitions:
+			table_names.append(f"tab{doctype}")
+			for child_doctype in PartitionAnalyzer.get_child_doctypes(doctype):
+				table_names.append(f"tab{child_doctype}")
+		return PartitionAnalyzer.get_last_n_partitions(table_names, last_n_partitions)
 
 
-def backup_full_database(site, backup_dir, compress):
-	partitioned_tables = get_partitioned_tables()
-	exclude = list(set(frappe.get_hooks("exclude_tables") + partitioned_tables))
+class BackupEngine:
+	def __init__(self, site: SiteConnection, backup_dir: str, compress: bool = False):
+		self.site = site
+		self.backup_dir = backup_dir
+		self.compress = compress
 
-	full_backup_file = f"{backup_dir}/full_backup_file.sql"
-	try:
-		with importlib.resources.path(
-			"test_utils.utils", "mysqldump_wrapper.sh"
-		) as script_path:
-			temp_script_path = "/tmp/mysqldump_wrapper.sh"
-			with open(script_path) as src_file:
-				with open(temp_script_path, "w") as temp_file:
-					temp_file.write(src_file.read())
+	def _build_ignore_table_args(self, tables: list[str]) -> list[str]:
+		"""Build --ignore-table arguments as a list for subprocess"""
+		site_dict = self.site.to_dict()
+		args = []
+		for table in tables:
+			args.extend(["--ignore-table", f"{site_dict['db']}.{table}"])
+		return args
 
-			os.chmod(temp_script_path, 0o755)
+	def dump_schema_only(self) -> str:
+		site_dict = self.site.to_dict()
+		# Don't exclude ANY tables from schema - we need all table structures
+		# Data exclusions happen in backup_full_database()
+		schema_dump_file = f"{self.backup_dir}/schema_dump.sql"
 
+		try:
 			command = [
-				temp_script_path,
-				site["user"],
-				site["password"],
-				site["host"],
-				site["db"],
-				full_backup_file,
-			] + exclude
+				"mysqldump",
+				"-u",
+				site_dict["user"],
+				f"-p{site_dict['password']}",
+				"-h",
+				site_dict["host"],
+				"--no-data",
+				"--skip-triggers",  # Exclude pt_osc triggers that reference source DB name
+				site_dict["db"],
+			]
 
-			result = subprocess.run(command, capture_output=True, text=True, check=False)
-
-			if result.returncode != 0:
-				print(f"\033[31mERROR: Error occurred: {result.stderr}.\033[0m")
-				raise Exception(f"Backup failed with return code {result.returncode}")
-
-			if compress:
-				compressed_file_path = f"{full_backup_file}.gz"
-				with open(full_backup_file, "rb") as f_in:
-					with gzip.open(compressed_file_path, "wb") as f_out:
-						f_out.writelines(f_in)
-				os.remove(full_backup_file)
-				print(
-					f"\033[32mSUCCESS: Backup completed and compressed successfully. File saved as {compressed_file_path}.\033[0m"
-				)
+			if self.compress:
+				compressed_file_path = f"{schema_dump_file}.gz"
+				process = subprocess.run(command, capture_output=True, check=True)
+				with gzip.open(compressed_file_path, "wb") as f:
+					f.write(process.stdout)
+				print(f"Schema dump completed: {compressed_file_path}")
 				return compressed_file_path
 			else:
-				print(
-					f"\033[32mSUCCESS: Backup completed successfully. File saved as {full_backup_file}.\033[0m"
-				)
-				return full_backup_file
-	except Exception as e:
-		print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
+				with open(schema_dump_file, "w") as f:
+					result = subprocess.run(
+						command, stdout=f, stderr=subprocess.PIPE, text=True, check=True
+					)
+				print(f"Schema dump completed: {schema_dump_file}")
+				return schema_dump_file
+		except subprocess.CalledProcessError as e:
+			print(f"ERROR: Error during schema dump: {e.stderr}")
+			raise
+		except Exception as e:
+			print(f"ERROR: Unexpected error: {e}")
+			raise
 
+	def backup_full_database(self, append_to_file: str = None) -> str:
+		site_dict = self.site.to_dict()
+		partitioned_tables = PartitionAnalyzer.get_partitioned_tables()
+		exclude = list(set(frappe.get_hooks("exclude_tables") + partitioned_tables))
 
-def merge_sql_files(schema_dump_path, full_backup_path, backup_dir, compress):
-	output_path = f"{backup_dir}/schema_and_non_partitioned_data.sql"
-	try:
-		command = [
-			"bash",
-			"-c",
-			f'cat "{schema_dump_path}" "{full_backup_path}" > "{output_path}"',
-		]
-		result = subprocess.run(command, capture_output=True, text=True, check=False)
-		if result.returncode != 0:
-			print(f"\033[31mERROR: Error occurred: {result.stderr}.\033[0m")
-			raise Exception(f"Merge failed with return code {result.returncode}")
+		print(f"\n  Excluding {len(exclude)} tables:")
+		ignored_tables = frappe.get_hooks("exclude_tables")
+		print(f"    - {len(ignored_tables)} ignored tables")
+		print(f"    - {len(partitioned_tables)} partitioned tables")
 
-		if compress:
-			compressed_file_path = f"{output_path}.gz"
-			with open(output_path, "rb") as output_file:
-				with gzip.open(compressed_file_path, "wb") as gz_file:
-					shutil.copyfileobj(output_file, gz_file)
-			os.remove(output_path)
-			print(
-				f"\033[32mSUCCESS: Files merged successfully and compressed into {compressed_file_path}.\033[0m"
+		try:
+			conn = self.site.get_connection()
+			cursor = conn.cursor()
+
+			cursor.execute(
+				"""
+				SELECT TABLE_NAME,
+					   ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as size_mb,
+					   TABLE_ROWS
+				FROM information_schema.TABLES
+				WHERE TABLE_SCHEMA = %s
+				AND TABLE_TYPE = 'BASE TABLE'
+				ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC
+			""",
+				(site_dict["db"],),
 			)
-			return compressed_file_path
-		else:
-			print(f"\033[32mSUCCESS: Files merged successfully into {output_path}.\033[0m")
-			return output_path
-	except Exception as e:
-		print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
 
+			all_tables = cursor.fetchall()
 
-def restore_database(site, backup_file, bubble_backup):
-	backup_file = uncompress_if_needed(backup_file)
+			included_tables = []
+			excluded_tables = []
+			total_included_size = 0
+			total_excluded_size = 0
 
-	if bubble_backup:
+			for table_name, size_mb, rows in all_tables:
+				size_mb = size_mb or 0
+				rows = rows or 0
+				if table_name in exclude:
+					excluded_tables.append((table_name, size_mb, rows))
+					total_excluded_size += size_mb
+				else:
+					included_tables.append((table_name, size_mb, rows))
+					total_included_size += size_mb
+
+			print("\n  SUMMARY:")
+			print(
+				f"    Tables to INCLUDE: {len(included_tables)} ({total_included_size:.1f} MB)"
+			)
+			print(
+				f"    Tables to EXCLUDE: {len(excluded_tables)} ({total_excluded_size:.1f} MB)"
+			)
+
+			print("\n  Top 15 INCLUDED tables:")
+			for table_name, size_mb, rows in included_tables[:15]:
+				print(f"    ✓ {table_name}: {size_mb:.1f} MB, ~{rows:,} rows")
+			if len(included_tables) > 15:
+				print(f"    ... and {len(included_tables) - 15} more tables")
+
+			print("\n  Top 10 EXCLUDED tables:")
+			for table_name, size_mb, rows in excluded_tables[:10]:
+				print(f"    ✗ {table_name}: {size_mb:.1f} MB, ~{rows:,} rows")
+			if len(excluded_tables) > 10:
+				print(f"    ... and {len(excluded_tables) - 10} more tables")
+
+			cursor.close()
+			conn.close()
+		except Exception as e:
+			print(f"  Could not get table sizes: {e}")
+
+		full_backup_file = append_to_file or f"{self.backup_dir}/full_backup_file.sql"
+
 		try:
 			command = [
-				"mysql",
+				"mysqldump",
 				"-u",
-				f"{site['user']}",
-				f"-p{site['password']}",
+				site_dict["user"],
+				f"-p{site_dict['password']}",
 				"-h",
-				f"{site['host']}",
-				f"{site['db_name']}",
-				"-e",
-				f"source {backup_file}",
+				site_dict["host"],
+				"--single-transaction",
+				"--quick",
+				"--verbose",
 			]
-			result = subprocess.run(command, capture_output=True, text=True, check=False)
+			command.extend(self._build_ignore_table_args(exclude))
+			command.append(site_dict["db"])
 
-			if result.returncode != 0:
-				print(f"\033[31mERROR: Error occurred: {result.stderr}.\033[0m")
-				raise Exception(f"Restore failed with return code {result.returncode}")
+			print(f"\n  Starting mysqldump with {len(exclude)} --ignore-table args...")
+			start_time = datetime.datetime.now()
 
-			print("\033[32mSUCCESS: Restore completed successfully.\033[0m")
+			if self.compress:
+				compressed_file_path = f"{full_backup_file}.gz"
+				dump_process = subprocess.Popen(
+					command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+				)
+				mode = "ab" if append_to_file and os.path.exists(append_to_file) else "wb"
+
+				bytes_written = 0
+				last_report = start_time
+
+				with gzip.open(compressed_file_path, mode) as f:
+					while True:
+						chunk = dump_process.stdout.read(65536)
+						if not chunk:
+							break
+						f.write(chunk)
+						bytes_written += len(chunk)
+
+						now = datetime.datetime.now()
+						if (now - last_report).total_seconds() >= 5:
+							elapsed = (now - start_time).total_seconds()
+							rate = bytes_written / elapsed / 1024 / 1024 if elapsed > 0 else 0
+							print(
+								f"\r  Progress: {bytes_written / 1024 / 1024:.1f} MB written ({rate:.1f} MB/s)",
+								end="",
+								flush=True,
+							)
+							last_report = now
+
+				dump_process.wait()
+				elapsed = (datetime.datetime.now() - start_time).total_seconds()
+				print(f"\n  Backup completed in {elapsed:.1f}s: {compressed_file_path}")
+
+				if dump_process.returncode != 0:
+					stderr = dump_process.stderr.read().decode()
+					print(f"ERROR: Error occurred: {stderr}")
+					raise Exception(f"Backup failed with return code {dump_process.returncode}")
+				return compressed_file_path
+			else:
+				mode = "ab" if append_to_file and os.path.exists(append_to_file) else "wb"
+
+				dump_process = subprocess.Popen(
+					command, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+				)
+
+				bytes_written = 0
+				last_report = start_time
+				tables_dumped = 0
+				current_table = ""
+
+				import threading
+
+				def read_stderr():
+					nonlocal tables_dumped, current_table
+					while True:
+						line = dump_process.stderr.readline()
+						if not line:
+							break
+						line_str = line.decode("utf-8", errors="ignore").strip()
+						# mysqldump --verbose outputs "-- Retrieving table structure for table `X`..."
+						if "Retrieving table structure for table" in line_str:
+							tables_dumped += 1
+							if "`" in line_str:
+								current_table = line_str.split("`")[1]
+						# Also match "-- Sending SELECT query..." as a fallback indicator
+						elif "Sending SELECT query" in line_str and current_table:
+							pass  # Just confirming we're dumping data for current table
+
+				stderr_thread = threading.Thread(target=read_stderr)
+				stderr_thread.daemon = True
+				stderr_thread.start()
+
+				with open(full_backup_file, mode) as f:
+					while True:
+						chunk = dump_process.stdout.read(65536)
+						if not chunk:
+							break
+						f.write(chunk)
+						bytes_written += len(chunk)
+
+						now = datetime.datetime.now()
+						if (now - last_report).total_seconds() >= 3:
+							elapsed = (now - start_time).total_seconds()
+							rate = bytes_written / elapsed / 1024 / 1024 if elapsed > 0 else 0
+							print(
+								f"\r  [{tables_dumped} tables] {current_table[:30]:<30} | {bytes_written / 1024 / 1024:.1f} MB ({rate:.1f} MB/s)",
+								end="",
+								flush=True,
+							)
+							last_report = now
+
+				dump_process.wait()
+				stderr_thread.join(timeout=1)
+
+				elapsed = (datetime.datetime.now() - start_time).total_seconds()
+				print(
+					f"\n  Backup completed: {tables_dumped} tables, {bytes_written / 1024 / 1024:.1f} MB in {elapsed:.1f}s"
+				)
+
+				if dump_process.returncode != 0:
+					print(f"ERROR: Backup had issues (return code {dump_process.returncode})")
+				return full_backup_file
+
 		except Exception as e:
-			print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
-	else:
-		try:
-			command = [
-				"bench",
-				"--site",
-				site["name"],
-				"restore",
-				backup_file,
-				"--db-root-password",
-				site["password"],
-			]
-			result = subprocess.run(command, capture_output=True, text=True, check=False)
+			print(f"ERROR: Unexpected error: {e}")
+			raise
 
-			if result.returncode != 0:
-				print(f"\033[31mERROR: Error occurred: {result.stderr}.\033[0m")
-				raise Exception(f"Restore failed with return code {result.returncode}")
-
-			print("\033[32mSUCCESS: Restore completed successfully.\033[0m")
-		except Exception as e:
-			print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
-
-
-def get_last_n_partitions_for_tables(table_names, n):
-	table_names_list = "', '".join(table_names)
-
-	query = f"""
-		SELECT TABLE_NAME, PARTITION_NAME
-		FROM information_schema.PARTITIONS
-		WHERE TABLE_NAME IN ('{table_names_list}')
-		AND TABLE_ROWS > 0
-		ORDER BY TABLE_NAME, PARTITION_ORDINAL_POSITION DESC
-	"""
-
-	partitions = frappe.db.sql(query, as_dict=True)
-
-	result = {}
-	for partition in partitions:
-		table_name = partition["TABLE_NAME"]
-		partition_name = partition["PARTITION_NAME"]
-		if table_name not in result:
-			result[table_name] = []
-		result[table_name].append(partition_name)
-
-	final_result = {}
-	for table_name, partitions in result.items():
-		final_result[table_name] = partitions[:n]
-
-	return final_result
-
-
-def get_partitions_to_backup(partitioned_doctypes_to_restore=None, last_n_partitions=1):
-	if partitioned_doctypes_to_restore:
-		tables_partitions = partitioned_doctypes_to_restore
-	else:
-		tables_partitions = list(frappe.get_hooks("partition_doctypes").keys())
-
-	table_names = []
-	for doctype in tables_partitions:
-		table_names.append(f"tab{doctype}")
-		for child_doctype in get_child_doctypes(doctype):
-			table_names.append(f"tab{child_doctype}")
-
-	return get_last_n_partitions_for_tables(table_names, last_n_partitions)
-
-
-def backup_partition(site, table, current_partition, compress):
-	timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-	output_file = os.path.join(
-		"/tmp/", f'{table.lower().replace(" ", "")}_{current_partition}_{timestamp}.csv'
-	)
-
-	sql_query = f"""
-	SELECT * FROM `{table}` PARTITION ({current_partition});
-	"""
-	try:
-		connection = pymysql.connect(
-			user=site["user"], password=site["password"], host=site["host"], database=site["db"]
+	def backup_partition(self, table: str, partition: str) -> str:
+		"""
+		Backup a partition using SSCursor streaming directly to gzip.
+		Uses TSV format for faster LOAD DATA INFILE restore.
+		"""
+		timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+		# Use .tsv.gz for LOAD DATA INFILE compatibility
+		output_file = os.path.join(
+			self.backup_dir,
+			f'{table.lower().replace(" ", "").replace("`", "")}_{partition}_{timestamp}.tsv.gz',
 		)
-		cursor = connection.cursor()
-		cursor.execute(sql_query)
-		rows = cursor.fetchall()
-		columns = [desc[0] for desc in cursor.description]
+		sql_query = f"SELECT * FROM `{table}` PARTITION ({partition});"
 
-		with open(output_file, "w", newline="", encoding="utf-8") as f:
-			writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-			writer.writerow(columns)
-			for row in rows:
-				writer.writerow([item if item is not None else "" for item in row])
-
-		connection.commit()
-		cursor.close()
-		connection.close()
-		if compress:
-			compressed_file_path = f"{output_file}.gz"
-			with open(output_file, "rb") as f_in:
-				with gzip.open(compressed_file_path, "wb") as f_out:
-					shutil.copyfileobj(f_in, f_out)
-			os.remove(output_file)
-			print(
-				f"\033[32mSUCCESS: Backup of partition {current_partition} completed and compressed. File saved as {compressed_file_path}.\033[0m"
+		try:
+			# Use SSCursor to stream rows instead of loading all into memory
+			connection = pymysql.connect(
+				host=self.site.host,
+				port=self.site.port,
+				user=self.site.user,
+				password=self.site.password,
+				database=self.site.database,
+				cursorclass=pymysql.cursors.SSCursor,
 			)
-			return compressed_file_path
-		else:
+			cursor = connection.cursor()
+			cursor.execute(sql_query)
+			columns = [desc[0] for desc in cursor.description]
+
+			if not columns:
+				print(f"  No columns found for {table}")
+				cursor.close()
+				connection.close()
+				return None
+
+			# Write directly to gzip using raw TSV format (no csv.writer to avoid double-escaping)
+			rows_written = 0
+			start_time = datetime.datetime.now()
+			last_report = start_time
+
+			with gzip.open(output_file, "wt", encoding="utf-8", compresslevel=6) as f:
+				# Write header as first line (will skip during LOAD DATA)
+				f.write("\t".join(columns) + "\n")
+
+				batch_size = 10000
+				while True:
+					rows = cursor.fetchmany(batch_size)
+					if not rows:
+						break
+					for row in rows:
+						# Escape each field properly for MySQL LOAD DATA
+						escaped_row = []
+						for r in row:
+							if isinstance(r, (datetime.datetime, datetime.date)):
+								escaped_row.append(_escape_tsv_value(str(r)))
+							elif isinstance(r, bytes):
+								escaped_row.append(_escape_tsv_value(r.decode("utf-8", errors="replace")))
+							else:
+								escaped_row.append(_escape_tsv_value(r))
+						f.write("\t".join(escaped_row) + "\n")
+					rows_written += len(rows)
+
+					now = datetime.datetime.now()
+					if (now - last_report).total_seconds() >= 2:
+						elapsed = (now - start_time).total_seconds()
+						rate = rows_written / elapsed if elapsed > 0 else 0
+						print(
+							f"\r  Exporting: {rows_written:,} rows ({rate:.0f} rows/s)", end="", flush=True
+						)
+						last_report = now
+
+			cursor.close()
+			connection.close()
+
+			elapsed = (datetime.datetime.now() - start_time).total_seconds()
+			file_size = os.path.getsize(output_file) / (1024 * 1024)
 			print(
-				f"\033[32mSUCCESS: Backup of partition {current_partition} completed successfully. File saved as {output_file}.\033[0m"
+				f"\r  Exported: {rows_written:,} rows in {elapsed:.1f}s -> {file_size:.1f} MB compressed"
 			)
 			return output_file
-	except pymysql.MySQLError as e:
-		print(
-			f"\033[31mERROR: Error during backup of table {table}, partition {current_partition}: {e}.\033[0m"
-		)
-		return None
-	except Exception as e:
-		print(f"\033[31mERROR: Unexpected error: {e}.\033[0m")
-		return None
+
+		except pymysql.MySQLError as e:
+			print(f"\nERROR: Error during backup of table {table}, partition {partition}: {e}")
+			return None
+		except Exception as e:
+			print(f"\nERROR: Unexpected error: {e}")
+			import traceback
+
+			traceback.print_exc()
+			return None
+
+	@staticmethod
+	def merge_sql_files(
+		schema_dump_path: str, full_backup_path: str, backup_dir: str, compress: bool
+	) -> str:
+		output_path = f"{backup_dir}/schema_and_non_partitioned_data.sql"
+		try:
+			if compress:
+				compressed_file_path = f"{output_path}.gz"
+				with gzip.open(compressed_file_path, "wb") as gz_out:
+					with open(schema_dump_path, "rb") as f:
+						shutil.copyfileobj(f, gz_out)
+					os.remove(schema_dump_path)
+					print(f"  Merged and deleted: {schema_dump_path}")
+					with open(full_backup_path, "rb") as f:
+						shutil.copyfileobj(f, gz_out)
+					os.remove(full_backup_path)
+					print(f"  Merged and deleted: {full_backup_path}")
+				print(f"Files merged and compressed into {compressed_file_path}")
+				return compressed_file_path
+			else:
+				with open(schema_dump_path, "ab") as out_file:
+					with open(full_backup_path, "rb") as in_file:
+						shutil.copyfileobj(in_file, out_file)
+				os.remove(full_backup_path)
+				print(f"  Appended and deleted: {full_backup_path}")
+				os.rename(schema_dump_path, output_path)
+				print(f"Files merged successfully into {output_path}")
+				return output_path
+		except Exception as e:
+			print(f"ERROR: Unexpected error during merge: {e}")
+			raise
+
+	@staticmethod
+	def delete_backup_files(backup_dir: str):
+		try:
+			for filename in os.listdir(backup_dir):
+				file_path = os.path.join(backup_dir, filename)
+				if any(filename.endswith(ext) for ext in [".sql", ".gz", ".csv", ".tsv"]):
+					os.remove(file_path)
+					print(f"Deleted file: {file_path}")
+		except Exception as e:
+			print(f"ERROR: Error while deleting backup files: {str(e)}")
 
 
-def restore_partition(site, table, partition_bkp_file):
+class RestoreEngine:
+	def __init__(self, site: SiteConnection):
+		self.site = site
 
-	csv.field_size_limit(sys.maxsize)
+	@staticmethod
+	def _uncompress_if_needed(file_path: str) -> str:
+		if file_path is None:
+			raise ValueError("Backup file path is None")
+		if file_path.endswith(".gz"):
+			uncompressed_path = file_path[:-3]
+			with gzip.open(file_path, "rb") as gz_file:
+				with open(uncompressed_path, "wb") as out_file:
+					shutil.copyfileobj(gz_file, out_file)
+			return uncompressed_path
+		return file_path
+
+	def restore_database(self, backup_file: str, bubble_backup: bool = False):
+		backup_file = self._uncompress_if_needed(backup_file)
+		site_dict = self.site.to_dict()
+
+		if bubble_backup:
+			try:
+				file_size = os.path.getsize(backup_file)
+				print(
+					f"\nRestoring {file_size / 1024 / 1024:.1f} MB SQL file to {site_dict['db_name']}..."
+				)
+
+				command = [
+					"mysql",
+					"-u",
+					site_dict["user"],
+					f"-p{site_dict['password']}",
+					"-h",
+					site_dict["host"],
+					site_dict["db_name"],
+				]
+
+				start_time = datetime.datetime.now()
+
+				with open(backup_file, "rb") as f:
+					process = subprocess.Popen(
+						command,
+						stdin=subprocess.PIPE,
+						stdout=subprocess.PIPE,
+						stderr=subprocess.PIPE,
+					)
+
+					bytes_sent = 0
+					last_report = start_time
+					chunk_size = 65536
+
+					try:
+						while True:
+							chunk = f.read(chunk_size)
+							if not chunk:
+								break
+							try:
+								process.stdin.write(chunk)
+							except BrokenPipeError:
+								# mysql crashed - get the error message
+								break
+							bytes_sent += len(chunk)
+
+							# Progress every 3 seconds
+							now = datetime.datetime.now()
+							if (now - last_report).total_seconds() >= 3:
+								elapsed = (now - start_time).total_seconds()
+								rate = bytes_sent / elapsed / 1024 / 1024 if elapsed > 0 else 0
+								pct = (bytes_sent / file_size * 100) if file_size > 0 else 0
+								print(
+									f"\r  Restoring: {bytes_sent / 1024 / 1024:.1f}/{file_size / 1024 / 1024:.1f} MB ({pct:.1f}%) - {rate:.1f} MB/s",
+									end="",
+									flush=True,
+								)
+								last_report = now
+					finally:
+						try:
+							process.stdin.close()
+						except Exception:
+							pass
+
+					stdout = process.stdout.read() if process.stdout else b""
+					stderr = process.stderr.read() if process.stderr else b""
+					process.wait()
+
+					elapsed = (datetime.datetime.now() - start_time).total_seconds()
+
+					if process.returncode != 0:
+						print(f"\n  ERROR at byte {bytes_sent:,} ({bytes_sent / 1024 / 1024:.1f} MB)")
+						print(f"  MySQL error: {stderr.decode()}")
+						raise Exception(f"Restore failed with return code {process.returncode}")
+
+					print(f"\n  Restore completed in {elapsed:.1f}s")
+
+				print("Restore completed successfully")
+			except Exception as e:
+				print(f"ERROR: Unexpected error: {e}")
+				raise
+		else:
+			try:
+				command = [
+					"bench",
+					"--site",
+					site_dict["name"],
+					"restore",
+					backup_file,
+					"--db-root-password",
+					site_dict["password"],
+				]
+				result = subprocess.run(command, capture_output=True, text=True, check=False)
+
+				if result.returncode != 0:
+					print(f"ERROR: Error occurred: {result.stderr}")
+					raise Exception(f"Restore failed with return code {result.returncode}")
+
+				print("Restore completed successfully")
+			except Exception as e:
+				print(f"ERROR: Unexpected error: {e}")
+				raise
+
+	def restore_partition_fast(self, table: str, partition_bkp_file: str) -> bool:
+		"""
+		Restore a partition using LOAD DATA LOCAL INFILE - much faster than INSERT.
+		Expects a TSV.gz file created by backup_partition().
+		"""
+		try:
+			# Decompress to temp file (LOAD DATA needs uncompressed)
+			if partition_bkp_file.endswith(".gz"):
+				temp_file = partition_bkp_file[:-3]  # Remove .gz
+				print("  Decompressing for LOAD DATA...")
+				with gzip.open(partition_bkp_file, "rb") as f_in:
+					with open(temp_file, "wb") as f_out:
+						shutil.copyfileobj(f_in, f_out)
+				needs_cleanup = True
+			else:
+				temp_file = partition_bkp_file
+				needs_cleanup = False
+
+			# Get column names from first line
+			with open(temp_file, encoding="utf-8") as f:
+				header_line = f.readline().strip()
+				columns = header_line.split("\t")
+
+			sanitized_columns = ", ".join([f"`{col}`" for col in columns])
+
+			# Use mysql client for LOAD DATA LOCAL INFILE
+			# This is faster than pymysql for large files
+			site_dict = self.site.to_dict()
+
+			load_sql = f"""
+				SET foreign_key_checks=0;
+				SET unique_checks=0;
+				ALTER TABLE `{table}` DISABLE KEYS;
+				LOAD DATA LOCAL INFILE '{temp_file}'
+				INTO TABLE `{table}`
+				FIELDS TERMINATED BY '\\t'
+				OPTIONALLY ENCLOSED BY '"'
+				ESCAPED BY '\\\\'
+				LINES TERMINATED BY '\\n'
+				IGNORE 1 LINES
+				({sanitized_columns});
+				ALTER TABLE `{table}` ENABLE KEYS;
+				SET unique_checks=1;
+				SET foreign_key_checks=1;
+			"""
+
+			start_time = datetime.datetime.now()
+
+			# Use mysql client with --local-infile enabled
+			cmd = [
+				"mysql",
+				"-u",
+				site_dict["user"],
+				f"-p{site_dict['password']}",
+				"-h",
+				site_dict["host"],
+				"--local-infile=1",
+				site_dict["db_name"],
+			]
+
+			result = subprocess.run(cmd, input=load_sql, capture_output=True, text=True)
+
+			elapsed = (datetime.datetime.now() - start_time).total_seconds()
+
+			if result.returncode != 0:
+				if (
+					"local infile" in result.stderr.lower()
+					or "loading local data" in result.stderr.lower()
+				):
+					print("  LOAD DATA LOCAL not enabled, falling back to INSERT method...")
+					if needs_cleanup:
+						os.remove(temp_file)
+					return self._restore_partition_insert(table, partition_bkp_file)
+				else:
+					print(f"  ERROR: LOAD DATA failed: {result.stderr}")
+					if needs_cleanup:
+						os.remove(temp_file)
+					return False
+
+			conn = self.site.get_connection()
+			cursor = conn.cursor()
+			cursor.execute(f"SELECT COUNT(*) FROM `{table}`")
+			row_count = cursor.fetchone()[0]
+			cursor.close()
+			conn.close()
+
+			print(f"  ✓ LOAD DATA completed: {row_count:,} rows in {elapsed:.1f}s")
+
+			if needs_cleanup:
+				os.remove(temp_file)
+
+			return True
+
+		except Exception as e:
+			print(f"  ERROR: Fast restore failed: {e}")
+			import traceback
+
+			traceback.print_exc()
+			# Fall back to INSERT method
+			return self._restore_partition_insert(table, partition_bkp_file)
+
+	def _restore_partition_insert(self, table: str, partition_bkp_file: str) -> bool:
+		"""
+		Fallback restore using INSERT statements (slower but always works).
+		Reads raw TSV format created by backup_partition.
+		"""
+		try:
+			# Handle both .gz and uncompressed files
+			def open_file(filepath):
+				if filepath.endswith(".gz"):
+					return gzip.open(filepath, "rt", encoding="utf-8")
+				return open(filepath, encoding="utf-8")
+
+			connection = self.site.get_connection()
+			cursor = connection.cursor()
+
+			# Disable checks for speed
+			cursor.execute("SET foreign_key_checks=0")
+			cursor.execute("SET unique_checks=0")
+			cursor.execute(f"ALTER TABLE `{table}` DISABLE KEYS")
+
+			total_inserted = 0
+			start_time = datetime.datetime.now()
+			last_report = start_time
+
+			with open_file(partition_bkp_file) as f:
+				header_line = f.readline().rstrip("\n")
+				header = header_line.split("\t")
+				sanitized_header = [f"`{col}`" for col in header]
+				placeholders = ", ".join(["%s"] * len(header))
+				insert_sql = (
+					f"INSERT INTO `{table}` ({', '.join(sanitized_header)}) VALUES ({placeholders})"
+				)
+
+				batch = []
+				batch_size = 5000
+
+				for line in f:
+					# Parse TSV line manually (don't use csv.reader to avoid escaping issues)
+					line = line.rstrip("\n")
+					fields = line.split("\t")
+
+					# Unescape each field and convert \N to None
+					row = [_unescape_tsv_value(field) for field in fields]
+					batch.append(row)
+
+					if len(batch) >= batch_size:
+						try:
+							cursor.executemany(insert_sql, batch)
+							total_inserted += len(batch)
+						except pymysql.MySQLError as e:
+							# Fall back to individual inserts
+							for single_row in batch:
+								try:
+									cursor.execute(insert_sql, single_row)
+									total_inserted += 1
+								except pymysql.MySQLError:
+									pass
+						batch = []
+
+						now = datetime.datetime.now()
+						if (now - last_report).total_seconds() >= 2:
+							elapsed = (now - start_time).total_seconds()
+							rate = total_inserted / elapsed if elapsed > 0 else 0
+							print(
+								f"\r  Inserting: {total_inserted:,} rows ({rate:.0f} rows/s)",
+								end="",
+								flush=True,
+							)
+							last_report = now
+
+				if batch:
+					try:
+						cursor.executemany(insert_sql, batch)
+						total_inserted += len(batch)
+					except pymysql.MySQLError:
+						for single_row in batch:
+							try:
+								cursor.execute(insert_sql, single_row)
+								total_inserted += 1
+							except pymysql.MySQLError:
+								pass
+
+			# Re-enable and commit
+			cursor.execute(f"ALTER TABLE `{table}` ENABLE KEYS")
+			cursor.execute("SET unique_checks=1")
+			cursor.execute("SET foreign_key_checks=1")
+			connection.commit()
+			cursor.close()
+			connection.close()
+
+			elapsed = (datetime.datetime.now() - start_time).total_seconds()
+			rate = total_inserted / elapsed if elapsed > 0 else 0
+			print(
+				f"\r  ✓ INSERT completed: {total_inserted:,} rows in {elapsed:.1f}s ({rate:.0f} rows/s)"
+			)
+			return True
+
+		except Exception as e:
+			print(f"\n  ERROR: Insert restore failed: {e}")
+			import traceback
+
+			traceback.print_exc()
+			return False
+
+	def restore_partition(self, table: str, partition_bkp_file: str):
+		"""
+		Restore a partition - uses fast LOAD DATA if available, falls back to INSERT.
+		"""
+		if partition_bkp_file.endswith(".tsv.gz") or partition_bkp_file.endswith(".tsv"):
+			success = self.restore_partition_fast(table, partition_bkp_file)
+			if success:
+				return
+
+		self._restore_partition_insert(table, partition_bkp_file)
+
+
+def _safe_delete(file_path: str):
+	"""Safely delete a file if it exists"""
 	try:
-		partition_bkp_file = uncompress_if_needed(partition_bkp_file)
-		connection = pymysql.connect(
-			user=site["user"], password=site["password"], host=site["host"], database=site["db"]
-		)
-		cursor = connection.cursor()
-
-		with open(partition_bkp_file, encoding="utf-8") as f:
-			reader = csv.reader(f)
-			header = next(reader)
-			sanitized_header = [f"`{col}`" for col in header]
-
-			for row in reader:
-				row = [None if field == "" else field for field in row]
-				sql_query = f"""
-				INSERT INTO `{table}` ({', '.join(sanitized_header)})
-				VALUES ({', '.join(['%s'] * len(header))});
-				"""
-				try:
-					cursor.execute(sql_query, row)
-				except pymysql.MySQLError as e:
-					print(f"Error inserting row {row}: {e}")
-					continue
-		connection.commit()
-		cursor.close()
-		connection.close()
-		print(
-			f"\033[32mSUCCESS: Data imported successfully from {partition_bkp_file}.\033[0m"
-		)
-	except pymysql.MySQLError as e:
-		print(f"\033[31mERROR: Error during import {partition_bkp_file}: {e}.\033[0m")
+		if file_path and os.path.exists(file_path):
+			os.remove(file_path)
+			gz_path = f"{file_path}.gz"
+			if os.path.exists(gz_path):
+				os.remove(gz_path)
+		if file_path and file_path.endswith(".gz"):
+			uncompressed_path = file_path[:-3]
+			if os.path.exists(uncompressed_path):
+				os.remove(uncompressed_path)
 	except Exception as e:
-		print(f"\033[31mERROR: Unexpected error {partition_bkp_file}: {e}.\033[0m")
+		print(f"WARNING: Could not delete {file_path}: {e}")
 
 
 def restore_partitions(
 	from_site, to_site, compress, partitioned_doctypes_to_restore=None, last_n_partitions=1
 ):
-	partitions_to_backup = get_partitions_to_backup(
+	"""
+	Restore partitions one at a time using intermediate files.
+	"""
+	partitions_to_backup = PartitionAnalyzer.get_partitions_to_backup(
 		partitioned_doctypes_to_restore, last_n_partitions
 	)
 
-	bkps_files = []
+	backup_engine = BackupEngine(from_site, "/tmp", compress)
+	restore_engine = RestoreEngine(to_site)
+
+	total_partitions = sum(len(partitions) for partitions in partitions_to_backup.values())
+	current = 0
+
 	for table, partitions in partitions_to_backup.items():
 		for partition in partitions:
-			partition_bkp_file = backup_partition(from_site, table, partition, compress)
-			bkps_files.append({"table": table, "partition_bkp_file": partition_bkp_file})
+			current += 1
+			print(f"\n[{current}/{total_partitions}] Processing {table} partition {partition}")
 
-	for file in bkps_files:
-		restore_partition(to_site, file["table"], file["partition_bkp_file"])
+			partition_bkp_file = backup_engine.backup_partition(table, partition)
 
+			if partition_bkp_file is None:
+				print(
+					f"WARNING: Skipping restore for {table} partition {partition} (backup failed)"
+				)
+				continue
 
-def uncompress_if_needed(file_path):
-	if file_path.endswith(".gz"):
-		uncompressed_path = file_path[:-3]
-		with gzip.open(file_path, "rb") as gz_file:
-			with open(uncompressed_path, "wb") as out_file:
-				shutil.copyfileobj(gz_file, out_file)
-		return uncompressed_path
-	return file_path
+			try:
+				restore_engine.restore_partition(table, partition_bkp_file)
+			finally:
+				_safe_delete(partition_bkp_file)
+				print("Deleted partition backup file")
 
 
 def get_site_config_data(site_name):
@@ -381,21 +957,8 @@ def get_site_config_data(site_name):
 		return site_config
 
 	except Exception as e:
-		print(
-			f"\033[31mERROR: Error reading site config for site {site_name}: {str(e)}.\033[0m"
-		)
+		print(f"ERROR: Error reading site config for site {site_name}: {str(e)}")
 		return None
-
-
-def delete_backup_files(backup_dir):
-	try:
-		for filename in os.listdir(backup_dir):
-			file_path = os.path.join(backup_dir, filename)
-			if any(filename.endswith(ext) for ext in [".sql", ".gz", ".csv"]):
-				os.remove(file_path)
-				print(f"\033[34mINFO: Deleted file: {file_path}.\033[0m")
-	except Exception as e:
-		print(f"\033[31mERROR: Error while deleting backup files: {str(e)}.\033[0m")
 
 
 def restore(
@@ -409,93 +972,83 @@ def restore(
 	compress=False,
 	delete_files=True,
 ):
-	from_site = os.path.basename(frappe.get_site_path())
-	mariadb_host = get_mariadb_host()
+	"""
+	Restore database using intermediate files.
+	"""
+	from_site_name = os.path.basename(frappe.get_site_path())
+	from_site_connection = SiteConnection(from_site_name)
 
 	if not to_site and not to_database:
-		print("\033[31mERROR: Should specify to_site or to_database.\033[0m")
+		print("ERROR: Should specify to_site or to_database")
 		return
-
-	from_site_config = get_site_config_data(from_site)
-	from_site_config.update(
-		{
-			"user": mariadb_user,
-			"host": mariadb_host,
-			"name": from_site,
-			"password": mariadb_password,
-			"db": from_site_config["db_name"],
-		}
-	)
 
 	if to_site:
 		bubble_backup = False
-		to_site_config = get_site_config_data(to_site)
-		to_site_config.update(
-			{
-				"user": mariadb_user,
-				"host": mariadb_host,
-				"name": to_site,
-				"password": mariadb_password,
-				"db": to_site_config["db_name"],
-			}
-		)
+		to_site_connection = SiteConnection(to_site)
 	else:
 		bubble_backup = True
-		to_site_config = {
-			"db_name": to_database,
-			"user": mariadb_user,
-			"host": mariadb_host,
-			"name": to_database,
-			"password": mariadb_password,
-			"db": to_database,
-		}
-	schema_dump_file = dump_schema_only(from_site_config, backup_dir, compress)
-	full_bkp_file = backup_full_database(from_site_config, backup_dir, compress)
-	schema_and_non_partitioned_data = merge_sql_files(
-		schema_dump_file, full_bkp_file, backup_dir, compress
+		to_site_connection = SiteConnection.__new__(SiteConnection)
+		to_site_connection.site_name = to_database
+		to_site_connection.database = to_database
+		to_site_connection.user = mariadb_user
+		to_site_connection.password = mariadb_password
+		to_site_connection.host = from_site_connection.host
+		to_site_connection.port = from_site_connection.port
+
+	backup_engine = BackupEngine(from_site_connection, backup_dir, compress)
+	restore_engine = RestoreEngine(to_site_connection)
+
+	print("\n" + "=" * 60)
+	print("Backup and Restore using intermediate files")
+	print("=" * 60 + "\n")
+
+	# Step 1: Dump schema
+	schema_dump_file = backup_engine.dump_schema_only()
+
+	# Step 2: Backup full database directly appended to schema (saves disk space)
+	print("Appending full backup data to schema file...")
+	schema_and_non_partitioned_data = backup_engine.backup_full_database(
+		append_to_file=schema_dump_file
 	)
-	restore_database(to_site_config, schema_and_non_partitioned_data, bubble_backup)
+
+	# Step 3: Restore merged database
+	restore_engine.restore_database(schema_and_non_partitioned_data, bubble_backup)
+
+	# Delete merged file after restore
+	_safe_delete(schema_and_non_partitioned_data)
+	print("Deleted merged backup file")
+
+	# Step 4: Restore partitions one at a time
 	restore_partitions(
-		from_site_config,
-		to_site_config,
+		from_site_connection,
+		to_site_connection,
 		compress,
 		partitioned_doctypes_to_restore,
 		last_n_partitions,
 	)
+
 	if delete_files:
-		delete_backup_files(backup_dir)
-
-
-def get_config():
-	site_path = os.path.join(os.getcwd(), "common_site_config.json")
-	with open(site_path) as f:
-		return frappe._dict(json.load(f))
+		BackupEngine.delete_backup_files(backup_dir)
 
 
 def bubble_backup(
+	mariadb_user,
+	mariadb_password,
 	backup_dir="/tmp",
 	partitioned_doctypes_to_restore=None,
 	last_n_partitions=1,
 	delete_files=True,
 	keep_temp_db=False,
 ):
-	mariadb_host = get_mariadb_host()
-	config = get_config()
-	mariadb_port = frappe.utils.cint(config.db_port) or 3306
-	mariadb_user = config.root_login
-	mariadb_password = config.root_password
-
-	if not mariadb_user or not mariadb_password:
-		print(
-			"\033[34mINFO: root_login and root_password must be set in common_site_config.json.\033[0m"
-		)
-		return
-
+	from_site_name = os.path.basename(frappe.get_site_path())
+	site_connection = SiteConnection(from_site_name)
 	temp_db_name = f"temp_restore_{datetime.datetime.now().strftime('%Y%m%d%H%M')}"
 	connection = pymysql.connect(
-		host=mariadb_host, port=mariadb_port, user=mariadb_user, password=mariadb_password
+		host=site_connection.host,
+		port=site_connection.port,
+		user=mariadb_user,
+		password=mariadb_password,
 	)
-	cursor = connection.cursor()
 
 	try:
 		try:
@@ -505,9 +1058,8 @@ def bubble_backup(
 			connection.commit()
 		finally:
 			connection.close()
-			print(f"\033[32mSUCCESS: Temporary database {temp_db_name} created.\033[0m")
+			print(f"Temporary database {temp_db_name} created")
 
-		from_site = os.path.basename(frappe.get_site_path())
 		restore(
 			mariadb_user,
 			mariadb_password,
@@ -519,18 +1071,26 @@ def bubble_backup(
 			compress=False,
 			delete_files=delete_files,
 		)
-		bubble_bkp_name = f"./{from_site}/private/backups/{datetime.datetime.now().strftime('%Y%m%d%H%M')}_bubble.sql"
-		dump_command = f"mysqldump -u {mariadb_user} -h {mariadb_host} -p{mariadb_password} {temp_db_name} | gzip > {bubble_bkp_name}.gz"
-		subprocess.run(dump_command, shell=True, check=True)
-		print(f"\033[32mSUCCESS: Backup SQL dump saved to {bubble_bkp_name}.\033[0m")
+
+		bubble_bkp_name = f"./{site_connection.site_name}/private/backups/{datetime.datetime.now().strftime('%Y%m%d%H%M')}_bubble.sql"
+		print("\nCreating final compressed backup...")
+		dump_command = f"mysqldump -u {mariadb_user} -h {site_connection.host} -p{mariadb_password} {temp_db_name} --single-transaction --quick | gzip > {bubble_bkp_name}.gz"
+		result = subprocess.run(dump_command, shell=True, capture_output=True, text=True)
+		if result.returncode != 0:
+			print(f"ERROR: Final dump failed: {result.stderr}")
+			raise Exception(f"Final dump failed with return code {result.returncode}")
+		print(f"Backup SQL dump saved to {bubble_bkp_name}.gz")
 
 	finally:
 		if not keep_temp_db:
-			connection = pymysql.connect(
-				host=mariadb_host, user=mariadb_user, password=mariadb_password
-			)
-			cursor = connection.cursor()
-			cursor.execute(f"DROP DATABASE {temp_db_name};")
-			cursor.close()
-			connection.close()
-			print(f"\033[34mINFO: Temporary database {temp_db_name} deleted.\033[0m")
+			try:
+				connection = pymysql.connect(
+					host=site_connection.host, user=mariadb_user, password=mariadb_password
+				)
+				cursor = connection.cursor()
+				cursor.execute(f"DROP DATABASE IF EXISTS {temp_db_name};")
+				cursor.close()
+				connection.close()
+				print(f"Temporary database {temp_db_name} deleted")
+			except Exception as e:
+				print(f"WARNING: Could not delete temp database: {e}")
