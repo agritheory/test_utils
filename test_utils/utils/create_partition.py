@@ -4,11 +4,9 @@ import time
 from datetime import datetime
 import frappe
 
-# Threshold for using Percona vs direct ALTER (rows)
-# Tables with fewer rows use direct ALTER (faster, no trigger issues)
+# Tables with fewer rows use direct ALTER
 PERCONA_THRESHOLD_ROWS = 100000
 
-# Mapping of doctypes to their actual date field
 # We'll create virtual columns to normalize to 'posting_date' for doctypes that use transaction_date
 DOCTYPE_DATE_FIELD_MAP = {
 	"Sales Order": "transaction_date",
@@ -183,7 +181,6 @@ class DatabaseConnection:
 			return False
 
 	def column_exists(self, table: str, column: str) -> bool:
-		"""Check if a column exists in the database table"""
 		result = self.execute(
 			f"""
 			SELECT COUNT(*) as cnt
@@ -213,7 +210,6 @@ class TableAnalyzer:
 		return result[0]["cnt"] > 0
 
 	def get_row_count(self, table: str) -> int:
-		"""Get approximate row count from information_schema (fast)"""
 		result = self.db.execute(
 			f"""
 			SELECT TABLE_ROWS
@@ -314,7 +310,6 @@ class FieldManager:
 
 		table = f"tab{doctype}"
 
-		# Check if posting_date column already exists in database
 		if db.column_exists(table, "posting_date"):
 			print(f"INFO: Virtual 'posting_date' column already exists in {doctype}")
 		else:
@@ -339,7 +334,6 @@ class FieldManager:
 					print(f"ERROR: Failed to add virtual column to {doctype}: {e}")
 					return False
 
-		# Create Custom Field metadata if it doesn't exist
 		if not frappe.get_all(
 			"Custom Field", filters={"dt": doctype, "fieldname": "posting_date"}
 		) and not frappe.get_meta(doctype)._fields.get("posting_date"):
@@ -354,7 +348,7 @@ class FieldManager:
 						"label": "Posting Date",
 						"read_only": 1,
 						"hidden": 1,
-						"is_virtual": 1,  # Mark as virtual field
+						"is_virtual": 1,
 						"description": "Virtual field derived from transaction_date for partitioning",
 					}
 				)
@@ -363,72 +357,11 @@ class FieldManager:
 				frappe.db.commit()
 				print(f"SUCCESS: Created Custom Field metadata for 'posting_date' in {doctype}")
 			except Exception as e:
-				# If custom field creation fails, it's not critical since column exists
 				print(f"WARNING: Could not create Custom Field metadata for {doctype}: {e}")
 		else:
 			print(f"INFO: Custom Field metadata for 'posting_date' already exists in {doctype}")
 
 		return True
-
-	@staticmethod
-	def add_custom_field(parent_doctype: str, partition_field: str):
-		"""Add partition field to child tables"""
-		if partition_field in frappe.model.default_fields:
-			if partition_field != "creation":
-				return
-
-			partition_docfield = frappe._dict(
-				{
-					"fieldname": "creation",
-					"fieldtype": "Datetime",
-					"label": "Creation",
-					"options": "",
-					"default": "",
-				}
-			)
-		else:
-			parent_doctype_meta = frappe.get_meta(parent_doctype)
-			partition_docfield = parent_doctype_meta._fields.get(partition_field)
-
-			if not partition_docfield:
-				# V13 compatibility
-				partition_docfields = list(
-					filter(lambda x: x.get("fieldname") == partition_field, parent_doctype_meta.fields)
-				)
-				partition_docfield = partition_docfields[0] if partition_docfields else None
-
-			if not partition_docfield:
-				raise ValueError(
-					f"Partition field {partition_field} does not exist for {parent_doctype}"
-				)
-
-		parent_doctype_meta = frappe.get_meta(parent_doctype)
-		for child_doctype in [df.options for df in parent_doctype_meta.get_table_fields()]:
-			if frappe.get_all(
-				"Custom Field", filters={"dt": child_doctype, "fieldname": partition_field}
-			) or frappe.get_meta(child_doctype)._fields.get(partition_field):
-				continue
-
-			print(f"INFO: Adding {partition_field} to {child_doctype} for {parent_doctype}")
-
-			custom_field = frappe.get_doc(
-				{
-					"doctype": "Custom Field",
-					"dt": child_doctype,
-					"fieldname": partition_docfield.fieldname,
-					"fieldtype": partition_docfield.fieldtype,
-					"label": partition_docfield.label,
-					"options": partition_docfield.options,
-					"default": partition_docfield.default,
-					"read_only": 1,
-					"hidden": 1,
-				}
-			)
-
-			try:
-				custom_field.insert()
-			except Exception as e:
-				print(f"ERROR: error adding {partition_field} to {child_doctype}: {e}")
 
 	@staticmethod
 	def add_posting_date_to_child(child_doctype: str, db: DatabaseConnection) -> bool:
@@ -438,7 +371,6 @@ class FieldManager:
 		"""
 		table = f"tab{child_doctype}"
 
-		# Check if column already exists in database
 		if db.column_exists(table, "posting_date"):
 			print(f"INFO: Column 'posting_date' already exists in {child_doctype}")
 			return True
@@ -446,7 +378,6 @@ class FieldManager:
 		print(f"INFO: Adding 'posting_date' column to {child_doctype}")
 
 		try:
-			# Add column directly with online DDL for large tables
 			frappe.db.sql(
 				f"""
 				ALTER TABLE `{table}`
@@ -478,7 +409,6 @@ class FieldManager:
 				print(f"ERROR: Failed to add column: {e}")
 				return False
 
-		# Create Custom Field metadata if it doesn't exist
 		if not frappe.get_all(
 			"Custom Field", filters={"dt": child_doctype, "fieldname": "posting_date"}
 		) and not frappe.get_meta(child_doctype)._fields.get("posting_date"):
@@ -520,7 +450,6 @@ class FieldManager:
 		)
 		sys.stdout.flush()
 
-		# Check if column exists
 		if not db.column_exists(table, "posting_date"):
 			print(f"ERROR: Column 'posting_date' does not exist in '{child_doctype}'")
 			return
@@ -550,7 +479,6 @@ class FieldManager:
 			# Check if parent table has posting_date column
 			parent_table = f"tab{parent_type}"
 			if not db.column_exists(parent_table, "posting_date"):
-				# Try to get the date field from DOCTYPE_DATE_FIELD_MAP
 				date_field = DOCTYPE_DATE_FIELD_MAP.get(parent_type)
 				if date_field and date_field != "posting_date":
 					print(f"WARNING: Parent '{parent_type}' uses '{date_field}' - using that instead")
@@ -968,7 +896,6 @@ class PartitionEngine:
 		self.use_percona = use_percona
 
 	def _should_use_percona(self, table: str) -> bool:
-		"""Determine if Percona should be used based on table size"""
 		if not self.use_percona:
 			return False
 
@@ -997,13 +924,9 @@ class PartitionEngine:
 		        index_columns: Dict of index name -> column list
 		"""
 		try:
-			# Kill blocking queries first
 			self.db.kill_blocking_queries(table)
-
-			# Commit any pending transaction
 			frappe.db.commit()
 
-			# Check if PRIMARY KEY exists before trying to drop it
 			current_pk = self.analyzer.get_primary_key(table)
 			if current_pk:
 				print(f"  Dropping existing PRIMARY KEY: {current_pk}")
@@ -1059,7 +982,6 @@ class PartitionEngine:
 		                  For parent tables with transaction_date, pk_field should be
 		                  the real field (transaction_date), not virtual posting_date.
 		"""
-		# Default pk_field to partition_field if not specified
 		if pk_field is None:
 			pk_field = partition_field
 
@@ -1130,13 +1052,11 @@ class PartitionEngine:
 
 		new_pk = current_pk + [pk_field]
 
-		# Ensure 'name' is always in the PK for Frappe tables
 		if "name" not in new_pk:
 			new_pk = ["name"] + [pk_field]
 			print(f"  WARNING: 'name' was not in PK, adding it: {new_pk}")
 
 		if "name" in new_pk:
-			# If 'name' is in the PK, uniqueness is guaranteed since 'name' is always unique
 			print("  Primary key will include 'name' - uniqueness guaranteed")
 		else:
 			is_unique, duplicates = self.analyzer.check_uniqueness(table, new_pk)
@@ -1165,13 +1085,11 @@ class PartitionEngine:
 				index_columns[idx_name] = []
 			index_columns[idx_name].append(idx["Column_name"])
 
-		# Determine if we should use Percona for this table based on size
 		use_percona_for_table = self._should_use_percona(table)
 
 		if use_percona_for_table:
 			print(f"   Modifying PK with Percona to include '{pk_field}'...")
 
-			# Kill any blocking queries first
 			self.db.kill_blocking_queries(table)
 
 			alter_parts = ["DROP PRIMARY KEY"]
@@ -1256,7 +1174,6 @@ class PartitionEngine:
 		)
 
 		try:
-			# Kill blocking queries first
 			self.db.kill_blocking_queries(table)
 			frappe.db.commit()
 
@@ -1331,7 +1248,6 @@ class PartitionEngine:
 			alter_stmt = f"ALTER TABLE `{table}` ADD PARTITION ({partition_def})"
 
 			try:
-				# Kill blocking queries before each partition add
 				self.db.kill_blocking_queries(table)
 				frappe.db.sql(alter_stmt)
 				frappe.db.commit()
@@ -1352,7 +1268,6 @@ class PartitionEngine:
 	def _run_percona(self, table: str, alter_stmt: str, **options) -> bool:
 		print("\nEnsuring no database locks...")
 
-		# Kill blocking queries before starting
 		self.db.kill_blocking_queries(table)
 
 		dsn = self.db.get_dsn(table)
@@ -1442,8 +1357,6 @@ def create_partition(
 
 	success_count = 0
 	total_count = 0
-
-	# Track processed child tables to avoid duplicate processing
 	processed_child_tables = set()
 
 	for doctype, settings in partition_doctypes.items():
@@ -1533,8 +1446,62 @@ def create_partition(
 	print(f"\n{'='*80}")
 	print(f"Summary: {success_count}/{total_count} tables partitioned successfully")
 	print(f"{'='*80}\n")
-
 	return success_count == total_count
+
+
+def populate_partition_fields(doc, event=None):
+	if doc.doctype not in DOCTYPE_DATE_FIELD_MAP:
+		partition_doctypes = frappe.get_hooks("partition_doctypes") or {}
+		if doc.doctype not in partition_doctypes:
+			return
+
+	source_date_field = DOCTYPE_DATE_FIELD_MAP.get(doc.doctype)
+
+	if not source_date_field:
+		partition_doctypes = frappe.get_hooks("partition_doctypes") or {}
+		if doc.doctype in partition_doctypes:
+			source_date_field = partition_doctypes[doc.doctype].get("field", ["posting_date"])[0]
+		else:
+			return
+
+	date_value = doc.get(source_date_field) or doc.get("posting_date")
+
+	if not date_value:
+		return
+
+	meta = frappe.get_meta(doc.doctype)
+
+	for df in meta.get_table_fields():
+		child_doctype = df.options
+		child_fieldname = df.fieldname
+		child_meta = frappe.get_meta(child_doctype)
+		if not child_meta._fields.get("posting_date"):
+			if not frappe.get_all(
+				"Custom Field", filters={"dt": child_doctype, "fieldname": "posting_date"}
+			):
+				try:
+					custom_field = frappe.get_doc(
+						{
+							"doctype": "Custom Field",
+							"dt": child_doctype,
+							"fieldname": "posting_date",
+							"fieldtype": "Date",
+							"label": "Posting Date",
+							"read_only": 1,
+							"hidden": 1,
+						}
+					)
+					custom_field.insert(ignore_permissions=True)
+					frappe.db.commit()
+				except Exception:
+					pass
+
+			child_meta = frappe.get_meta(child_doctype, cached=False)
+			if not child_meta._fields.get("posting_date"):
+				continue
+
+		for row in doc.get(child_fieldname) or []:
+			setattr(row, "posting_date", date_value)
 
 
 def analyze_table(doctype: str):
@@ -1729,63 +1696,6 @@ def check_partition_status(doctype: str) -> dict:
 
 	print()
 	return result
-
-
-def populate_partition_fields(doc, event=None):
-	if doc.doctype not in DOCTYPE_DATE_FIELD_MAP:
-		partition_doctypes = frappe.get_hooks("partition_doctypes") or {}
-		if doc.doctype not in partition_doctypes:
-			return
-
-	source_date_field = DOCTYPE_DATE_FIELD_MAP.get(doc.doctype)
-
-	if not source_date_field:
-		partition_doctypes = frappe.get_hooks("partition_doctypes") or {}
-		if doc.doctype in partition_doctypes:
-			source_date_field = partition_doctypes[doc.doctype].get("field", ["posting_date"])[0]
-		else:
-			return
-
-	date_value = doc.get(source_date_field) or doc.get("posting_date")
-
-	if not date_value:
-		return
-
-	meta = frappe.get_meta(doc.doctype)
-
-	for df in meta.get_table_fields():
-		child_doctype = df.options
-		child_fieldname = df.fieldname
-		child_meta = frappe.get_meta(child_doctype)
-		if not child_meta._fields.get("posting_date"):
-			# Create custom field directly for child table (don't use add_custom_field
-			# which expects the field to exist in parent - it won't for virtual columns)
-			if not frappe.get_all(
-				"Custom Field", filters={"dt": child_doctype, "fieldname": "posting_date"}
-			):
-				try:
-					custom_field = frappe.get_doc(
-						{
-							"doctype": "Custom Field",
-							"dt": child_doctype,
-							"fieldname": "posting_date",
-							"fieldtype": "Date",
-							"label": "Posting Date",
-							"read_only": 1,
-							"hidden": 1,
-						}
-					)
-					custom_field.insert(ignore_permissions=True)
-					frappe.db.commit()
-				except Exception:
-					pass
-
-			child_meta = frappe.get_meta(child_doctype, cached=False)
-			if not child_meta._fields.get("posting_date"):
-				continue
-
-		for row in doc.get(child_fieldname) or []:
-			setattr(row, "posting_date", date_value)
 
 
 def get_partition_progress(doctype: str) -> dict:
