@@ -1369,7 +1369,13 @@ class PartitionEngine:
 
 
 def create_partition(
-	doc=None, years_ahead=10, use_percona=False, root_user=None, root_password=None
+	doc=None,
+	years_ahead=10,
+	use_percona=False,
+	root_user=None,
+	root_password=None,
+	populate_child_tables=True,
+	partition_child_tables=True,
 ):
 	"""
 	Create partitions for doctypes configured in hooks.py
@@ -1473,25 +1479,27 @@ def create_partition(
 				field_mgr.add_posting_date_to_child(child_doctype, db)
 
 				# Populate posting_date from all parent types
-				field_mgr.populate_posting_date_for_child(child_doctype, db)
-				frappe.db.commit()
+				if populate_child_tables:
+					field_mgr.populate_posting_date_for_child(child_doctype, db)
+					frappe.db.commit()
 
 				# Partition child table using posting_date (REAL column, not virtual)
 				# Child tables always use posting_date for both PK and partition
-				total_count += 1
-				print(
-					"INFO: Partitioning child table with field='posting_date', pk_field='posting_date'"
-				)
-				if engine.partition_table(
-					child_table,
-					partition_field="posting_date",  # Real column for partition
-					strategy=partition_by,
-					years_back=2,
-					years_ahead=years_ahead,
-					dry_run=False,
-					pk_field="posting_date",  # Real column for PK
-				):
-					success_count += 1
+				if partition_child_tables:
+					total_count += 1
+					print(
+						"INFO: Partitioning child table with field='posting_date', pk_field='posting_date'"
+					)
+					if engine.partition_table(
+						child_table,
+						partition_field="posting_date",  # Real column for partition
+						strategy=partition_by,
+						years_back=2,
+						years_ahead=years_ahead,
+						dry_run=False,
+						pk_field="posting_date",  # Real column for PK
+					):
+						success_count += 1
 
 				print(f"DEBUG: Completed child {idx}/{len(child_tables)}: {child_doctype}")
 
