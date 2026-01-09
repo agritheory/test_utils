@@ -435,6 +435,59 @@ class FieldManager:
 		return True
 
 	@staticmethod
+	def _ensure_parent_index(child_doctype: str, db: DatabaseConnection) -> bool:
+		"""
+		Ensure child table has index on (parent, parenttype) for fast JOINs.
+		Critical for performance - without this, UPDATEs can take hours instead of minutes.
+		"""
+		table = f"tab{child_doctype}"
+
+		try:
+			# Check if index already exists on parent column
+			indexes = frappe.db.sql(
+				"""SELECT INDEX_NAME
+				   FROM information_schema.STATISTICS
+				   WHERE TABLE_SCHEMA = %s
+				   AND TABLE_NAME = %s
+				   AND COLUMN_NAME = 'parent'
+				   AND SEQ_IN_INDEX = 1""",
+				(frappe.conf.db_name, table),
+				as_dict=True,
+			)
+
+			if indexes:
+				print("  ✓ Index on 'parent' column already exists")
+				return True
+
+			print("  Creating index on (parent, parenttype) for fast JOINs...")
+			print("  This may take 1-3 minutes for large tables...")
+			sys.stdout.flush()
+
+			start = time.time()
+			frappe.db.sql(
+				f"""
+				ALTER TABLE `{table}`
+				ADD INDEX `idx_parent_type` (`parent`, `parenttype`)
+				"""
+			)
+			frappe.db.commit()
+
+			elapsed = time.time() - start
+			print(f"  ✓ Index created in {elapsed:.1f}s")
+			sys.stdout.flush()
+			return True
+
+		except Exception as e:
+			error_str = str(e)
+			if "Duplicate" in error_str or "duplicate" in error_str:
+				print("  ✓ Index already exists")
+				return True
+			else:
+				print(f"  WARNING: Could not create index: {e}")
+				print("  Continuing anyway, but UPDATEs will be slower...")
+				return False
+
+	@staticmethod
 	def populate_posting_date_for_child(
 		child_doctype: str,
 		db: DatabaseConnection,
@@ -443,6 +496,7 @@ class FieldManager:
 	):
 		"""
 		Populate posting_date in a child table from ALL parent types.
+		Uses chunked UPDATEs with indexed JOINs for optimal performance.
 		Handles parent tables that may not have posting_date by checking
 		DOCTYPE_DATE_FIELD_MAP and creating virtual columns if needed.
 		"""
@@ -467,7 +521,11 @@ class FieldManager:
 		print(f"INFO: Found {len(parent_types)} parent types: {parent_types}")
 		sys.stdout.flush()
 
-		# First, ensure all parent types that need virtual posting_date have it
+		# CRITICAL: Ensure index exists for fast JOINs (without this, UPDATEs take hours)
+		print(f"\nINFO: Ensuring index exists on '{child_doctype}' for fast JOINs...")
+		FieldManager._ensure_parent_index(child_doctype, db)
+
+		# Ensure all parent types that need virtual posting_date have it
 		for parent_type in parent_types:
 			if parent_type in DOCTYPES_NEEDING_VIRTUAL_POSTING_DATE:
 				print(
@@ -477,194 +535,117 @@ class FieldManager:
 
 		for parent_type in parent_types:
 			print(f"\nINFO: Processing parent type: {parent_type}")
+			print("INFO: Using chunked updates (skipping slow COUNT query)")
 			sys.stdout.flush()
 
-			# Check if this parent type needs processing (skip if no NULL rows)
-			try:
-				null_count = frappe.db.sql(
-					f"""
-					SELECT COUNT(*) as cnt
-					FROM `{table}`
-					WHERE `posting_date` IS NULL
-					AND parenttype = %s
-				""",
-					(parent_type,),
-					as_dict=True,
-				)[0]["cnt"]
-
-				if null_count == 0:
-					print(f"INFO: No NULL rows for {parent_type} - skipping")
-					continue
-
-				print(f"INFO: Found {null_count:,} NULL rows for {parent_type}")
-				sys.stdout.flush()
-			except Exception as e:
-				print(f"WARNING: Could not check NULL count for {parent_type}: {e}")
-				print("INFO: Proceeding with update anyway...")
-
-			# Check if parent table has posting_date column
+			# Determine source field and whether to use DATE() function
 			parent_table = f"tab{parent_type}"
 			if not db.column_exists(parent_table, "posting_date"):
 				date_field = DOCTYPE_DATE_FIELD_MAP.get(parent_type)
 				if date_field and date_field != "posting_date":
-					print(f"WARNING: Parent '{parent_type}' uses '{date_field}' - using that instead")
-
-					# Retry logic for lock timeouts
-					for attempt in range(max_retries):
-						try:
-							if attempt > 0:
-								print(f"  Retry attempt {attempt + 1}/{max_retries}")
-								db.kill_blocking_queries(table, max_wait=60)
-								time.sleep(2**attempt)  # Exponential backoff: 2s, 4s, 8s
-								sys.stdout.flush()
-
-							update_start = time.time()
-
-							frappe.db.sql(
-								f"""
-								UPDATE `{table}` AS child
-								INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
-								SET child.`posting_date` = parent.`{date_field}`
-								WHERE child.`posting_date` IS NULL
-								AND child.parenttype = %s
-							""",
-								(parent_type,),
-							)
-
-							rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
-							frappe.db.commit()
-
-							elapsed = time.time() - update_start
-							print(
-								f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} using '{date_field}' in {elapsed:.1f}s"
-							)
-							sys.stdout.flush()
-							break  # Success, exit retry loop
-
-						except Exception as e:
-							if "Lock wait timeout" in str(e) and attempt < max_retries - 1:
-								print(f"  Lock timeout - will retry in {2 ** (attempt + 1)}s...")
-								frappe.db.rollback()
-								continue
-							else:
-								print(f"ERROR: Failed to update for {parent_type} using '{date_field}': {e}")
-								frappe.db.rollback()
-								break
-					continue
+					source_field = date_field
+					use_date_function = False
 				else:
-					# Fallback to creation date
-					print(f"WARNING: Parent '{parent_type}' has no posting_date - using creation date")
+					source_field = "creation"
+					use_date_function = True
+			else:
+				source_field = "posting_date"
+				use_date_function = False
 
-					# Retry logic for lock timeouts
-					for attempt in range(max_retries):
-						try:
-							if attempt > 0:
-								print(f"  Retry attempt {attempt + 1}/{max_retries}")
-								db.kill_blocking_queries(table, max_wait=60)
-								time.sleep(2**attempt)  # Exponential backoff
-								sys.stdout.flush()
+			print(
+				f"  Using field: {source_field}"
+				+ (" (with DATE() conversion)" if use_date_function else "")
+			)
 
-							update_start = time.time()
+			# Process in chunks for progress tracking and to avoid long-running queries
+			total_updated = 0
+			batch_num = 0
+			start_time = time.time()
 
-							frappe.db.sql(
-								f"""
-								UPDATE `{table}` AS child
-								INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
-								SET child.`posting_date` = DATE(parent.`creation`)
-								WHERE child.`posting_date` IS NULL
-								AND child.parenttype = %s
-							""",
-								(parent_type,),
-							)
+			while True:
+				batch_num += 1
+				batch_start = time.time()
 
-							rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
-							frappe.db.commit()
-
-							elapsed = time.time() - update_start
-							print(
-								f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} using 'creation' in {elapsed:.1f}s"
-							)
-							sys.stdout.flush()
-							break  # Success, exit retry loop
-
-						except Exception as e:
-							if "Lock wait timeout" in str(e) and attempt < max_retries - 1:
-								print(f"  Lock timeout - will retry in {2 ** (attempt + 1)}s...")
-								frappe.db.rollback()
-								continue
-							else:
-								print(f"ERROR: Failed to update for {parent_type} using 'creation': {e}")
-								frappe.db.rollback()
-								break
-					continue
-
-			# Parent has posting_date (real or virtual)
-			# Retry logic for lock timeouts
-			for attempt in range(max_retries):
 				try:
-					if attempt > 0:
-						print(f"  Retry attempt {attempt + 1}/{max_retries}")
-						db.kill_blocking_queries(table, max_wait=60)
-						time.sleep(2**attempt)  # Exponential backoff
-						sys.stdout.flush()
+					# Build date expression
+					if use_date_function:
+						date_expr = f"DATE(parent.`{source_field}`)"
+					else:
+						date_expr = f"parent.`{source_field}`"
 
-					update_start = time.time()
-
+					# Chunked UPDATE with LIMIT for progress and to avoid table locks
 					frappe.db.sql(
 						f"""
 						UPDATE `{table}` AS child
 						INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
-						SET child.`posting_date` = parent.`posting_date`
+						SET child.`posting_date` = {date_expr}
 						WHERE child.`posting_date` IS NULL
 						AND child.parenttype = %s
-					""",
-						(parent_type,),
+						LIMIT %s
+						""",
+						(parent_type, chunk_size),
 					)
 
-					rows_affected = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
-					frappe.db.commit()
-
-					elapsed = time.time() - update_start
-					print(
-						f"SUCCESS: Updated {rows_affected:,} rows for {parent_type} in {elapsed:.1f}s"
-					)
-					sys.stdout.flush()
-					break  # Success, exit retry loop
-
-				except Exception as e:
-					if "Lock wait timeout" in str(e) and attempt < max_retries - 1:
-						print(f"  Lock timeout - will retry in {2 ** (attempt + 1)}s...")
-						frappe.db.rollback()
-						continue
-					else:
-						print(f"ERROR: Failed to update for {parent_type}: {e}")
-						frappe.db.rollback()
+					rows = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+					if rows == 0:
+						if batch_num == 1:
+							print(f"  No NULL rows found for {parent_type}")
 						break
 
-		# Handle remaining NULLs with creation date fallback
-		print("\nINFO: Checking for remaining NULL values...")
-		sys.stdout.flush()
+					total_updated += rows
+					frappe.db.commit()
 
-		try:
-			remaining_nulls = frappe.db.sql(
-				f"SELECT COUNT(*) as cnt FROM `{table}` WHERE `posting_date` IS NULL", as_dict=True
-			)[0]["cnt"]
+					batch_time = time.time() - batch_start
+					total_time = time.time() - start_time
+					rate = total_updated / total_time if total_time > 0 else 0
 
-			if remaining_nulls > 0:
+					print(
+						f"  Batch {batch_num}: {rows:,} rows in {batch_time:.1f}s "
+						f"(Total: {total_updated:,}, Rate: {rate:,.0f} rows/s)"
+					)
+					sys.stdout.flush()
+
+					if rows < chunk_size:
+						break  # Last batch
+
+				except Exception as e:
+					print(f"  ERROR in batch {batch_num}: {e}")
+					frappe.db.rollback()
+					break
+
+			if total_updated > 0:
+				total_time = time.time() - start_time
+				avg_rate = total_updated / total_time if total_time > 0 else 0
 				print(
-					f"INFO: Found {remaining_nulls:,} remaining NULL rows - using creation date as fallback"
+					f"  ✓ SUCCESS: {total_updated:,} rows updated for {parent_type} "
+					f"in {total_time:.1f}s ({avg_rate:,.0f} rows/s)"
 				)
 				sys.stdout.flush()
 
+		# Handle remaining NULLs with creation date fallback (chunked)
+		print("\nINFO: Setting fallback dates for any remaining NULLs...")
+		sys.stdout.flush()
+
+		try:
+			fallback_total = 0
+			while True:
 				frappe.db.sql(
 					f"""
 					UPDATE `{table}`
 					SET `posting_date` = DATE(`creation`)
 					WHERE `posting_date` IS NULL
+					LIMIT 100000
 				"""
 				)
+				rows = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+				if rows == 0:
+					break
+				fallback_total += rows
 				frappe.db.commit()
-				print(f"SUCCESS: Set fallback date for {remaining_nulls:,} rows")
+				print(f"  Fallback: {fallback_total:,} rows updated...")
+
+			if fallback_total > 0:
+				print(f"SUCCESS: Set fallback date for {fallback_total:,} rows")
 			else:
 				print(f"INFO: No remaining NULL values in '{child_doctype}'")
 		except Exception as e:
