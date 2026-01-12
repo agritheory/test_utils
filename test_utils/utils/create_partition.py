@@ -1502,10 +1502,19 @@ def create_partition(
 
 
 def populate_partition_fields(doc, event=None):
+	from frappe.utils import get_table_name
+
 	if doc.doctype not in DOCTYPE_DATE_FIELD_MAP:
 		partition_doctypes = frappe.get_hooks("partition_doctypes") or {}
 		if doc.doctype not in partition_doctypes:
 			return
+
+	main_table = get_table_name(doc.doctype)
+	db = DatabaseConnection()
+	analyzer = TableAnalyzer(db)
+
+	if not analyzer.is_partitioned(main_table):
+		return
 
 	source_date_field = DOCTYPE_DATE_FIELD_MAP.get(doc.doctype)
 
