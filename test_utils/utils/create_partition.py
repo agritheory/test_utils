@@ -17,7 +17,7 @@ DOCTYPE_DATE_FIELD_MAP = {
 	"Purchase Receipt": "posting_date",
 	"Quotation": "transaction_date",
 	"Supplier Quotation": "transaction_date",
-	"Material Request": "transaction_date",
+	"Material Request": "schedule_date",
 	"Stock Entry": "posting_date",
 	"POS Invoice": "posting_date",
 }
@@ -28,6 +28,17 @@ DOCTYPES_NEEDING_VIRTUAL_POSTING_DATE = [
 	for doctype, field in DOCTYPE_DATE_FIELD_MAP.items()
 	if field == "transaction_date"
 ]
+
+
+def _get_setting_value(settings: dict, key: str, default: str) -> str:
+	"""
+	Extract a setting value that could be either a string or list.
+	Frappe hooks convert dict values to lists, but direct params are strings.
+	"""
+	value = settings.get(key, default)
+	if isinstance(value, list):
+		return value[0] if value else default
+	return value if value else default
 
 
 class PerconaConfig:
@@ -473,14 +484,14 @@ class FieldManager:
 			frappe.db.commit()
 
 			elapsed = time.time() - start
-			print(f"  ✓ Index created in {elapsed:.1f}s")
+			print(f"Index created in {elapsed:.1f}s")
 			sys.stdout.flush()
 			return True
 
 		except Exception as e:
 			error_str = str(e)
 			if "Duplicate" in error_str or "duplicate" in error_str:
-				print("  ✓ Index already exists")
+				print("Index already exists")
 				return True
 			else:
 				print(f"  WARNING: Could not create index: {e}")
@@ -617,7 +628,7 @@ class FieldManager:
 				total_time = time.time() - start_time
 				avg_rate = total_updated / total_time if total_time > 0 else 0
 				print(
-					f"  ✓ SUCCESS: {total_updated:,} rows updated for {parent_type} "
+					f"SUCCESS: {total_updated:,} rows updated for {parent_type} "
 					f"in {total_time:.1f}s ({avg_rate:,.0f} rows/s)"
 				)
 				sys.stdout.flush()
@@ -970,10 +981,10 @@ class PartitionEngine:
 		"""Perform direct ALTER TABLE to modify primary key
 
 		Args:
-		        table: Table name
-		        pk_field: The field to add to primary key (real field, not virtual)
-		        pk_columns: Comma-separated list of PK columns
-		        index_columns: Dict of index name -> column list
+		                                table: Table name
+		                                pk_field: The field to add to primary key (real field, not virtual)
+		                                pk_columns: Comma-separated list of PK columns
+		                                index_columns: Dict of index name -> column list
 		"""
 		try:
 			self.db.kill_blocking_queries(table)
@@ -1023,16 +1034,16 @@ class PartitionEngine:
 		Partition a table by the specified field.
 
 		Args:
-		        table: Table name
-		        partition_field: Field to use for partition expression
-		        strategy: Partition strategy (month, quarter, year, fiscal_year)
-		        years_back: Years of history to partition
-		        years_ahead: Future years to create partitions for
-		        dry_run: If True, only show what would be done
-		        pk_field: Field to add to primary key. Defaults to partition_field.
-		                  Use this when partition_field is virtual (can't be in PK).
-		                  For parent tables with transaction_date, pk_field should be
-		                  the real field (transaction_date), not virtual posting_date.
+		                                table: Table name
+		                                partition_field: Field to use for partition expression
+		                                strategy: Partition strategy (month, quarter, year, fiscal_year)
+		                                years_back: Years of history to partition
+		                                years_ahead: Future years to create partitions for
+		                                dry_run: If True, only show what would be done
+		                                pk_field: Field to add to primary key. Defaults to partition_field.
+		                                                                  Use this when partition_field is virtual (can't be in PK).
+		                                                                  For parent tables with transaction_date, pk_field should be
+		                                                                  the real field (transaction_date), not virtual posting_date.
 		"""
 		if pk_field is None:
 			pk_field = partition_field
@@ -1089,9 +1100,9 @@ class PartitionEngine:
 		"""Ensure primary key includes the pk_field.
 
 		Args:
-		        table: Table name
-		        pk_field: The REAL field to add to PK (not virtual column)
-		        dry_run: If True, only show what would be done
+		                                table: Table name
+		                                pk_field: The REAL field to add to PK (not virtual column)
+		                                dry_run: If True, only show what would be done
 		"""
 		print("Checking primary key...")
 
@@ -1369,17 +1380,27 @@ class PartitionEngine:
 
 
 def create_partition(
-	doc=None, years_ahead=10, use_percona=False, root_user=None, root_password=None
+	doc=None,
+	years_ahead=10,
+	use_percona=False,
+	root_user=None,
+	root_password=None,
+	partition_doctypes=None,
 ):
 	"""
-	Create partitions for doctypes configured in hooks.py
+	Create partitions for doctypes configured in hooks.py or passed directly.
 
 	All doctypes are normalized to use 'posting_date' as the partition field.
 	For doctypes that use 'transaction_date', a virtual column is created.
+
+	Args:
+	                partition_doctypes: Optional dict to bypass hooks, e.g.:
+	                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
 	"""
 	from frappe.utils import get_table_name
 
-	partition_doctypes = frappe.get_hooks("partition_doctypes")
+	if partition_doctypes is None:
+		partition_doctypes = frappe.get_hooks("partition_doctypes")
 
 	if not partition_doctypes:
 		print("\nNo partition_doctypes found in hooks")
@@ -1412,8 +1433,8 @@ def create_partition(
 	processed_child_tables = set()
 
 	for doctype, settings in partition_doctypes.items():
-		original_partition_field = settings.get("field", ["posting_date"])[0]
-		partition_by = settings.get("partition_by", ["month"])[0]
+		original_partition_field = _get_setting_value(settings, "field", "posting_date")
+		partition_by = _get_setting_value(settings, "partition_by", "month")
 
 		print(f"\n{'='*80}")
 		print(f"Processing: {doctype}")
@@ -1499,6 +1520,895 @@ def create_partition(
 	print(f"Summary: {success_count}/{total_count} tables partitioned successfully")
 	print(f"{'='*80}\n")
 	return success_count == total_count
+
+
+def create_partition_phase1(
+	doc=None,
+	root_user=None,
+	root_password=None,
+	partition_doctypes=None,
+):
+	"""
+	PHASE 1: Create posting_date columns only (no data population)
+	- Creates virtual posting_date columns for parent tables using transaction_date
+	- Adds posting_date columns to all child tables
+	- Creates Custom Field metadata
+
+	Args:
+	                partition_doctypes: Optional dict to bypass hooks, e.g.:
+	                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
+	"""
+	from frappe.utils import get_table_name
+
+	phase_start_time = time.time()
+
+	if partition_doctypes is None:
+		partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if not partition_doctypes:
+		print("\nNo partition_doctypes found in hooks")
+		return False
+
+	if doc:
+		if doc.doctype in partition_doctypes:
+			partition_doctypes = {doc.doctype: partition_doctypes[doc.doctype]}
+		else:
+			print(f"ERROR: {doc.doctype} not in partition_doctypes hook")
+			return False
+
+	db = DatabaseConnection(root_user, root_password)
+	field_mgr = FieldManager()
+	processed_child_tables = set()
+
+	print(f"\n{'='*80}")
+	print("PHASE 1: Creating posting_date columns")
+	print(f"{'='*80}\n")
+
+	success_count = 0
+	total_count = 0
+	timing_details = []
+
+	for doctype, settings in partition_doctypes.items():
+		doctype_start = time.time()
+		print(f"\n{'='*80}")
+		print(f"Processing: {doctype}")
+		print(f"{'='*80}")
+
+		actual_date_field = DOCTYPE_DATE_FIELD_MAP.get(
+			doctype, _get_setting_value(settings, "field", "posting_date")
+		)
+
+		# Step 1: Create virtual posting_date for parent if needed
+		if actual_date_field == "transaction_date":
+			total_count += 1
+			op_start = time.time()
+			if field_mgr.ensure_virtual_posting_date(doctype, db):
+				success_count += 1
+				print(f"✓ Virtual posting_date created for {doctype}")
+			else:
+				print(f"✗ Failed to create virtual posting_date for {doctype}")
+			timing_details.append(
+				{
+					"doctype": doctype,
+					"operation": "virtual_column",
+					"elapsed": time.time() - op_start,
+				}
+			)
+
+		# Step 2: Add posting_date columns to all child tables
+		meta = frappe.get_meta(doctype)
+		for df in meta.get_table_fields():
+			child_doctype = df.options
+			child_table = get_table_name(df.options)
+
+			if child_table in processed_child_tables:
+				print(f"INFO: {child_doctype} already processed, skipping...")
+				continue
+
+			processed_child_tables.add(child_table)
+
+			total_count += 1
+			op_start = time.time()
+			if field_mgr.add_posting_date_to_child(child_doctype, db):
+				success_count += 1
+				print(f"✓ Column added to {child_doctype}")
+			else:
+				print(f"✗ Failed to add column to {child_doctype}")
+			timing_details.append(
+				{
+					"doctype": child_doctype,
+					"operation": "add_column",
+					"elapsed": time.time() - op_start,
+				}
+			)
+
+		doctype_elapsed = time.time() - doctype_start
+		print(f"\n {doctype} completed in {doctype_elapsed:.1f}s")
+
+	phase_elapsed = time.time() - phase_start_time
+
+	print(f"\n{'='*80}")
+	print("PHASE 1 Summary")
+	print("=" * 80)
+	print(f"Operations: {success_count}/{total_count} successful")
+	print(f"Total time: {phase_elapsed:.1f}s ({phase_elapsed/60:.1f} minutes)")
+	print(f"{'='*80}\n")
+
+	# Print timing breakdown
+	if timing_details:
+		print("Timing Breakdown:")
+		print(f"{'Operation':<50} {'Time':>10}")
+		print(f"{'-'*50} {'-'*10}")
+		for t in timing_details:
+			print(f"{t['doctype'][:45]:<50} {t['elapsed']:>10.1f}s")
+		print()
+
+	return success_count == total_count
+
+
+def create_partition_phase2(
+	doc=None,
+	chunk_size=50000,
+	root_user=None,
+	root_password=None,
+	partition_doctypes=None,
+):
+	"""
+	PHASE 2: Populate posting_date columns with data
+	- Populates posting_date in all child tables from their parent tables
+	- Uses chunked updates for progress tracking
+	- Can be resumed if interrupted
+
+	Args:
+	                partition_doctypes: Optional dict to bypass hooks, e.g.:
+	                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
+	"""
+	from frappe.utils import get_table_name
+
+	phase_start_time = time.time()
+
+	if partition_doctypes is None:
+		partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if not partition_doctypes:
+		print("\nNo partition_doctypes found in hooks")
+		return False
+
+	if doc:
+		if doc.doctype in partition_doctypes:
+			partition_doctypes = {doc.doctype: partition_doctypes[doc.doctype]}
+		else:
+			print(f"ERROR: {doc.doctype} not in partition_doctypes hook")
+			return False
+
+	db = DatabaseConnection(root_user, root_password)
+	field_mgr = FieldManager()
+	processed_child_tables = set()
+
+	print(f"\n{'='*80}")
+	print("PHASE 2: Populating posting_date columns")
+	print(f"{'='*80}\n")
+
+	timing_details = []
+
+	for doctype, settings in partition_doctypes.items():
+		doctype_start = time.time()
+		print(f"\n{'='*80}")
+		print(f"Processing: {doctype}")
+		print(f"{'='*80}")
+
+		actual_date_field = DOCTYPE_DATE_FIELD_MAP.get(
+			doctype, _get_setting_value(settings, "field", "posting_date")
+		)
+
+		# Ensure virtual column exists if needed
+		if actual_date_field == "transaction_date":
+			field_mgr.ensure_virtual_posting_date(doctype, db)
+
+		# Populate all child tables
+		meta = frappe.get_meta(doctype)
+		for df in meta.get_table_fields():
+			child_doctype = df.options
+			child_table = get_table_name(df.options)
+
+			if child_table in processed_child_tables:
+				print(f"\nINFO: {child_doctype} already processed, skipping...")
+				continue
+
+			processed_child_tables.add(child_table)
+
+			print(f"\n{'='*80}")
+			print(f"Processing child table: {child_doctype}")
+			print(f"{'='*80}")
+
+			child_start = time.time()
+
+			# Populate posting_date from all parent types
+			field_mgr.populate_posting_date_for_child(child_doctype, db, chunk_size)
+			frappe.db.commit()
+
+			child_elapsed = time.time() - child_start
+			timing_details.append(
+				{
+					"doctype": child_doctype,
+					"table": child_table,
+					"elapsed": child_elapsed,
+				}
+			)
+			print(
+				f"\n  {child_doctype} completed in {child_elapsed:.1f}s ({child_elapsed/60:.1f} min)"
+			)
+
+		doctype_elapsed = time.time() - doctype_start
+		print(
+			f"\n {doctype} (all children) completed in {doctype_elapsed:.1f}s ({doctype_elapsed/60:.1f} min)"
+		)
+
+	phase_elapsed = time.time() - phase_start_time
+
+	print(f"\n{'='*80}")
+	print("PHASE 2 Summary")
+	print("=" * 80)
+	print(f"Child tables processed: {len(timing_details)}")
+	print(f"Total time: {phase_elapsed:.1f}s ({phase_elapsed/60:.1f} minutes)")
+	print(f"{'='*80}\n")
+
+	# Print timing breakdown sorted by longest first
+	if timing_details:
+		print("Timing Breakdown:")
+		print(f"{'Child Table':<50} {'Time':>12} {'Min':>8}")
+		print(f"{'-'*50} {'-'*12} {'-'*8}")
+		for t in sorted(timing_details, key=lambda x: -x["elapsed"]):
+			print(f"{t['doctype'][:45]:<50} {t['elapsed']:>12.1f}s {t['elapsed']/60:>8.1f}")
+		print()
+
+	return True
+
+
+def create_partition_phase3(
+	doc=None,
+	years_ahead=10,
+	use_percona=False,
+	root_user=None,
+	root_password=None,
+	partition_doctypes=None,
+):
+	"""
+	PHASE 3: Apply partitioning (modify PK and create partitions)
+	- Modifies primary keys to include posting_date/transaction_date
+	- Applies RANGE partitioning to tables
+	- Uses Percona if enabled for large tables
+
+	Args:
+	                partition_doctypes: Optional dict to bypass hooks, e.g.:
+	                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
+	"""
+	from frappe.utils import get_table_name
+
+	phase_start_time = time.time()
+
+	if partition_doctypes is None:
+		partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if not partition_doctypes:
+		print("\nNo partition_doctypes found in hooks")
+		return False
+
+	if doc:
+		if doc.doctype in partition_doctypes:
+			partition_doctypes = {doc.doctype: partition_doctypes[doc.doctype]}
+		else:
+			print(f"ERROR: {doc.doctype} not in partition_doctypes hook")
+			return False
+
+	db = DatabaseConnection(root_user, root_password)
+	engine = PartitionEngine(db, use_percona)
+	processed_child_tables = set()
+
+	print(f"\n{'='*80}")
+	print("PHASE 3: Applying partitioning")
+	print(f"{'='*80}\n")
+
+	success_count = 0
+	total_count = 0
+	timing_details = []
+
+	for doctype, settings in partition_doctypes.items():
+		doctype_start = time.time()
+		original_partition_field = _get_setting_value(settings, "field", "posting_date")
+		partition_by = _get_setting_value(settings, "partition_by", "month")
+
+		print(f"\n{'='*80}")
+		print(f"Processing: {doctype}")
+		print(f"{'='*80}")
+
+		actual_date_field = DOCTYPE_DATE_FIELD_MAP.get(doctype, original_partition_field)
+
+		# Partition main table
+		main_table = get_table_name(doctype)
+		total_count += 1
+
+		main_start = time.time()
+		main_success = engine.partition_table(
+			main_table,
+			partition_field=actual_date_field,
+			strategy=partition_by,
+			years_back=2,
+			years_ahead=years_ahead,
+			dry_run=False,
+			pk_field=actual_date_field,
+		)
+		if main_success:
+			success_count += 1
+			print(f"✓ Partitioned {doctype}")
+		else:
+			print(f"✗ Failed to partition {doctype}")
+
+		main_elapsed = time.time() - main_start
+		timing_details.append(
+			{
+				"doctype": doctype,
+				"table": main_table,
+				"type": "parent",
+				"elapsed": main_elapsed,
+				"success": main_success,
+			}
+		)
+
+		# Partition child tables
+		meta = frappe.get_meta(doctype)
+		for df in meta.get_table_fields():
+			child_doctype = df.options
+			child_table = get_table_name(df.options)
+
+			if child_table in processed_child_tables:
+				print(f"\nINFO: {child_doctype} already processed, skipping...")
+				continue
+
+			processed_child_tables.add(child_table)
+
+			print(f"\n{'='*80}")
+			print(f"Processing child table: {child_doctype}")
+			print(f"{'='*80}")
+
+			total_count += 1
+			child_start = time.time()
+			child_success = engine.partition_table(
+				child_table,
+				partition_field="posting_date",
+				strategy=partition_by,
+				years_back=2,
+				years_ahead=years_ahead,
+				dry_run=False,
+				pk_field="posting_date",
+			)
+			if child_success:
+				success_count += 1
+				print(f"✓ Partitioned {child_doctype}")
+			else:
+				print(f"✗ Failed to partition {child_doctype}")
+
+			child_elapsed = time.time() - child_start
+			timing_details.append(
+				{
+					"doctype": child_doctype,
+					"table": child_table,
+					"type": "child",
+					"elapsed": child_elapsed,
+					"success": child_success,
+				}
+			)
+			print(
+				f"\n  {child_doctype} completed in {child_elapsed:.1f}s ({child_elapsed/60:.1f} min)"
+			)
+
+		doctype_elapsed = time.time() - doctype_start
+		print(
+			f"\n  {doctype} (with children) completed in {doctype_elapsed:.1f}s ({doctype_elapsed/60:.1f} min)"
+		)
+
+	phase_elapsed = time.time() - phase_start_time
+
+	print(f"\n{'='*80}")
+	print("PHASE 3 Summary")
+	print("=" * 80)
+	print(f"Tables partitioned: {success_count}/{total_count}")
+	print(f"Total time: {phase_elapsed:.1f}s ({phase_elapsed/60:.1f} minutes)")
+	print(f"{'='*80}\n")
+
+	# Print timing breakdown sorted by longest first
+	if timing_details:
+		print("Timing Breakdown:")
+		print(f"{'Table':<50} {'Type':<8} {'Status':<8} {'Time':>12}")
+		print(f"{'-'*50} {'-'*8} {'-'*8} {'-'*12}")
+		for t in sorted(timing_details, key=lambda x: -x["elapsed"]):
+			status = "✓" if t["success"] else "✗"
+			print(f"{t['doctype'][:45]:<50} {t['type']:<8} {status:<8} {t['elapsed']:>12.1f}s")
+		print()
+
+	return success_count == total_count
+
+
+def scheduled_populate_partition_fields(
+	max_hours: float = 2.0,
+	chunk_size: int = 50000,
+	partition_doctypes: dict = None,
+):
+	"""
+	This function:
+	- Finds doctypes that have Phase 1 complete but Phase 2 incomplete
+	- Populates posting_date for child tables in chunks
+	- Respects time limit and stops gracefully when reached
+	- Can be resumed on next scheduler run (picks up where it left off)
+
+	Args:
+	                max_hours: Maximum time to run in hours (default: 2.0)
+	                chunk_size: Number of rows to update per batch (default: 50000)
+	                root_user: Database root user (optional)
+	                root_password: Database root password (optional)
+	                partition_doctypes: Optional dict to bypass hooks, e.g.:
+	                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
+
+	Returns:
+	                dict: Summary of work done and status
+
+	Usage in hooks.py:
+	                scheduler_events = {
+	                                "daily_long": [
+	                                                "test_utils.utils.create_partition.scheduled_populate_partition_fields"
+	                                ]
+	                }
+	"""
+	from frappe.utils import get_table_name
+
+	start_time = time.time()
+	max_seconds = max_hours * 3600
+	end_time = start_time + max_seconds
+
+	def time_remaining():
+		return end_time - time.time()
+
+	def should_continue():
+		remaining = time_remaining()
+		if remaining <= 0:
+			print(f"\nTime limit reached ({max_hours} hours). Stopping gracefully...")
+			return False
+		return True
+
+	if partition_doctypes is None:
+		partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if not partition_doctypes:
+		print("\nNo partition_doctypes found in hooks")
+		return {"status": "no_config", "message": "No partition_doctypes in hooks"}
+
+	processed_child_tables = set()
+
+	print(f"\n{'='*80}")
+	print("Scheduled Phase 2: Populating posting_date columns")
+	print(f"Time limit: {max_hours} hours | Chunk size: {chunk_size:,}")
+	print("=" * 80 + "\n")
+
+	doctypes_to_process = []
+
+	for doctype, settings in partition_doctypes.items():
+		actual_date_field = DOCTYPE_DATE_FIELD_MAP.get(
+			doctype, _get_setting_value(settings, "field", "posting_date")
+		)
+
+		meta = frappe.get_meta(doctype)
+		children_needing_work = []
+
+		for df in meta.get_table_fields():
+			child_doctype = df.options
+			child_table = get_table_name(df.options)
+
+			# Check if Phase 2 work needed (has NULL values)
+			try:
+				result = frappe.db.sql(
+					f"SELECT EXISTS(SELECT 1 FROM `{child_table}` WHERE `posting_date` IS NULL LIMIT 1)"
+				)
+				has_nulls = result[0][0] > 0 if result else False
+			except Exception:
+				has_nulls = True  # Assume work needed if we can't check
+
+			if has_nulls:
+				children_needing_work.append(
+					{
+						"doctype": child_doctype,
+						"table": child_table,
+					}
+				)
+
+		if children_needing_work:
+			doctypes_to_process.append(
+				{
+					"doctype": doctype,
+					"settings": settings,
+					"actual_date_field": actual_date_field,
+					"children": children_needing_work,
+				}
+			)
+
+	if not doctypes_to_process:
+		elapsed = time.time() - start_time
+		print("\n All doctypes have Phase 2 complete!")
+		print(f"Elapsed: {elapsed:.1f}s")
+		return {
+			"status": "complete",
+			"message": "All Phase 2 work is done",
+			"elapsed_seconds": elapsed,
+		}
+
+	print(f"\nFound {len(doctypes_to_process)} doctypes needing Phase 2 work:")
+	for item in doctypes_to_process:
+		print(f"  - {item['doctype']}: {len(item['children'])} child tables")
+
+	summary = {
+		"processed_doctypes": [],
+		"processed_tables": [],
+		"skipped_tables": [],
+		"total_rows_updated": 0,
+		"stopped_due_to_time": False,
+	}
+
+	for item in doctypes_to_process:
+		if not should_continue():
+			summary["stopped_due_to_time"] = True
+			break
+
+		doctype = item["doctype"]
+		actual_date_field = item["actual_date_field"]
+
+		print(f"\n{'='*80}")
+		print(f"Processing: {doctype}")
+		print(f"Time remaining: {time_remaining() / 60:.1f} minutes")
+		print(f"{'='*80}")
+
+		for child_info in item["children"]:
+			if not should_continue():
+				summary["stopped_due_to_time"] = True
+				break
+
+			child_doctype = child_info["doctype"]
+			child_table = child_info["table"]
+
+			if child_table in processed_child_tables:
+				print(f"\nINFO: {child_doctype} already processed this run, skipping...")
+				continue
+
+			processed_child_tables.add(child_table)
+
+			print(f"\n{'='*80}")
+			print(f"Processing child table: {child_doctype}")
+			print(f"Time remaining: {time_remaining() / 60:.1f} minutes")
+			print(f"{'='*80}")
+
+			rows_updated = _populate_with_time_limit(
+				child_doctype=child_doctype,
+				end_time=end_time,
+				chunk_size=chunk_size,
+				partition_doctypes=partition_doctypes,
+			)
+
+			summary["processed_tables"].append(
+				{
+					"doctype": child_doctype,
+					"table": child_table,
+					"rows_updated": rows_updated,
+				}
+			)
+			summary["total_rows_updated"] += rows_updated
+
+			frappe.db.commit()
+
+			if not should_continue():
+				summary["stopped_due_to_time"] = True
+				break
+
+		if not summary["stopped_due_to_time"]:
+			summary["processed_doctypes"].append(doctype)
+
+	elapsed = time.time() - start_time
+	summary["elapsed_seconds"] = elapsed
+	summary["status"] = "partial" if summary["stopped_due_to_time"] else "complete"
+
+	print(f"\n{'='*80}")
+	print("Scheduled Phase 2 Summary")
+	print("=" * 80)
+	print(f"Status: {summary['status']}")
+	print(f"Elapsed: {elapsed / 60:.1f} minutes")
+	print(f"Tables processed: {len(summary['processed_tables'])}")
+	print(f"Total rows updated: {summary['total_rows_updated']:,}")
+	if summary["stopped_due_to_time"]:
+		print("Stopped due to time limit - will continue on next run")
+	print("=" * 80 + "\n")
+
+	return summary
+
+
+def _populate_with_time_limit(
+	child_doctype: str,
+	end_time: float,
+	chunk_size: int = 50000,
+	partition_doctypes: dict = None,
+) -> int:
+	"""
+	Populate posting_date for a child table using parent-based bulk updates.
+
+	Strategy:
+	1. Find distinct parents that have children with NULL posting_date
+	2. Fetch parent documents in batches (cursor-based pagination)
+	3. Bulk update all children of those parents in one query per batch
+
+	Returns the number of rows updated.
+	"""
+
+	table = f"tab{child_doctype}"
+	total_updated = 0
+
+	print(
+		f"\nINFO: Populating 'posting_date' in '{child_doctype}' (parent-based bulk updates)..."
+	)
+	sys.stdout.flush()
+
+	parent_types = []
+	for doctype in partition_doctypes.keys():
+		try:
+			meta = frappe.get_meta(doctype)
+			for df in meta.get_table_fields():
+				if df.options == child_doctype:
+					parent_types.append(doctype)
+					break
+		except Exception:
+			pass
+
+	if not parent_types:
+		print(f"INFO: No parent types found in hooks for {child_doctype}")
+		return 0
+
+	print(f"INFO: Parent types from config: {parent_types}")
+	sys.stdout.flush()
+
+	# Process by parent type
+	for parent_type in parent_types:
+		if time.time() >= end_time:
+			print(f"\nTime limit reached during {parent_type}, stopping...")
+			break
+
+		print(f"\nINFO: Processing parent type: {parent_type}")
+		sys.stdout.flush()
+
+		parent_table = f"tab{parent_type}"
+		source_field = "posting_date"
+		print(f"  Using field: {source_field}")
+
+		# Parent batch size - process N parents at a time
+		parent_batch_size = chunk_size
+		batch_num = 0
+		last_parent_name = ""
+		batch_start_time = time.time()
+
+		while time.time() < end_time:
+			batch_num += 1
+			batch_start = time.time()
+
+			try:
+				# Get next batch of parent names that have children with NULL posting_date
+				# Using cursor-based pagination (faster than OFFSET)
+				parents_with_null_children = frappe.db.sql(
+					f"""
+					SELECT DISTINCT c.parent, p.`{source_field}` as date_value
+					FROM `{table}` c
+					INNER JOIN `{parent_table}` p ON c.parent = p.name
+					WHERE c.parenttype = %s
+					AND c.posting_date IS NULL
+					AND c.parent > %s
+					ORDER BY c.parent
+					LIMIT %s
+					""",
+					(parent_type, last_parent_name, parent_batch_size),
+					as_dict=True,
+				)
+
+				if not parents_with_null_children:
+					if batch_num == 1:
+						print(f"  No NULL rows found for {parent_type}")
+					break
+
+				# Update cursor for next batch
+				last_parent_name = parents_with_null_children[-1]["parent"]
+
+				# Group parents by date value for efficient bulk updates
+				date_to_parents = {}
+				for row in parents_with_null_children:
+					date_val = row["date_value"]
+					if date_val:
+						# Convert datetime to date if needed
+						if hasattr(date_val, "date"):
+							date_val = date_val.date()
+						date_key = str(date_val)
+						if date_key not in date_to_parents:
+							date_to_parents[date_key] = []
+						date_to_parents[date_key].append(row["parent"])
+
+				# Bulk update children for each date group
+				rows_this_batch = 0
+				for date_val, parent_list in date_to_parents.items():
+					if not parent_list:
+						continue
+
+					# Build IN clause with escaped values
+					parent_placeholders = ", ".join(["%s"] * len(parent_list))
+
+					frappe.db.sql(
+						f"""
+						UPDATE `{table}`
+						SET posting_date = %s
+						WHERE parent IN ({parent_placeholders})
+						AND parenttype = %s
+						AND posting_date IS NULL
+						""",
+						[date_val] + parent_list + [parent_type],
+					)
+
+					rows = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+					rows_this_batch += rows
+
+				total_updated += rows_this_batch
+				frappe.db.commit()
+
+				batch_time = time.time() - batch_start
+				total_time = time.time() - batch_start_time
+				rate = total_updated / total_time if total_time > 0 else 0
+				remaining = (end_time - time.time()) / 60
+
+				print(
+					f"  Batch {batch_num}: {len(parents_with_null_children)} parents, "
+					f"{rows_this_batch:,} rows in {batch_time:.1f}s "
+					f"(Total: {total_updated:,}, Rate: {rate:,.0f}/s, {remaining:.1f}min left)"
+				)
+				sys.stdout.flush()
+
+				# If we got fewer parents than requested, we're done with this parent type
+				if len(parents_with_null_children) < parent_batch_size:
+					break
+
+			except Exception as e:
+				print(f"  ERROR in batch {batch_num}: {e}")
+				frappe.db.rollback()
+				# Try to continue with next parent type
+				break
+
+		if total_updated > 0:
+			total_time = time.time() - batch_start_time
+			avg_rate = total_updated / total_time if total_time > 0 else 0
+			print(
+				f"SUCCESS: {total_updated:,} rows updated for {parent_type} "
+				f"in {total_time:.1f}s ({avg_rate:,.0f} rows/s)"
+			)
+			sys.stdout.flush()
+
+	return total_updated
+
+
+def get_phase_status(doc=None, partition_doctypes=None):
+	"""
+	Check the status of each phase for doctypes
+	Returns a report showing which phases are complete for each doctype
+	"""
+	from frappe.utils import get_table_name
+
+	if partition_doctypes is None:
+		partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if not partition_doctypes:
+		print("\nNo partition_doctypes found in hooks")
+		return {}
+
+	if doc:
+		if doc.doctype in partition_doctypes:
+			partition_doctypes = {doc.doctype: partition_doctypes[doc.doctype]}
+
+	db = DatabaseConnection()
+	analyzer = TableAnalyzer(db)
+
+	print(f"\n{'='*80}")
+	print("Partition Phase Status")
+	print(f"{'='*80}\n")
+
+	status = {}
+
+	for doctype, settings in partition_doctypes.items():
+		actual_date_field = DOCTYPE_DATE_FIELD_MAP.get(
+			doctype, _get_setting_value(settings, "field", "posting_date")
+		)
+		main_table = get_table_name(doctype)
+
+		# Check Phase 1: Virtual column exists
+		phase1_complete = True
+		if actual_date_field == "transaction_date":
+			phase1_complete = db.column_exists(main_table, "posting_date")
+
+		# Check child tables for Phase 1
+		meta = frappe.get_meta(doctype)
+		child_status = []
+
+		for df in meta.get_table_fields():
+			child_doctype = df.options
+			child_table = get_table_name(df.options)
+
+			has_column = db.column_exists(child_table, "posting_date")
+
+			# Check Phase 2: Data populated
+			null_count = 0
+			phase2_complete = False
+			if has_column:
+				try:
+					result = frappe.db.sql(
+						f"SELECT COUNT(*) as cnt FROM `{child_table}` WHERE `posting_date` IS NULL"
+					)
+					null_count = result[0][0] if result else 0
+					phase2_complete = null_count == 0
+				except Exception:
+					null_count = -1
+
+			# Check Phase 3: Partitioned
+			phase3_complete = analyzer.is_partitioned(child_table)
+
+			child_status.append(
+				{
+					"doctype": child_doctype,
+					"table": child_table,
+					"phase1": has_column,
+					"phase2": phase2_complete,
+					"phase3": phase3_complete,
+					"null_count": null_count,
+				}
+			)
+
+			if not has_column:
+				phase1_complete = False
+
+		# Check main table Phase 3
+		main_partitioned = analyzer.is_partitioned(main_table)
+
+		status[doctype] = {
+			"main_table": main_table,
+			"date_field": actual_date_field,
+			"phase1_complete": phase1_complete,
+			"phase2_complete": all(c["phase2"] for c in child_status),
+			"phase3_complete": main_partitioned and all(c["phase3"] for c in child_status),
+			"main_partitioned": main_partitioned,
+			"child_tables": child_status,
+		}
+
+		# Print status
+		print(f"\n{doctype}:")
+		print(
+			f"  Phase 1 (Columns):    {'✓ Complete' if phase1_complete else '✗ Incomplete'}"
+		)
+		print(
+			f"  Phase 2 (Populate):   {'✓ Complete' if status[doctype]['phase2_complete'] else '✗ Incomplete'}"
+		)
+		print(
+			f"  Phase 3 (Partition):  {'✓ Complete' if status[doctype]['phase3_complete'] else '✗ Incomplete'}"
+		)
+
+		for child in child_status:
+			p1 = "✓" if child["phase1"] else "✗"
+			p2 = (
+				"✓"
+				if child["phase2"]
+				else f"✗ ({child['null_count']:,} nulls)"
+				if child["null_count"] >= 0
+				else "?"
+			)
+			p3 = "✓" if child["phase3"] else "✗"
+			print(f"    {child['doctype']}: P1:{p1} P2:{p2} P3:{p3}")
+
+	print(f"\n{'='*80}\n")
+	return status
 
 
 def populate_partition_fields(doc, event=None):
@@ -1656,22 +2566,22 @@ def check_partition_status(doctype: str) -> dict:
 	Check if a doctype and all its child doctypes are partitioned.
 
 	Args:
-	        doctype: The parent doctype to check (e.g., 'Sales Order')
+	                                doctype: The parent doctype to check (e.g., 'Sales Order')
 
 	Returns:
-	        dict with partition status for main table and all child tables
+	                                dict with partition status for main table and all child tables
 
 	Example:
-	        >>> check_partition_status('Sales Order')
-	        {
-	                'doctype': 'Sales Order',
-	                'main_table': {'table': 'tabSales Order', 'partitioned': True, 'partitions': 96},
-	                'child_tables': [
-	                        {'doctype': 'Sales Order Item', 'table': 'tabSales Order Item', 'partitioned': True, 'partitions': 96},
-	                        ...
-	                ],
-	                'all_partitioned': True
-	        }
+	                                >>> check_partition_status('Sales Order')
+	                                {
+	                                                                'doctype': 'Sales Order',
+	                                                                'main_table': {'table': 'tabSales Order', 'partitioned': True, 'partitions': 96},
+	                                                                'child_tables': [
+	                                                                                                {'doctype': 'Sales Order Item', 'table': 'tabSales Order Item', 'partitioned': True, 'partitions': 96},
+	                                                                                                ...
+	                                                                ],
+	                                                                'all_partitioned': True
+	                                }
 	"""
 	from frappe.utils import get_table_name
 
@@ -1753,7 +2663,7 @@ def check_partition_status(doctype: str) -> dict:
 		not_partitioned.extend(
 			[c["table"] for c in result["child_tables"] if not c["partitioned"]]
 		)
-		print(f"✗ Tables NOT partitioned: {', '.join(not_partitioned)}")
+		print(f"Tables NOT partitioned: {', '.join(not_partitioned)}")
 
 	print()
 	return result
@@ -1765,13 +2675,13 @@ def get_partition_progress(doctype: str) -> dict:
 	Useful for resuming interrupted operations.
 
 	Args:
-	        doctype: The doctype to check (e.g., 'Sales Order')
+	                                doctype: The doctype to check (e.g., 'Sales Order')
 
 	Returns:
-	        dict with partition progress for main table and all child tables
+	                                dict with partition progress for main table and all child tables
 
 	Example:
-	        >>> get_partition_progress('Sales Order')
+	                                >>> get_partition_progress('Sales Order')
 	"""
 	from frappe.utils import get_table_name
 
@@ -1852,7 +2762,7 @@ def get_partition_progress(doctype: str) -> dict:
 
 	print(f"\n{'='*80}")
 	if progress["ready_for_partition"]:
-		print("✓ All tables are partitioned!")
+		print("All tables are partitioned!")
 	else:
 		not_done = []
 		if not mt["partitioned"]:
@@ -1871,25 +2781,25 @@ def get_largest_tables(limit=50, include_child_tables=True):
 	Get the tables with the most rows in the ERPNext instance.
 
 	Args:
-	    limit: Number of tables to return
-	    include_child_tables: If False, excludes tables that are child doctypes
+	                limit: Number of tables to return
+	                include_child_tables: If False, excludes tables that are child doctypes
 	"""
 	db_name = frappe.conf.db_name
 
 	query = f"""
-        SELECT
-            TABLE_NAME,
-            TABLE_ROWS,
-            ROUND(DATA_LENGTH / 1024 / 1024, 2) as DATA_MB,
-            ROUND(INDEX_LENGTH / 1024 / 1024, 2) as INDEX_MB,
-            ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as TOTAL_MB
-        FROM information_schema.TABLES
-        WHERE TABLE_SCHEMA = '{db_name}'
-        AND TABLE_TYPE = 'BASE TABLE'
-        AND TABLE_NAME LIKE 'tab%'
-        ORDER BY TABLE_ROWS DESC
-        LIMIT {limit * 2}
-    """
+		SELECT
+			TABLE_NAME,
+			TABLE_ROWS,
+			ROUND(DATA_LENGTH / 1024 / 1024, 2) as DATA_MB,
+			ROUND(INDEX_LENGTH / 1024 / 1024, 2) as INDEX_MB,
+			ROUND((DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as TOTAL_MB
+		FROM information_schema.TABLES
+		WHERE TABLE_SCHEMA = '{db_name}'
+		AND TABLE_TYPE = 'BASE TABLE'
+		AND TABLE_NAME LIKE 'tab%'
+		ORDER BY TABLE_ROWS DESC
+		LIMIT {limit * 2}
+	"""
 
 	results = frappe.db.sql(query, as_dict=True)
 	output = []
