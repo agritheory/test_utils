@@ -446,57 +446,106 @@ class FieldManager:
 		return True
 
 	@staticmethod
-	def _ensure_parent_index(child_doctype: str, db: DatabaseConnection) -> bool:
+	def ensure_partition_indexes(
+		table: str, date_field: str, db: DatabaseConnection
+	) -> bool:
 		"""
-		Ensure child table has index on (parent, parenttype) for fast JOINs.
-		Critical for performance - without this, UPDATEs can take hours instead of minutes.
+		Ensure table has optimal indexes for partitioning operations.
+		- Index on name (usually exists as PK, but verify)
+		- Index on date field for partition queries
+		- Composite index for child table JOINs
 		"""
-		table = f"tab{child_doctype}"
+		print(f"\nINFO: Checking indexes on {table}...")
+		sys.stdout.flush()
+
+		indexes_created = 0
 
 		try:
-			# Check if index already exists on parent column
-			indexes = frappe.db.sql(
-				"""SELECT INDEX_NAME
-				   FROM information_schema.STATISTICS
-				   WHERE TABLE_SCHEMA = %s
-				   AND TABLE_NAME = %s
-				   AND COLUMN_NAME = 'parent'
-				   AND SEQ_IN_INDEX = 1""",
+			existing_indexes = frappe.db.sql(
+				"""
+				SELECT INDEX_NAME, COLUMN_NAME, SEQ_IN_INDEX
+				FROM information_schema.STATISTICS
+				WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+				ORDER BY INDEX_NAME, SEQ_IN_INDEX
+				""",
 				(frappe.conf.db_name, table),
 				as_dict=True,
 			)
 
-			if indexes:
-				print("  ✓ Index on 'parent' column already exists")
-				return True
+			index_columns = {}
+			for idx in existing_indexes:
+				idx_name = idx["INDEX_NAME"]
+				if idx_name not in index_columns:
+					index_columns[idx_name] = []
+				index_columns[idx_name].append(idx["COLUMN_NAME"])
 
-			print("  Creating index on (parent, parenttype) for fast JOINs...")
-			print("  This may take 1-3 minutes for large tables...")
-			sys.stdout.flush()
+			name_indexed = any("name" in cols for cols in index_columns.values())
+			if not name_indexed:
+				print(f"  WARNING: 'name' column not indexed on {table} - this is unusual")
+			else:
+				print("  ✓ 'name' column is indexed")
 
-			start = time.time()
-			frappe.db.sql(
-				f"""
-				ALTER TABLE `{table}`
-				ADD INDEX `idx_parent_type` (`parent`, `parenttype`)
-				"""
-			)
-			frappe.db.commit()
+			# Check if date field is indexed
+			date_indexed = any(date_field in cols for cols in index_columns.values())
+			if not date_indexed and db.column_exists(table, date_field):
+				print(f"  Creating index on '{date_field}'...")
+				sys.stdout.flush()
+				try:
+					start = time.time()
+					frappe.db.sql(
+						f"""
+						ALTER TABLE `{table}`
+						ADD INDEX `idx_{date_field}` (`{date_field}`)
+						"""
+					)
+					frappe.db.commit()
+					elapsed = time.time() - start
+					print(f"  ✓ Index on '{date_field}' created in {elapsed:.1f}s")
+					indexes_created += 1
+				except Exception as e:
+					if "Duplicate" in str(e):
+						print(f"  ✓ Index on '{date_field}' already exists")
+					else:
+						print(f"  WARNING: Could not create index on '{date_field}': {e}")
+			elif date_indexed:
+				print(f"  ✓ '{date_field}' column is indexed")
 
-			elapsed = time.time() - start
-			print(f"Index created in {elapsed:.1f}s")
-			sys.stdout.flush()
+			# For child tables, ensure (parent, parenttype) index exists
+			if db.column_exists(table, "parent") and db.column_exists(table, "parenttype"):
+				parent_indexed = any(
+					"parent" in cols and cols.index("parent") == 0 for cols in index_columns.values()
+				)
+				if not parent_indexed:
+					print("  Creating index on (parent, parenttype)...")
+					sys.stdout.flush()
+					try:
+						start = time.time()
+						frappe.db.sql(
+							f"""
+							ALTER TABLE `{table}`
+							ADD INDEX `idx_parent_type` (`parent`, `parenttype`)
+							"""
+						)
+						frappe.db.commit()
+						elapsed = time.time() - start
+						print(f"  ✓ Index on (parent, parenttype) created in {elapsed:.1f}s")
+						indexes_created += 1
+					except Exception as e:
+						if "Duplicate" in str(e):
+							print("  ✓ Index on (parent, parenttype) already exists")
+						else:
+							print(f"  WARNING: Could not create index: {e}")
+				else:
+					print("  ✓ (parent, parenttype) is indexed")
+
+			if indexes_created > 0:
+				print(f"  Created {indexes_created} new index(es)")
+
 			return True
 
 		except Exception as e:
-			error_str = str(e)
-			if "Duplicate" in error_str or "duplicate" in error_str:
-				print("Index already exists")
-				return True
-			else:
-				print(f"  WARNING: Could not create index: {e}")
-				print("  Continuing anyway, but UPDATEs will be slower...")
-				return False
+			print(f"  ERROR checking/creating indexes: {e}")
+			return False
 
 	@staticmethod
 	def populate_posting_date_for_child(
@@ -532,9 +581,9 @@ class FieldManager:
 		print(f"INFO: Found {len(parent_types)} parent types: {parent_types}")
 		sys.stdout.flush()
 
-		# CRITICAL: Ensure index exists for fast JOINs (without this, UPDATEs take hours)
-		print(f"\nINFO: Ensuring index exists on '{child_doctype}' for fast JOINs...")
-		FieldManager._ensure_parent_index(child_doctype, db)
+		# CRITICAL: Ensure indexes exist for fast JOINs (without this, UPDATEs take hours)
+		print(f"\nINFO: Ensuring indexes exist on '{child_doctype}' for fast JOINs...")
+		FieldManager.ensure_partition_indexes(table, "posting_date", db)
 
 		# Ensure all parent types that need virtual posting_date have it
 		for parent_type in parent_types:
@@ -981,10 +1030,10 @@ class PartitionEngine:
 		"""Perform direct ALTER TABLE to modify primary key
 
 		Args:
-		                                                                table: Table name
-		                                                                pk_field: The field to add to primary key (real field, not virtual)
-		                                                                pk_columns: Comma-separated list of PK columns
-		                                                                index_columns: Dict of index name -> column list
+		                                                                                                                                table: Table name
+		                                                                                                                                pk_field: The field to add to primary key (real field, not virtual)
+		                                                                                                                                pk_columns: Comma-separated list of PK columns
+		                                                                                                                                index_columns: Dict of index name -> column list
 		"""
 		try:
 			self.db.kill_blocking_queries(table)
@@ -1034,16 +1083,16 @@ class PartitionEngine:
 		Partition a table by the specified field.
 
 		Args:
-		                                                                table: Table name
-		                                                                partition_field: Field to use for partition expression
-		                                                                strategy: Partition strategy (month, quarter, year, fiscal_year)
-		                                                                years_back: Years of history to partition
-		                                                                years_ahead: Future years to create partitions for
-		                                                                dry_run: If True, only show what would be done
-		                                                                pk_field: Field to add to primary key. Defaults to partition_field.
-		                                                                                                                                  Use this when partition_field is virtual (can't be in PK).
-		                                                                                                                                  For parent tables with transaction_date, pk_field should be
-		                                                                                                                                  the real field (transaction_date), not virtual posting_date.
+		                                                                                                                                table: Table name
+		                                                                                                                                partition_field: Field to use for partition expression
+		                                                                                                                                strategy: Partition strategy (month, quarter, year, fiscal_year)
+		                                                                                                                                years_back: Years of history to partition
+		                                                                                                                                years_ahead: Future years to create partitions for
+		                                                                                                                                dry_run: If True, only show what would be done
+		                                                                                                                                pk_field: Field to add to primary key. Defaults to partition_field.
+		                                                                                                                                                                                                                                                                  Use this when partition_field is virtual (can't be in PK).
+		                                                                                                                                                                                                                                                                  For parent tables with transaction_date, pk_field should be
+		                                                                                                                                                                                                                                                                  the real field (transaction_date), not virtual posting_date.
 		"""
 		if pk_field is None:
 			pk_field = partition_field
@@ -1100,9 +1149,9 @@ class PartitionEngine:
 		"""Ensure primary key includes the pk_field.
 
 		Args:
-		                                                                table: Table name
-		                                                                pk_field: The REAL field to add to PK (not virtual column)
-		                                                                dry_run: If True, only show what would be done
+		                                                                                                                                table: Table name
+		                                                                                                                                pk_field: The REAL field to add to PK (not virtual column)
+		                                                                                                                                dry_run: If True, only show what would be done
 		"""
 		print("Checking primary key...")
 
@@ -1394,8 +1443,8 @@ def create_partition(
 	For doctypes that use 'transaction_date', a virtual column is created.
 
 	Args:
-	                                partition_doctypes: Optional dict to bypass hooks, e.g.:
-	                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
+	                                                                partition_doctypes: Optional dict to bypass hooks, e.g.:
+	                                                                                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
 	"""
 	from frappe.utils import get_table_name
 
@@ -1535,8 +1584,8 @@ def create_partition_phase1(
 	- Creates Custom Field metadata
 
 	Args:
-	                                partition_doctypes: Optional dict to bypass hooks, e.g.:
-	                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
+	                                                                partition_doctypes: Optional dict to bypass hooks, e.g.:
+	                                                                                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
 	"""
 	from frappe.utils import get_table_name
 
@@ -1578,6 +1627,9 @@ def create_partition_phase1(
 			doctype, _get_setting_value(settings, "field", "posting_date")
 		)
 
+		main_table = get_table_name(doctype)
+		FieldManager.ensure_partition_indexes(main_table, actual_date_field, db)
+
 		# Step 1: Create virtual posting_date for parent if needed
 		if actual_date_field == "transaction_date":
 			total_count += 1
@@ -1612,6 +1664,7 @@ def create_partition_phase1(
 			if field_mgr.add_posting_date_to_child(child_doctype, db):
 				success_count += 1
 				print(f"✓ Column added to {child_doctype}")
+				FieldManager.ensure_partition_indexes(child_table, "posting_date", db)
 			else:
 				print(f"✗ Failed to add column to {child_doctype}")
 			timing_details.append(
@@ -1660,8 +1713,8 @@ def create_partition_phase2(
 	- Can be resumed if interrupted
 
 	Args:
-	                                partition_doctypes: Optional dict to bypass hooks, e.g.:
-	                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
+	                                                                partition_doctypes: Optional dict to bypass hooks, e.g.:
+	                                                                                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
 	"""
 	from frappe.utils import get_table_name
 
@@ -1952,9 +2005,9 @@ def scheduled_populate_partition_fields(
 
 	Usage in hooks.py:
 	scheduler_events = {
-	        "daily_long": [
-	                "test_utils.utils.create_partition.scheduled_populate_partition_fields"
-	        ]
+	                "daily_long": [
+	                                "test_utils.utils.create_partition.scheduled_populate_partition_fields"
+	                ]
 	}
 	"""
 	from frappe.utils import get_table_name
@@ -2541,22 +2594,22 @@ def check_partition_status(doctype: str) -> dict:
 	Check if a doctype and all its child doctypes are partitioned.
 
 	Args:
-	                                                                doctype: The parent doctype to check (e.g., 'Sales Order')
+	                                                                                                                                doctype: The parent doctype to check (e.g., 'Sales Order')
 
 	Returns:
-	                                                                dict with partition status for main table and all child tables
+	                                                                                                                                dict with partition status for main table and all child tables
 
 	Example:
-	                                                                >>> check_partition_status('Sales Order')
-	                                                                {
-	                                                                                                                                'doctype': 'Sales Order',
-	                                                                                                                                'main_table': {'table': 'tabSales Order', 'partitioned': True, 'partitions': 96},
-	                                                                                                                                'child_tables': [
-	                                                                                                                                                                                                {'doctype': 'Sales Order Item', 'table': 'tabSales Order Item', 'partitioned': True, 'partitions': 96},
-	                                                                                                                                                                                                ...
-	                                                                                                                                ],
-	                                                                                                                                'all_partitioned': True
-	                                                                }
+	                                                                                                                                >>> check_partition_status('Sales Order')
+	                                                                                                                                {
+	                                                                                                                                                                                                                                                                'doctype': 'Sales Order',
+	                                                                                                                                                                                                                                                                'main_table': {'table': 'tabSales Order', 'partitioned': True, 'partitions': 96},
+	                                                                                                                                                                                                                                                                'child_tables': [
+	                                                                                                                                                                                                                                                                                                                                                                                                {'doctype': 'Sales Order Item', 'table': 'tabSales Order Item', 'partitioned': True, 'partitions': 96},
+	                                                                                                                                                                                                                                                                                                                                                                                                ...
+	                                                                                                                                                                                                                                                                ],
+	                                                                                                                                                                                                                                                                'all_partitioned': True
+	                                                                                                                                }
 	"""
 	from frappe.utils import get_table_name
 
@@ -2650,13 +2703,13 @@ def get_partition_progress(doctype: str) -> dict:
 	Useful for resuming interrupted operations.
 
 	Args:
-	                                                                doctype: The doctype to check (e.g., 'Sales Order')
+	                                                                                                                                doctype: The doctype to check (e.g., 'Sales Order')
 
 	Returns:
-	                                                                dict with partition progress for main table and all child tables
+	                                                                                                                                dict with partition progress for main table and all child tables
 
 	Example:
-	                                                                >>> get_partition_progress('Sales Order')
+	                                                                                                                                >>> get_partition_progress('Sales Order')
 	"""
 	from frappe.utils import get_table_name
 
@@ -2756,8 +2809,8 @@ def get_largest_tables(limit=50, include_child_tables=True):
 	Get the tables with the most rows in the ERPNext instance.
 
 	Args:
-	                                limit: Number of tables to return
-	                                include_child_tables: If False, excludes tables that are child doctypes
+	                                                                limit: Number of tables to return
+	                                                                include_child_tables: If False, excludes tables that are child doctypes
 	"""
 	db_name = frappe.conf.db_name
 
