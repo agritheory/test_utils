@@ -452,7 +452,6 @@ class FieldManager:
 		"""
 		Ensure table has optimal indexes for partitioning operations.
 		- Index on name (usually exists as PK, but verify)
-		- Index on date field for partition queries
 		- Composite index for child table JOINs
 		"""
 		print(f"\nINFO: Checking indexes on {table}...")
@@ -484,31 +483,6 @@ class FieldManager:
 				print(f"  WARNING: 'name' column not indexed on {table} - this is unusual")
 			else:
 				print("  ✓ 'name' column is indexed")
-
-			# Check if date field is indexed
-			date_indexed = any(date_field in cols for cols in index_columns.values())
-			if not date_indexed and db.column_exists(table, date_field):
-				print(f"  Creating index on '{date_field}'...")
-				sys.stdout.flush()
-				try:
-					start = time.time()
-					frappe.db.sql(
-						f"""
-						ALTER TABLE `{table}`
-						ADD INDEX `idx_{date_field}` (`{date_field}`)
-						"""
-					)
-					frappe.db.commit()
-					elapsed = time.time() - start
-					print(f"  ✓ Index on '{date_field}' created in {elapsed:.1f}s")
-					indexes_created += 1
-				except Exception as e:
-					if "Duplicate" in str(e):
-						print(f"  ✓ Index on '{date_field}' already exists")
-					else:
-						print(f"  WARNING: Could not create index on '{date_field}': {e}")
-			elif date_indexed:
-				print(f"  ✓ '{date_field}' column is indexed")
 
 			# For child tables, ensure (parent, parenttype) index exists
 			if db.column_exists(table, "parent") and db.column_exists(table, "parenttype"):
@@ -552,7 +526,6 @@ class FieldManager:
 		child_doctype: str,
 		db: DatabaseConnection,
 		chunk_size: int = 50000,
-		max_retries: int = 3,
 	):
 		"""
 		Populate posting_date in a child table from ALL parent types.
