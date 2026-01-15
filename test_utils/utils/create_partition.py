@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import time
@@ -1793,20 +1794,337 @@ def create_partition_phase2(
 
 def create_partition_phase3(
 	doc=None,
-	years_ahead=10,
-	use_percona=False,
-	root_user=None,
-	root_password=None,
+	output_file: str = None,
+	root_user: str = None,
+	root_password: str = None,
 	partition_doctypes=None,
 ):
 	"""
-	PHASE 3: Apply partitioning (modify PK and create partitions)
-	- Modifies primary keys to include posting_date/transaction_date
-	- Applies RANGE partitioning to tables
-	- Uses Percona if enabled for large tables
+	PHASE 3: Generate Percona commands for PK modification (does not execute them)
+
+	This phase generates pt-online-schema-change commands to modify primary keys
+	to include the date field. Commands are printed to console and written to a
+	shell script for manual execution outside bench console.
 
 	Args:
-	partition_doctypes: Optional dict to bypass hooks, e.g.:
+	        doc: Optional document to process only that doctype
+	        output_file: Path to write shell script (default: ./percona_pk_commands.sh)
+	        root_user: Database root user for Percona commands
+	        root_password: Database root password for Percona commands
+	        partition_doctypes: Optional dict to bypass hooks
+
+	Returns:
+	        bool: True if commands were generated successfully
+
+	Usage:
+	        1. Run this function to generate the shell script
+	        2. Execute the shell script manually in a terminal
+	        3. Run create_partition_phase4() to apply partitioning
+	"""
+	import shlex
+	from frappe.utils import get_table_name
+
+	if partition_doctypes is None:
+		partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if not partition_doctypes:
+		print("\nNo partition_doctypes found in hooks")
+		return False
+
+	if doc:
+		if doc.doctype in partition_doctypes:
+			partition_doctypes = {doc.doctype: partition_doctypes[doc.doctype]}
+		else:
+			print(f"ERROR: {doc.doctype} not in partition_doctypes hook")
+			return False
+
+	db = DatabaseConnection(root_user, root_password)
+	analyzer = TableAnalyzer(db)
+	processed_child_tables = set()
+
+	if not db.user or not db.password:
+		print("\nWARNING: Database credentials not provided.")
+		print("You can either:")
+		print("  1. Pass root_user and root_password parameters")
+		print("  2. Set root_login and root_password in site_config.json")
+		print("  3. Edit the generated script to add credentials manually")
+		print()
+
+	commands = []
+	tables_info = []
+
+	print(f"\n{'='*80}")
+	print("PHASE 3: Generating Percona PK modification commands")
+	print(f"{'='*80}\n")
+
+	for doctype, settings in partition_doctypes.items():
+		original_partition_field = _get_setting_value(settings, "field", "posting_date")
+		actual_date_field = DOCTYPE_DATE_FIELD_MAP.get(doctype, original_partition_field)
+
+		print(f"\nProcessing: {doctype}")
+
+		main_table = get_table_name(doctype)
+		cmd = _generate_pk_modification_command(
+			table=main_table,
+			pk_field=actual_date_field,
+			db=db,
+			analyzer=analyzer,
+		)
+		if cmd:
+			commands.append(cmd)
+			tables_info.append({"table": main_table, "doctype": doctype, "type": "parent"})
+			print(f"  ✓ {main_table} - command generated")
+		else:
+			print(f"  ⊘ {main_table} - PK already includes date field or skipped")
+
+		meta = frappe.get_meta(doctype)
+		for df in meta.get_table_fields():
+			child_doctype = df.options
+			child_table = get_table_name(df.options)
+
+			if child_table in processed_child_tables:
+				continue
+
+			processed_child_tables.add(child_table)
+
+			cmd = _generate_pk_modification_command(
+				table=child_table,
+				pk_field="posting_date",
+				db=db,
+				analyzer=analyzer,
+			)
+			if cmd:
+				commands.append(cmd)
+				tables_info.append(
+					{"table": child_table, "doctype": child_doctype, "type": "child"}
+				)
+				print(f"  ✓ {child_table} - command generated")
+			else:
+				print(f"  ⊘ {child_table} - PK already includes date field or skipped")
+
+	if not commands:
+		print("\nNo PK modifications needed - all tables already have date field in PK")
+		print("You can proceed directly to create_partition_phase4()")
+		return True
+
+	if output_file is None:
+		output_file = "./percona_pk_commands.sh"
+
+	script_content = _generate_percona_script(commands, tables_info, db)
+
+	with open(output_file, "w") as f:
+		f.write(script_content)
+
+	os.chmod(output_file, 0o755)
+
+	print(f"\n{'='*80}")
+	print("PHASE 3 Summary")
+	print(f"{'='*80}")
+	print(f"Commands generated: {len(commands)}")
+	print(f"Shell script written to: {output_file}")
+	print("\nNext steps:")
+	print(f"  1. Review and execute the script: bash {output_file}")
+	print("  2. After all commands complete, run: create_partition_phase4()")
+	print(f"{'='*80}\n")
+
+	# Also print commands to console
+	print("\n" + "=" * 80)
+	print("GENERATED COMMANDS (also saved to script file):")
+	print("=" * 80 + "\n")
+	for i, cmd in enumerate(commands, 1):
+		print(f"# {i}. {tables_info[i-1]['doctype']} ({tables_info[i-1]['type']})")
+		print(cmd)
+		print()
+
+	return True
+
+
+def _generate_pk_modification_command(
+	table: str,
+	pk_field: str,
+	db: DatabaseConnection,
+	analyzer: TableAnalyzer,
+) -> str | None:
+	"""
+	Generate the Percona pt-online-schema-change command for PK modification.
+
+	Returns None if PK already includes the date field or on error.
+	"""
+	import shlex
+
+	try:
+		if not db.column_exists(table, pk_field):
+			print(f"    WARNING: Column '{pk_field}' does not exist in {table}")
+			return None
+
+		current_pk = analyzer.get_primary_key(table)
+
+		if pk_field in current_pk:
+			return None
+
+		new_pk = current_pk + [pk_field]
+		if "name" not in new_pk:
+			new_pk = ["name"] + [pk_field]
+
+		pk_columns = ", ".join([f"`{col}`" for col in new_pk])
+
+		unique_indexes = frappe.db.sql(
+			f"SHOW INDEXES FROM `{table}` WHERE Non_unique = 0", as_dict=True
+		)
+
+		index_columns = {}
+		for idx in unique_indexes:
+			idx_name = idx["Key_name"]
+			if idx_name not in index_columns:
+				index_columns[idx_name] = []
+			index_columns[idx_name].append(idx["Column_name"])
+
+		alter_parts = ["DROP PRIMARY KEY"]
+
+		for idx_name, columns in index_columns.items():
+			if idx_name == "PRIMARY":
+				continue
+			alter_parts.append(f"DROP INDEX `{idx_name}`")
+			if pk_field not in columns:
+				columns.append(pk_field)
+			cols_str = ", ".join([f"`{col}`" for col in columns])
+			alter_parts.append(f"ADD UNIQUE INDEX `{idx_name}` ({cols_str})")
+
+		alter_parts.append(f"ADD PRIMARY KEY ({pk_columns})")
+		alter_statement = ", ".join(alter_parts)
+
+		dsn = db.get_dsn(table)
+
+		user_arg = f"--user={db.user}" if db.user else "--user=YOUR_DB_USER"
+		pass_arg = (
+			f"--password={db.password}" if db.password else "--password=YOUR_DB_PASSWORD"
+		)
+
+		cmd_parts = [
+			"pt-online-schema-change",
+			shlex.quote(f"--alter={alter_statement}"),
+			shlex.quote(dsn),
+			shlex.quote(user_arg),
+			shlex.quote(pass_arg),
+			"--execute",
+			"--chunk-size=10000",
+			"--max-load=Threads_running=100",
+			"--critical-load=Threads_running=200",
+			"--recursion-method=none",
+			"--progress=time,30",
+			"--print",
+			"--no-check-unique-key-change",
+			"--no-check-alter",
+			"--preserve-triggers",
+		]
+
+		return " ".join(cmd_parts)
+
+	except Exception as e:
+		print(f"    ERROR generating command for {table}: {e}")
+		return None
+
+
+def _generate_percona_script(
+	commands: list, tables_info: list, db: DatabaseConnection
+) -> str:
+	"""Generate a shell script with all Percona commands"""
+
+	# Check if credentials are placeholders
+	has_real_creds = db.user and db.password and "YOUR_" not in str(db.user)
+
+	script = f"""#!/bin/bash
+#
+# Percona PK Modification Script
+# Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+# Database: {db.database}
+# Host: {db.host}
+#
+# This script modifies primary keys to include date fields for partitioning.
+# Run each command one at a time and wait for completion before the next.
+#
+"""
+
+	if not has_real_creds:
+		script += """# IMPORTANT: Database credentials were not provided.
+# Please replace YOUR_DB_USER and YOUR_DB_PASSWORD in the commands below.
+#
+# Option: Find and replace in this file:
+#   sed -i 's/YOUR_DB_USER/actual_user/g' percona_pk_commands.sh
+#   sed -i 's/YOUR_DB_PASSWORD/actual_password/g' percona_pk_commands.sh
+#
+"""
+
+	script += f"""# Usage: bash {os.path.basename("percona_pk_commands.sh")}
+#
+# After all commands complete successfully, run in bench console:
+#   create_partition_phase4()
+#
+
+set -e  # Exit on error
+
+echo "Starting Percona PK modifications..."
+echo "Database: {db.database}"
+echo "Host: {db.host}"
+echo "Tables to modify: {len(commands)}"
+echo ""
+
+"""
+
+	for i, (cmd, info) in enumerate(zip(commands, tables_info), 1):
+		script += f"""
+# ============================================================================
+# {i}/{len(commands)}: {info['doctype']} ({info['type']})
+# Table: {info['table']}
+# ============================================================================
+echo ""
+echo "Processing {i}/{len(commands)}: {info['table']}..."
+echo ""
+
+{cmd}
+
+echo ""
+echo "✓ Completed: {info['table']}"
+echo ""
+
+"""
+
+	script += """
+echo ""
+echo "============================================================================"
+echo "All PK modifications completed successfully!"
+echo "============================================================================"
+echo ""
+echo "Next step: Run in bench console:"
+echo "  create_partition_phase4()"
+echo ""
+"""
+
+	return script
+
+
+def create_partition_phase4(
+	doc=None,
+	years_ahead=10,
+	partition_doctypes=None,
+):
+	"""
+	PHASE 4: Apply partitioning (after PK modification is complete)
+
+	This phase applies RANGE partitioning to tables. It assumes that primary keys
+	have already been modified to include the date field (via Phase 3 script).
+
+	Note: Partitioning uses native ALTER TABLE, not Percona, as pt-online-schema-change
+	does not support partitioning operations. This is generally fast as RANGE
+	partitioning is primarily a metadata operation.
+
+	Args:
+	        doc: Optional document to process only that doctype
+	        years_ahead: Number of years ahead to create partitions for (default: 10)
+	        partition_doctypes: Optional dict to bypass hooks
+
+	Returns:
+	        bool: True if all tables were partitioned successfully
 	"""
 	from frappe.utils import get_table_name
 
@@ -1826,12 +2144,12 @@ def create_partition_phase3(
 			print(f"ERROR: {doc.doctype} not in partition_doctypes hook")
 			return False
 
-	db = DatabaseConnection(root_user, root_password)
-	engine = PartitionEngine(db, use_percona)
+	db = DatabaseConnection()
+	engine = PartitionEngine(db, use_percona=False)
 	processed_child_tables = set()
 
 	print(f"\n{'='*80}")
-	print("PHASE 3: Applying partitioning")
+	print("PHASE 4: Applying partitioning")
 	print(f"{'='*80}\n")
 
 	success_count = 0
@@ -1935,7 +2253,172 @@ def create_partition_phase3(
 	phase_elapsed = time.time() - phase_start_time
 
 	print(f"\n{'='*80}")
-	print("PHASE 3 Summary")
+	print("PHASE 4 Summary")
+	print("=" * 80)
+	print(f"Tables partitioned: {success_count}/{total_count}")
+	print(f"Total time: {phase_elapsed:.1f}s ({phase_elapsed/60:.1f} minutes)")
+	print(f"{'='*80}\n")
+
+	if timing_details:
+		print("Timing Breakdown:")
+		print(f"{'Table':<50} {'Type':<8} {'Status':<8} {'Time':>12}")
+		print(f"{'-'*50} {'-'*8} {'-'*8} {'-'*12}")
+		for t in sorted(timing_details, key=lambda x: -x["elapsed"]):
+			status = "✓" if t["success"] else "✗"
+			print(f"{t['doctype'][:45]:<50} {t['type']:<8} {status:<8} {t['elapsed']:>12.1f}s")
+		print()
+
+	return success_count == total_count
+
+
+# Legacy function - kept for backward compatibility
+def create_partition_phase3_legacy(
+	doc=None,
+	years_ahead=10,
+	use_percona=False,
+	root_user=None,
+	root_password=None,
+	partition_doctypes=None,
+):
+	"""
+	LEGACY PHASE 3: Apply partitioning (modify PK and create partitions)
+
+	WARNING: This function executes Percona directly which can cause connection
+	issues when run from bench console. Use create_partition_phase3() instead
+	to generate commands for manual execution.
+
+	- Modifies primary keys to include posting_date/transaction_date
+	- Applies RANGE partitioning to tables
+	- Uses Percona if enabled for large tables
+	"""
+	from frappe.utils import get_table_name
+
+	phase_start_time = time.time()
+
+	if partition_doctypes is None:
+		partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if not partition_doctypes:
+		print("\nNo partition_doctypes found in hooks")
+		return False
+
+	if doc:
+		if doc.doctype in partition_doctypes:
+			partition_doctypes = {doc.doctype: partition_doctypes[doc.doctype]}
+		else:
+			print(f"ERROR: {doc.doctype} not in partition_doctypes hook")
+			return False
+
+	db = DatabaseConnection(root_user, root_password)
+	engine = PartitionEngine(db, use_percona)
+	processed_child_tables = set()
+
+	print(f"\n{'='*80}")
+	print("PHASE 3 (LEGACY): Applying partitioning")
+	print(f"{'='*80}\n")
+
+	success_count = 0
+	total_count = 0
+	timing_details = []
+
+	for doctype, settings in partition_doctypes.items():
+		doctype_start = time.time()
+		original_partition_field = _get_setting_value(settings, "field", "posting_date")
+		partition_by = _get_setting_value(settings, "partition_by", "month")
+
+		print(f"\n{'='*80}")
+		print(f"Processing: {doctype}")
+		print(f"{'='*80}")
+
+		actual_date_field = DOCTYPE_DATE_FIELD_MAP.get(doctype, original_partition_field)
+
+		# Partition main table
+		main_table = get_table_name(doctype)
+		total_count += 1
+
+		main_start = time.time()
+		main_success = engine.partition_table(
+			main_table,
+			partition_field=actual_date_field,
+			strategy=partition_by,
+			years_back=2,
+			years_ahead=years_ahead,
+			dry_run=False,
+			pk_field=actual_date_field,
+		)
+		if main_success:
+			success_count += 1
+			print(f"✓ Partitioned {doctype}")
+		else:
+			print(f"✗ Failed to partition {doctype}")
+
+		main_elapsed = time.time() - main_start
+		timing_details.append(
+			{
+				"doctype": doctype,
+				"table": main_table,
+				"type": "parent",
+				"elapsed": main_elapsed,
+				"success": main_success,
+			}
+		)
+
+		# Partition child tables
+		meta = frappe.get_meta(doctype)
+		for df in meta.get_table_fields():
+			child_doctype = df.options
+			child_table = get_table_name(df.options)
+
+			if child_table in processed_child_tables:
+				print(f"\nINFO: {child_doctype} already processed, skipping...")
+				continue
+
+			processed_child_tables.add(child_table)
+
+			print(f"\n{'='*80}")
+			print(f"Processing child table: {child_doctype}")
+			print(f"{'='*80}")
+
+			total_count += 1
+			child_start = time.time()
+			child_success = engine.partition_table(
+				child_table,
+				partition_field="posting_date",
+				strategy=partition_by,
+				years_back=2,
+				years_ahead=years_ahead,
+				dry_run=False,
+				pk_field="posting_date",
+			)
+			if child_success:
+				success_count += 1
+				print(f"✓ Partitioned {child_doctype}")
+			else:
+				print(f"✗ Failed to partition {child_doctype}")
+
+			child_elapsed = time.time() - child_start
+			timing_details.append(
+				{
+					"doctype": child_doctype,
+					"table": child_table,
+					"type": "child",
+					"elapsed": child_elapsed,
+					"success": child_success,
+				}
+			)
+			print(
+				f"\n  {child_doctype} completed in {child_elapsed:.1f}s ({child_elapsed/60:.1f} min)"
+			)
+
+		doctype_elapsed = time.time() - doctype_start
+		print(
+			f"\n  {doctype} (with children) completed in {doctype_elapsed:.1f}s ({doctype_elapsed/60:.1f} min)"
+		)
+
+	phase_elapsed = time.time() - phase_start_time
+
+	print(f"\n{'='*80}")
+	print("PHASE 3 (LEGACY) Summary")
 	print("=" * 80)
 	print(f"Tables partitioned: {success_count}/{total_count}")
 	print(f"Total time: {phase_elapsed:.1f}s ({phase_elapsed/60:.1f} minutes)")
