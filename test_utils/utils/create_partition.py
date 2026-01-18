@@ -2907,9 +2907,6 @@ def populate_partition_fields(doc, event=None):
 	db = DatabaseConnection()
 	analyzer = TableAnalyzer(db)
 
-	if not analyzer.is_partitioned(main_table):
-		return
-
 	source_date_field = DOCTYPE_DATE_FIELD_MAP.get(doc.doctype)
 
 	if not source_date_field:
