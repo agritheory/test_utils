@@ -744,6 +744,14 @@ class SQLRegistry:
 				if group_fields:
 					chain_parts.append(f"\t.groupby({', '.join(group_fields)})")
 
+			# Add HAVING
+			having = select.find(exp.Having)
+			if having:
+				having_condition = self.convert_condition_to_qb(
+					having.this, replacements, table_vars, sql_params
+				)
+				chain_parts.append(f"\t.having({having_condition})")
+
 			# Add ORDER BY
 			order_by = select.find(exp.Order)
 			if order_by:
@@ -817,6 +825,27 @@ class SQLRegistry:
 				cast_type = str(expr.to).upper()
 				return f'fn.Cast({inner_field}, "{cast_type}")'
 			return f"fn.Date({inner_field})"
+
+		# Handle arithmetic expressions (Sub, Add, Mul, Div)
+		if isinstance(expr, exp.Sub):
+			left = self.format_select_field(expr.this, table_vars, main_var)
+			right = self.format_select_field(expr.expression, table_vars, main_var)
+			return f"({left} - {right})"
+
+		if isinstance(expr, exp.Add):
+			left = self.format_select_field(expr.this, table_vars, main_var)
+			right = self.format_select_field(expr.expression, table_vars, main_var)
+			return f"({left} + {right})"
+
+		if isinstance(expr, exp.Mul):
+			left = self.format_select_field(expr.this, table_vars, main_var)
+			right = self.format_select_field(expr.expression, table_vars, main_var)
+			return f"({left} * {right})"
+
+		if isinstance(expr, exp.Div):
+			left = self.format_select_field(expr.this, table_vars, main_var)
+			right = self.format_select_field(expr.expression, table_vars, main_var)
+			return f"({left} / {right})"
 
 		expr_str = str(expr)
 		is_distinct = "DISTINCT" in expr_str.upper()
