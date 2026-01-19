@@ -636,6 +636,15 @@ class SQLRegistry:
 					if alias:
 						alias_to_table[alias] = table_name
 
+		# Check if we need to import functions (for aggregates, etc.)
+		needs_fn_import = any(
+			isinstance(expr, (exp.Count, exp.Avg, exp.Sum, exp.Max, exp.Min, exp.Date, exp.Cast))
+			for expr in select.walk()
+		)
+		if needs_fn_import:
+			lines.append("from frappe.query_builder import functions as fn")
+			lines.append("")
+
 		# Generate DocType declarations
 		for table_name, alias in tables:
 			doctype_name = (
@@ -697,6 +706,24 @@ class SQLRegistry:
 				)
 				chain_parts.append(f"	.where({condition})")
 
+			# Add GROUP BY
+			group_by = select.find(exp.Group)
+			if group_by:
+				group_fields = []
+				for group_expr in group_by.expressions:
+					field = str(group_expr).strip("`\"'")
+					if "." in field:
+						table_part, field_part = field.rsplit(".", 1)
+						table_part = table_part.strip("`\"'")
+						if table_part in table_vars:
+							group_fields.append(f"{table_vars[table_part]}.{field_part}")
+						else:
+							group_fields.append(f"{main_var}.{field_part}")
+					else:
+						group_fields.append(f"{main_var}.{field}")
+				if group_fields:
+					chain_parts.append(f"\t.groupby({', '.join(group_fields)})")
+
 			# Add ORDER BY
 			order_by = select.find(exp.Order)
 			if order_by:
@@ -709,15 +736,15 @@ class SQLRegistry:
 						table_part = table_part.strip("`\"'")
 						if table_part in table_vars:
 							chain_parts.append(
-								f"	.orderby({table_vars[table_part]}.{field_part}, order=frappe.qb.{direction})"
+								f"\t.orderby({table_vars[table_part]}.{field_part}, order=frappe.qb.{direction})"
 							)
 					else:
-						chain_parts.append(f"	.orderby({main_var}.{field}, order=frappe.qb.{direction})")
+						chain_parts.append(f"\t.orderby({main_var}.{field}, order=frappe.qb.{direction})")
 
 			# Add LIMIT
 			limit = select.find(exp.Limit)
 			if limit:
-				chain_parts.append(f"	.limit({limit.expression})")
+				chain_parts.append(f"\t.limit({limit.expression})")
 
 			# Add final execution
 			chain_parts.append("\t.run(as_dict=True)")
@@ -732,6 +759,44 @@ class SQLRegistry:
 	def format_select_field(self, expr, table_vars: dict, main_var: str) -> str:
 		if isinstance(expr, exp.Star):
 			return "'*'"
+
+		# Handle Alias expressions (e.g., COUNT(*) AS total)
+		if isinstance(expr, exp.Alias):
+			inner = self.format_select_field(expr.this, table_vars, main_var)
+			alias_name = str(expr.alias).strip("`\"'")
+			return f'{inner}.as_("{alias_name}")'
+
+		# Handle aggregate functions - use pypika functions from Frappe QB
+		if isinstance(expr, exp.Count):
+			if isinstance(expr.this, exp.Star):
+				return 'fn.Count("*")'
+			else:
+				inner_field = self.format_select_field(expr.this, table_vars, main_var)
+				return f"fn.Count({inner_field})"
+
+		if isinstance(expr, exp.Avg):
+			inner_field = self.format_select_field(expr.this, table_vars, main_var)
+			return f"fn.Avg({inner_field})"
+
+		if isinstance(expr, exp.Sum):
+			inner_field = self.format_select_field(expr.this, table_vars, main_var)
+			return f"fn.Sum({inner_field})"
+
+		if isinstance(expr, exp.Max):
+			inner_field = self.format_select_field(expr.this, table_vars, main_var)
+			return f"fn.Max({inner_field})"
+
+		if isinstance(expr, exp.Min):
+			inner_field = self.format_select_field(expr.this, table_vars, main_var)
+			return f"fn.Min({inner_field})"
+
+		# Handle Date/Cast functions
+		if isinstance(expr, (exp.Date, exp.TsOrDsToDate, exp.Cast)):
+			inner_field = self.format_select_field(expr.this, table_vars, main_var)
+			if isinstance(expr, exp.Cast) and hasattr(expr, "to"):
+				cast_type = str(expr.to).upper()
+				return f'fn.Cast({inner_field}, "{cast_type}")'
+			return f"fn.Date({inner_field})"
 
 		expr_str = str(expr)
 		is_distinct = "DISTINCT" in expr_str.upper()
@@ -911,13 +976,29 @@ class SQLRegistry:
 
 			elif isinstance(condition, exp.In):
 				left = self.format_field(condition.this, table_vars)
-				values = [self.format_field(v, table_vars) for v in condition.expressions]
+				values = [
+					self.format_value_or_field(v, replacements, table_vars, sql_params)
+					for v in condition.expressions
+				]
 				return f"{left}.isin([{', '.join(values)}])"
 
 			elif isinstance(condition, exp.Like):
 				left = self.format_field(condition.this, table_vars)
-				right = self.format_field(condition.expression, table_vars)
+				right = self.format_value_or_field(
+					condition.expression, replacements, table_vars, sql_params
+				)
 				return f"{left}.like({right})"
+
+			elif isinstance(condition, exp.Between):
+				# Frappe QB uses slice syntax for BETWEEN: field[start:end]
+				left = self.format_field(condition.this, table_vars)
+				low = self.format_value_or_field(
+					condition.args["low"], replacements, table_vars, sql_params
+				)
+				high = self.format_value_or_field(
+					condition.args["high"], replacements, table_vars, sql_params
+				)
+				return f"{left}[{low}:{high}]"
 
 			elif isinstance(condition, exp.NEQ):
 				left = self.format_field(condition.left, table_vars)
@@ -933,6 +1014,31 @@ class SQLRegistry:
 				)
 				return f"({inner})"
 
+			elif isinstance(condition, exp.Not):
+				# Handle NOT - check if it's wrapping IS NULL (for IS NOT NULL)
+				inner = condition.this
+				if isinstance(inner, exp.Is) and isinstance(inner.expression, exp.Null):
+					# IS NOT NULL
+					left = self.format_field(inner.this, table_vars)
+					return f"{left}.isnotnull()"
+				else:
+					# General NOT
+					inner_cond = self.convert_condition_to_qb(
+						inner, replacements, table_vars, sql_params
+					)
+					return f"~({inner_cond})"
+
+			elif isinstance(condition, exp.Is):
+				# Handle IS NULL
+				if isinstance(condition.expression, exp.Null):
+					left = self.format_field(condition.this, table_vars)
+					return f"{left}.isnull()"
+				else:
+					# Other IS comparisons (rare)
+					left = self.format_field(condition.this, table_vars)
+					right = self.format_field(condition.expression, table_vars)
+					return f"({left} == {right})"
+
 			else:
 				return f"# TODO: Handle {type(condition).__name__}"
 
@@ -947,6 +1053,39 @@ class SQLRegistry:
 			else:
 				# Numeric literal
 				return str(field.this)
+
+		# Handle function expressions (Date, Cast, etc.) - use the main table var
+		if isinstance(field, (exp.Date, exp.TsOrDsToDate)):
+			main_var = list(table_vars.values())[0] if table_vars else "doc"
+			inner = self.format_field(field.this, table_vars)
+			return f"fn.Date({inner})"
+
+		if isinstance(field, exp.Cast):
+			inner = self.format_field(field.this, table_vars)
+			cast_type = str(field.to).upper() if hasattr(field, "to") else "VARCHAR"
+			return f'fn.Cast({inner}, "{cast_type}")'
+
+		# Handle Coalesce/IfNull
+		if isinstance(field, exp.Coalesce):
+			inner = self.format_field(field.this, table_vars)
+			# Get the fallback value from expressions
+			if field.expressions:
+				fallback = self.format_field(field.expressions[0], table_vars)
+			else:
+				fallback = '""'
+			return f"fn.Coalesce({inner}, {fallback})"
+
+		# Handle Column expressions
+		if isinstance(field, exp.Column):
+			column_name = str(field.this).strip("`\"'") if field.this else ""
+			if hasattr(field, "table") and field.table:
+				table_ref = str(field.table).strip("`\"'")
+				if table_ref in table_vars:
+					return f"{table_vars[table_ref]}.{column_name}"
+			if table_vars:
+				main_var = list(table_vars.values())[0]
+				return f"{main_var}.{column_name}"
+			return f'"{column_name}"'
 
 		field_str = str(field).strip("`\"'")
 
