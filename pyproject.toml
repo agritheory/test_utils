@@ -20,13 +20,15 @@ validate_python_dependencies = "test_utils.pre_commit.validate_python_dependenci
 add_translations = "test_utils.pre_commit.add_translations:main"
 sql_registry = "test_utils.utils.sql_registry:main"
 sql_rewriter = "test_utils.pre_commit.sql_registry:main" 
+bylines = "test_utils.pre_commit.bylines:main"
+patch_linters = "test_utils.pre_commit.patch_linters:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-version = "1.0.0"
+version = "1.11.1"
 packages = [{include = "test_utils"}]
 
 [tool.poetry.dependencies]

@@ -92,3 +92,19 @@
   always_run: true
   require_serial: true
   additional_dependencies: ['sqlglot>=25.0.0']
+  
+- id: bylines
+  name: bylines
+  description: "Add byline <div> in markdown files with authors from git history"
+  entry: bylines
+  language: python
+  require_serial: true
+
+- id: patch_linters
+  name: patch_linters
+  description: "Validate patches.txt matches patch files for ERPNext apps"
+  entry: patch_linters
+  language: python
+  require_serial: true
+  pass_filenames: false
+  args: []

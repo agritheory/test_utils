@@ -31,6 +31,45 @@ The `exclude_tables` hook specifies the tables that should be ignored during a f
 exclude_tables = ["__global_search", "tabAccess Log", "tabActivity Log", "tabData Import"]
 ```
 
+### Before Migrate
+
+#### hooks.py
+```python
+before_migrate = "your_app.utils.before_migrate"
+```
+
+#### utils.py
+```python
+import frappe
+from test_utils.utils.create_partition import create_partition
+
+def before_migrate():
+	create_partition(years_ahead=10)
+```
+
+### Doc Events
+
+
+#### hooks.py
+```python
+doc_events = {
+    "*": {
+        "before_insert": "your_app.utils.populate_partition_fields",
+        "before_save": "your_app.utils.populate_partition_fields",
+    }
+}
+```
+
+#### utils.py
+
+```python
+import frappe
+from test_utils.utils.create_partition import populate_partition_fields as _populate_partition_fields
+
+def populate_partition_fields(doc, event):
+	_populate_partition_fields(doc, event)
+```
+
 
 ## Create Partition
 
@@ -53,8 +92,10 @@ bench --site your_site_name console
 
 ```python
 from test_utils.utils.create_partition import create_partition
-create_partition()
+create_partition(years_ahead=10)
 ```
+
+> It is recommended to create partitions 10 years ahead rather than just 1 year. There is no significant overhead in MariaDB/MySQL for having many empty future partitions, and this approach prevents issues with missing partitions as new data is added over time.
 
 
 ## Restore Partition
