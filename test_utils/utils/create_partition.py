@@ -438,6 +438,7 @@ class FieldManager:
 						"label": "Posting Date",
 						"read_only": 1,
 						"hidden": 1,
+						"default": "Today",
 					}
 				)
 				custom_field.insert(ignore_permissions=True)
@@ -2932,6 +2933,7 @@ def populate_partition_fields(doc, event=None):
 							"label": "Posting Date",
 							"read_only": 1,
 							"hidden": 1,
+							"default": "Today",
 						}
 					)
 					custom_field.insert(ignore_permissions=True)
