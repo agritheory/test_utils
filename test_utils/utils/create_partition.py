@@ -21,6 +21,8 @@ DOCTYPE_DATE_FIELD_MAP = {
 	"Material Request": "schedule_date",
 	"Stock Entry": "posting_date",
 	"POS Invoice": "posting_date",
+	"Stock Reconciliation": "posting_date",
+	"Stock Ledger Entry": "posting_date",
 }
 
 # Doctypes that need a virtual posting_date column (they use transaction_date)
