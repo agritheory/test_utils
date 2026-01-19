@@ -24,6 +24,7 @@ DOCTYPE_DATE_FIELD_MAP = {
 	"Stock Reconciliation": "posting_date",
 	"Stock Ledger Entry": "posting_date",
 	"Payment Entry": "posting_date",
+	"Landed Cost Voucher": "posting_date",
 }
 
 # Doctypes that need a virtual posting_date column (they use transaction_date)
