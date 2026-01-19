@@ -23,6 +23,7 @@ DOCTYPE_DATE_FIELD_MAP = {
 	"POS Invoice": "posting_date",
 	"Stock Reconciliation": "posting_date",
 	"Stock Ledger Entry": "posting_date",
+	"Payment Entry": "posting_date",
 }
 
 # Doctypes that need a virtual posting_date column (they use transaction_date)
@@ -2460,13 +2461,6 @@ def scheduled_populate_partition_fields(
 
 	Returns:
 	dict: Summary of work done and status
-
-	Usage in hooks.py:
-	scheduler_events = {
-	                "daily_long": [
-	                                "test_utils.utils.create_partition.scheduled_populate_partition_fields"
-	                ]
-	}
 	"""
 	from frappe.utils import get_table_name
 
