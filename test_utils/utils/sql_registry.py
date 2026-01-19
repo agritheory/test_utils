@@ -788,6 +788,18 @@ class SQLRegistry:
 		if isinstance(expr, exp.Star):
 			return "'*'"
 
+		# Handle literal values (numbers, strings)
+		if isinstance(expr, exp.Literal):
+			if expr.is_string:
+				return f'"{expr.this}"'
+			else:
+				return str(expr.this)
+
+		# Handle parenthesized expressions
+		if isinstance(expr, exp.Paren):
+			inner = self.format_select_field(expr.this, table_vars, main_var)
+			return f"({inner})"
+
 		# Handle Alias expressions (e.g., COUNT(*) AS total)
 		if isinstance(expr, exp.Alias):
 			inner = self.format_select_field(expr.this, table_vars, main_var)
