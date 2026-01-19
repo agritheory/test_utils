@@ -7,7 +7,9 @@ import sys
 import traceback
 
 from io import StringIO
-from typing import Sequence, List, Tuple, Optional
+from typing import List, Tuple, Optional
+
+from collections.abc import Sequence
 from pathlib import Path
 from sqlglot import parse, transpile, ErrorLevel, exp
 

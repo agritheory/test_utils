@@ -638,11 +638,31 @@ class SQLRegistry:
 
 		# Check if we need to import functions (for aggregates, etc.)
 		needs_fn_import = any(
-			isinstance(expr, (exp.Count, exp.Avg, exp.Sum, exp.Max, exp.Min, exp.Date, exp.Cast))
+			isinstance(
+				expr,
+				(exp.Count, exp.Avg, exp.Sum, exp.Max, exp.Min, exp.Date, exp.Cast, exp.Coalesce),
+			)
 			for expr in select.walk()
 		)
 		if needs_fn_import:
 			lines.append("from frappe.query_builder import functions as fn")
+			lines.append("")
+
+		# Check if we need SubQuery import (for IN/NOT IN with subqueries)
+		def has_subquery_in(expr):
+			if isinstance(expr, exp.In) and expr.args.get("query"):
+				return True
+			if (
+				isinstance(expr, exp.Not)
+				and isinstance(expr.this, exp.In)
+				and expr.this.args.get("query")
+			):
+				return True
+			return False
+
+		needs_subquery_import = any(has_subquery_in(expr) for expr in select.walk())
+		if needs_subquery_import:
+			lines.append("from frappe.query_builder.terms import SubQuery")
 			lines.append("")
 
 		# Generate DocType declarations
@@ -976,11 +996,24 @@ class SQLRegistry:
 
 			elif isinstance(condition, exp.In):
 				left = self.format_field(condition.this, table_vars)
-				values = [
-					self.format_value_or_field(v, replacements, table_vars, sql_params)
-					for v in condition.expressions
-				]
-				return f"{left}.isin([{', '.join(values)}])"
+
+				# Check if this is a subquery IN clause
+				subquery = condition.args.get("query")
+				if subquery:
+					# Handle subquery - extract the inner SELECT
+					inner_select = subquery.this if isinstance(subquery, exp.Subquery) else subquery
+					if isinstance(inner_select, exp.Select):
+						subquery_str = self.convert_subquery_to_qb(inner_select, replacements, sql_params)
+						return f"{left}.isin(SubQuery({subquery_str}))"
+					else:
+						return "# TODO: Complex subquery"
+				else:
+					# Regular IN with values list
+					values = [
+						self.format_value_or_field(v, replacements, table_vars, sql_params)
+						for v in condition.expressions
+					]
+					return f"{left}.isin([{', '.join(values)}])"
 
 			elif isinstance(condition, exp.Like):
 				left = self.format_field(condition.this, table_vars)
@@ -1015,12 +1048,31 @@ class SQLRegistry:
 				return f"({inner})"
 
 			elif isinstance(condition, exp.Not):
-				# Handle NOT - check if it's wrapping IS NULL (for IS NOT NULL)
+				# Handle NOT - check if it's wrapping IS NULL (for IS NOT NULL) or IN (for NOT IN)
 				inner = condition.this
 				if isinstance(inner, exp.Is) and isinstance(inner.expression, exp.Null):
 					# IS NOT NULL
 					left = self.format_field(inner.this, table_vars)
 					return f"{left}.isnotnull()"
+				elif isinstance(inner, exp.In):
+					# NOT IN - use .notin() method  # codespell:ignore notin
+					left = self.format_field(inner.this, table_vars)
+					subquery = inner.args.get("query")
+					if subquery:
+						inner_select = subquery.this if isinstance(subquery, exp.Subquery) else subquery
+						if isinstance(inner_select, exp.Select):
+							subquery_str = self.convert_subquery_to_qb(
+								inner_select, replacements, sql_params
+							)
+							return f"{left}.notin(SubQuery({subquery_str}))"  # codespell:ignore notin
+						else:
+							return "# TODO: Complex NOT IN subquery"
+					else:
+						values = [
+							self.format_value_or_field(v, replacements, table_vars, sql_params)
+							for v in inner.expressions
+						]
+						return f"{left}.notin([{', '.join(values)}])"  # codespell:ignore notin
 				else:
 					# General NOT
 					inner_cond = self.convert_condition_to_qb(
@@ -1044,6 +1096,76 @@ class SQLRegistry:
 
 		except Exception as e:
 			return f"# Error converting condition: {str(e)}"
+
+	def convert_subquery_to_qb(
+		self,
+		select: exp.Select,
+		replacements: list[tuple[str, str]],
+		sql_params: dict = None,
+	) -> str:
+		"""Convert a subquery SELECT to an inline Query Builder expression."""
+		# Extract tables with aliases
+		tables = []
+		table_vars = {}
+
+		for node in select.walk():
+			if isinstance(node, exp.Table):
+				if hasattr(node, "this") and node.this:
+					table_name = str(node.this).strip("`\"'")
+				else:
+					table_name = (
+						str(node.name).strip("`\"'") if hasattr(node, "name") else str(node).strip("`\"'")
+					)
+
+				alias = None
+				if hasattr(node, "alias") and node.alias:
+					alias = str(node.alias).strip("`\"'")
+
+				table_key = alias if alias else table_name
+				if table_key not in [t[1] if t[1] else t[0] for t in tables]:
+					tables.append((table_name, alias))
+					if alias:
+						table_vars[alias] = alias.lower()
+						table_vars[table_name] = alias.lower()
+					else:
+						doctype_name = (
+							table_name.replace("tab", "") if table_name.startswith("tab") else table_name
+						)
+						var_name = doctype_name.lower().replace(" ", "_").replace("-", "_")
+						table_vars[table_name] = var_name
+
+		if not tables:
+			return "# Error: No tables found in subquery"
+
+		main_table_name, main_alias = tables[0]
+		main_key = main_alias if main_alias else main_table_name
+		main_var = table_vars[main_key]
+		doctype_name = (
+			main_table_name.replace("tab", "")
+			if main_table_name.startswith("tab")
+			else main_table_name
+		)
+
+		# Build the query chain
+		parts = [f'frappe.qb.from_(frappe.qb.DocType("{doctype_name}"))']
+
+		# Add SELECT fields
+		if select.expressions:
+			select_fields = []
+			for expr in select.expressions:
+				field_ref = self.format_select_field(expr, table_vars, main_var)
+				select_fields.append(field_ref)
+			parts.append(f".select({', '.join(select_fields)})")
+
+		# Add WHERE clause
+		where_clause = select.find(exp.Where)
+		if where_clause:
+			condition = self.convert_condition_to_qb(
+				where_clause.this, replacements, table_vars, sql_params
+			)
+			parts.append(f".where({condition})")
+
+		return "".join(parts)
 
 	def format_field(self, field: exp.Expression, table_vars: dict) -> str:
 		# Handle literal values (strings, numbers)
