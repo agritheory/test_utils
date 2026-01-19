@@ -57,7 +57,7 @@ repos:
         language: system
         pass_filenames: false
         files: \.(py|js|ts)$
-        stages: [commit]
+        stages: [pre-commit]
         verbose: true
 
   # - repo: https://github.com/pre-commit/mirrors-mypy

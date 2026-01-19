@@ -597,7 +597,8 @@ class SQLRegistry:
 	) -> str:
 		"""Convert SELECT statement to Query Builder"""
 		lines = []
-		table_vars = {}
+		table_vars = {}  # Maps table name/alias to variable name
+		alias_to_table = {}  # Maps alias to actual table name
 
 		if variable_name == "__return__":
 			result_prefix = "return "
@@ -610,38 +611,65 @@ class SQLRegistry:
 		else:
 			result_prefix = "result = "
 
-		tables = []
+		tables = []  # List of (table_name, alias_or_none) tuples
 
-		from_clause = select.find(exp.From)
-		if from_clause and from_clause.this:
-			table_name = str(from_clause.this).strip("`\"'")
-			tables.append(table_name)
-
+		# Extract tables and their aliases properly
 		for node in select.walk():
 			if isinstance(node, exp.Table):
-				table_name = str(node).strip("`\"'")
-				if table_name not in tables:
-					tables.append(table_name)
+				# Get the actual table name (not including alias)
+				if hasattr(node, "this") and node.this:
+					table_name = str(node.this).strip("`\"'")
+				else:
+					table_name = (
+						str(node.name).strip("`\"'") if hasattr(node, "name") else str(node).strip("`\"'")
+					)
 
-		for table in tables:
-			doctype_name = table.replace("tab", "") if table.startswith("tab") else table
-			var_name_local = doctype_name.lower().replace(" ", "_").replace("-", "_")
-			table_vars[table] = var_name_local
+				# Get alias if present
+				alias = None
+				if hasattr(node, "alias") and node.alias:
+					alias = str(node.alias).strip("`\"'")
+
+				# Only add if we haven't seen this table/alias combo
+				table_key = alias if alias else table_name
+				if table_key not in [t[1] if t[1] else t[0] for t in tables]:
+					tables.append((table_name, alias))
+					if alias:
+						alias_to_table[alias] = table_name
+
+		# Generate DocType declarations
+		for table_name, alias in tables:
+			doctype_name = (
+				table_name.replace("tab", "") if table_name.startswith("tab") else table_name
+			)
+			# Use alias for variable name if present, otherwise use table name
+			var_base = alias if alias else doctype_name
+			var_name_local = var_base.lower().replace(" ", "_").replace("-", "_")
+
+			# Map both the alias and full table name to this variable
+			if alias:
+				table_vars[alias] = var_name_local
+				table_vars[table_name] = var_name_local
+			else:
+				table_vars[table_name] = var_name_local
+
 			lines.append(f'{var_name_local} = frappe.qb.DocType("{doctype_name}")')
 
 		lines.append("")
 
-		main_table = tables[0] if tables else None
-		if main_table:
+		main_table_tuple = tables[0] if tables else None
+		if main_table_tuple:
+			main_table_name, main_alias = main_table_tuple
+			main_key = main_alias if main_alias else main_table_name
 			chain_parts = []
 
 			# Start with FROM
-			main_var = table_vars[main_table]
+			main_var = table_vars[main_key]
 			chain_parts.append(f"frappe.qb.from_({main_var})")
 
 			# Add additional FROM tables for implicit joins
-			for table in tables[1:]:
-				chain_parts.append(f"	.from_({table_vars[table]})")
+			for table_name, alias in tables[1:]:
+				table_key = alias if alias else table_name
+				chain_parts.append(f"	.from_({table_vars[table_key]})")
 
 			# Add SELECT fields
 			if select.expressions:
@@ -692,10 +720,12 @@ class SQLRegistry:
 				chain_parts.append(f"	.limit({limit.expression})")
 
 			# Add final execution
-			chain_parts.append("	.run(as_dict=True)")
+			chain_parts.append("\t.run(as_dict=True)")
 
-			# Join all parts with the correct prefix
-			lines.append(f"{result_prefix}(\n" + "\n".join(chain_parts) + "\n)")
+			# Join all parts with the correct prefix - indent the chain for proper formatting
+			# Add a tab to the first line so it aligns with the continuation
+			chain_str = "\n".join(chain_parts)
+			lines.append(f"{result_prefix}(\n\t{chain_str}\n)")
 
 		return "\n".join(lines)
 
@@ -706,31 +736,102 @@ class SQLRegistry:
 		expr_str = str(expr)
 		is_distinct = "DISTINCT" in expr_str.upper()
 
-		# Get the actual field name
-		if hasattr(expr, "this"):
-			field_str = str(expr.this).strip("`\"'")
-		else:
-			field_str = expr_str.replace("DISTINCT", "").strip("`\"' ")
+		# Handle Column expressions - check for table qualifier
+		if isinstance(expr, exp.Column):
+			column_name = str(expr.this).strip("`\"'") if expr.this else ""
 
-		# Handle table.field notation
-		if "." in field_str:
-			table_part, field_part = field_str.rsplit(".", 1)
-			table_part = table_part.strip("`\"'")
-			field_part = field_part.strip("`\"'")
-
-			if table_part in table_vars:
-				field_ref = f"{table_vars[table_part]}.{field_part}"
+			# Check if there's a table qualifier
+			if hasattr(expr, "table") and expr.table:
+				table_ref = str(expr.table).strip("`\"'")
+				if table_ref in table_vars:
+					field_ref = f"{table_vars[table_ref]}.{column_name}"
+				else:
+					field_ref = f"{main_var}.{column_name}"
 			else:
-				field_ref = f"{main_var}.{field_part}"
+				field_ref = f"{main_var}.{column_name}"
 		else:
-			# No table specified, use main table
-			# Don't quote field names - they're attributes
-			field_ref = f"{main_var}.{field_str}"
+			# Get the actual field name from other expression types
+			if hasattr(expr, "this"):
+				field_str = str(expr.this).strip("`\"'")
+			else:
+				field_str = expr_str.replace("DISTINCT", "").strip("`\"' ")
+
+			# Handle table.field notation in string
+			if "." in field_str:
+				table_part, field_part = field_str.rsplit(".", 1)
+				table_part = table_part.strip("`\"'")
+				field_part = field_part.strip("`\"'")
+
+				if table_part in table_vars:
+					field_ref = f"{table_vars[table_part]}.{field_part}"
+				else:
+					field_ref = f"{main_var}.{field_part}"
+			else:
+				# No table specified, use main table
+				field_ref = f"{main_var}.{field_str}"
 
 		if is_distinct:
 			field_ref += ".distinct()"
 
 		return field_ref
+
+	def format_value_or_field(
+		self,
+		expr: exp.Expression,
+		replacements: list[tuple[str, str]],
+		table_vars: dict,
+		sql_params: dict = None,
+	) -> str:
+		"""Format a value expression, handling parameter placeholders and literal values."""
+		# Handle literal values first
+		if isinstance(expr, exp.Literal):
+			if expr.is_string:
+				return f'"{expr.this}"'
+			else:
+				return str(expr.this)
+
+		expr_str = str(expr).strip("`\"'")
+
+		# Check if this is a parameter placeholder
+		for placeholder, original in replacements:
+			if placeholder == expr_str:
+				# Extract parameter name from %(param)s format
+				param_match = re.match(r"%\((\w+)\)s", original)
+				if param_match:
+					param_name = param_match.group(1)
+					if sql_params and param_name in sql_params:
+						param_value = sql_params[param_name]
+						# Check if it's a doc reference like "doc.doctype"
+						if isinstance(param_value, str) and param_value.startswith("doc."):
+							return param_value
+						elif isinstance(param_value, str) and "." in param_value:
+							# It's already a reference like "doc.something"
+							return param_value
+						else:
+							# It's a literal value, wrap in quotes if string
+							return f'"{param_value}"' if isinstance(param_value, str) else str(param_value)
+					else:
+						# No params dict or param not found, assume doc.param_name pattern
+						return param_name
+				elif original == "%s":
+					# Positional parameter - extract index from placeholder name
+					# Placeholder is like __PH0__, __PH1__, etc.
+					ph_match = re.match(r"__PH(\d+)__", placeholder)
+					if ph_match and sql_params:
+						pos_index = ph_match.group(1)
+						pos_key = f"__pos_{pos_index}__"
+						if pos_key in sql_params:
+							value = sql_params[pos_key]
+							if isinstance(value, str) and ("." in value or value.isidentifier()):
+								return value
+							return f'"{value}"' if isinstance(value, str) else str(value)
+					return original
+				else:
+					# Not a parameter pattern, keep original
+					return original
+
+		# Not a placeholder, format as field or literal
+		return self.format_field(expr, table_vars)
 
 	def convert_condition_to_qb(
 		self,
@@ -742,41 +843,9 @@ class SQLRegistry:
 		try:
 			if isinstance(condition, exp.EQ):
 				left = self.format_field(condition.left, table_vars)
-				right_str = str(condition.right).strip("`\"'")
-
-				# Check if right side is a parameter placeholder
-				right = None
-				for placeholder, original in replacements:
-					if placeholder == right_str:
-						# Extract parameter name from %(param)s format
-						param_match = re.match(r"%\((\w+)\)s", original)
-						if param_match:
-							param_name = param_match.group(1)
-							if sql_params and param_name in sql_params:
-								param_value = sql_params[param_name]
-								# Check if it's a doc reference like "doc.doctype"
-								if isinstance(param_value, str) and param_value.startswith("doc."):
-									right = param_value
-								elif isinstance(param_value, str) and "." in param_value:
-									# It's already a reference like "doc.something"
-									right = param_value
-								else:
-									# It's a literal value, wrap in quotes if string
-									right = (
-										f'"{param_value}"' if isinstance(param_value, str) else str(param_value)
-									)
-							else:
-								# No params dict or param not found, assume doc.param_name pattern
-								right = f"doc.{param_name}"
-						else:
-							# Not a parameter pattern, keep original
-							right = original
-						break
-
-				# If no replacement was found, format as field
-				if right is None:
-					right = self.format_field(condition.right, table_vars)
-
+				right = self.format_value_or_field(
+					condition.right, replacements, table_vars, sql_params
+				)
 				return f"({left} == {right})"
 
 			elif isinstance(condition, exp.And):
@@ -814,22 +883,30 @@ class SQLRegistry:
 
 			elif isinstance(condition, exp.GT):
 				left = self.format_field(condition.left, table_vars)
-				right = self.format_field(condition.right, table_vars)
+				right = self.format_value_or_field(
+					condition.right, replacements, table_vars, sql_params
+				)
 				return f"({left} > {right})"
 
 			elif isinstance(condition, exp.GTE):
 				left = self.format_field(condition.left, table_vars)
-				right = self.format_field(condition.right, table_vars)
+				right = self.format_value_or_field(
+					condition.right, replacements, table_vars, sql_params
+				)
 				return f"({left} >= {right})"
 
 			elif isinstance(condition, exp.LT):
 				left = self.format_field(condition.left, table_vars)
-				right = self.format_field(condition.right, table_vars)
+				right = self.format_value_or_field(
+					condition.right, replacements, table_vars, sql_params
+				)
 				return f"({left} < {right})"
 
 			elif isinstance(condition, exp.LTE):
 				left = self.format_field(condition.left, table_vars)
-				right = self.format_field(condition.right, table_vars)
+				right = self.format_value_or_field(
+					condition.right, replacements, table_vars, sql_params
+				)
 				return f"({left} <= {right})"
 
 			elif isinstance(condition, exp.In):
@@ -842,6 +919,20 @@ class SQLRegistry:
 				right = self.format_field(condition.expression, table_vars)
 				return f"{left}.like({right})"
 
+			elif isinstance(condition, exp.NEQ):
+				left = self.format_field(condition.left, table_vars)
+				right = self.format_value_or_field(
+					condition.right, replacements, table_vars, sql_params
+				)
+				return f"({left} != {right})"
+
+			elif isinstance(condition, exp.Paren):
+				# Parenthesized expression - recursively convert the inner expression
+				inner = self.convert_condition_to_qb(
+					condition.this, replacements, table_vars, sql_params
+				)
+				return f"({inner})"
+
 			else:
 				return f"# TODO: Handle {type(condition).__name__}"
 
@@ -849,8 +940,17 @@ class SQLRegistry:
 			return f"# Error converting condition: {str(e)}"
 
 	def format_field(self, field: exp.Expression, table_vars: dict) -> str:
+		# Handle literal values (strings, numbers)
+		if isinstance(field, exp.Literal):
+			if field.is_string:
+				return f'"{field.this}"'
+			else:
+				# Numeric literal
+				return str(field.this)
+
 		field_str = str(field).strip("`\"'")
 
+		# Handle table.column notation
 		if "." in field_str:
 			parts = field_str.split(".")
 			if len(parts) == 2:
@@ -863,15 +963,27 @@ class SQLRegistry:
 				else:
 					return f'"{column}"'
 
+		# Handle parameter placeholders
 		if field_str.startswith("%") and field_str.endswith("s"):
 			return field_str
 
+		# Handle already quoted strings
 		if field_str.startswith("'") or field_str.startswith('"'):
-			return field_str
+			cleaned = field_str.strip("\"'")
+			return f'"{cleaned}"'
 
+		# Handle internal placeholders
 		if field_str.startswith("__PH") and field_str.endswith("__"):
 			return field_str
 
+		# Check if it looks like a number
+		try:
+			float(field_str)
+			return field_str  # Return numeric literals as-is
+		except ValueError:
+			pass
+
+		# Default: treat as field reference from main table
 		if table_vars:
 			main_table_var = list(table_vars.values())[0]
 			return f"{main_table_var}.{field_str}"
@@ -1006,9 +1118,32 @@ doc.insert()"""
 							# Assume the variable maps to the first parameter found
 							# Return a dict mapping param name to variable name
 							return {param_matches[0]: param_node.id}
+						# Check for %s positional parameter
+						if "%s" in sql_query and "%" not in sql_query.replace("%s", ""):
+							return {"__pos_0__": param_node.id}
 
 					# Fallback: store as variable reference
 					return {"__var_ref__": param_node.id}
+
+				elif isinstance(param_node, ast.Attribute):
+					# Single attribute access like: frappe.db.sql(sql, d.sales_order)
+					if isinstance(param_node.value, ast.Name):
+						attr_value = f"{param_node.value.id}.{param_node.attr}"
+					else:
+						attr_value = (
+							ast.unparse(param_node) if hasattr(ast, "unparse") else str(param_node)
+						)
+
+					sql_query = self.extract_sql_from_call(node)
+					if sql_query:
+						param_matches = re.findall(r"%\((\w+)\)s", sql_query)
+						if param_matches:
+							return {param_matches[0]: attr_value}
+						# Check for %s positional parameter
+						if "%s" in sql_query:
+							return {"__pos_0__": attr_value}
+
+					return {"__var_ref__": attr_value}
 
 				elif isinstance(param_node, ast.Tuple) or isinstance(param_node, ast.List):
 					# Positional parameters like (value1, value2)

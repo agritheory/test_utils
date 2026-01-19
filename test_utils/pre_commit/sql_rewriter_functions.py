@@ -311,29 +311,45 @@ class SQLRewriter:
 		orig_lines = original.splitlines()
 		mod_lines = modified.splitlines()
 
-		# Show context around the changed line
-		start = max(0, around_line - 3)
-		end = min(
-			len(orig_lines), around_line + 10
-		)  # Show more context for multi-line replacements
-
-		print(f"Lines {start + 1}-{end}:")
-
-		diff = difflib.unified_diff(
-			orig_lines[start:end],
-			mod_lines[start:end] if start < len(mod_lines) else [],
-			lineterm="",
-			n=0,
+		# Generate full unified diff with context
+		diff = list(
+			difflib.unified_diff(
+				orig_lines,
+				mod_lines,
+				fromfile="original",
+				tofile="modified",
+				lineterm="",
+				n=3,  # 3 lines of context
+			)
 		)
 
+		if not diff:
+			print("No changes detected.")
+			return
+
+		# Find and display only the hunks that are near our target line
+		in_relevant_hunk = False
+		hunk_start_line = 0
+
 		for line in diff:
-			if line.startswith("+++") or line.startswith("---"):
+			if line.startswith("@@"):
+				# Parse the hunk header to get line numbers
+				# Format: @@ -start,count +start,count @@
+				import re
+
+				match = re.match(r"@@ -(\d+)", line)
+				if match:
+					hunk_start_line = int(match.group(1))
+					# Show hunks within reasonable range of our target line
+					in_relevant_hunk = abs(hunk_start_line - around_line) < 20
+				if in_relevant_hunk:
+					print(f"\n{Colors.CYAN}{line}{Colors.RESET}")
+			elif line.startswith("+++") or line.startswith("---"):
 				continue
-			elif line.startswith("@@"):
-				print(f"\n{Colors.CYAN}{line}{Colors.RESET}")
-			elif line.startswith("+"):
-				print(f"{Colors.GREEN}+ {line[1:]}{Colors.RESET}")
-			elif line.startswith("-"):
-				print(f"{Colors.RED}- {line[1:]}{Colors.RESET}")
-			else:
-				print(f"  {line}")
+			elif in_relevant_hunk:
+				if line.startswith("+"):
+					print(f"{Colors.GREEN}+ {line[1:]}{Colors.RESET}")
+				elif line.startswith("-"):
+					print(f"{Colors.RED}- {line[1:]}{Colors.RESET}")
+				else:
+					print(f"  {line}")
