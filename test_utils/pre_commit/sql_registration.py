@@ -59,15 +59,24 @@ def main(argv: Sequence[str] = None):
 	)
 	report_parser.add_argument("--output", help="Output file for report")
 
+	# Todos command - list calls with TODO in their conversion
+	todos_parser = subparsers.add_parser(
+		"todos", help="List calls with TODO in conversion"
+	)
+	todos_parser.add_argument(
+		"--registry", default=".sql_registry.pkl", help="Registry file path"
+	)
+
 	args = parser.parse_args(argv)
 
 	if not args.command:
-		print("Available commands: scan, list, show, rewrite, report")
+		print("Available commands: scan, list, show, rewrite, report, todos")
 		print("\nExamples:")
-		print("  pre-commit run sql_registry -- scan")
-		print("  pre-commit run sql_registry -- list --file-filter myfile.py")
-		print("  pre-commit run sql_registry -- show abc123")
-		print("  pre-commit run sql_registry -- rewrite abc123 --apply")
+		print("  sql_registry scan --directory /path/to/module")
+		print("  sql_registry list --file-filter myfile.py")
+		print("  sql_registry show abc123")
+		print("  sql_registry todos")
+		print("  sql_registry rewrite abc123 --apply")
 		return 0
 
 	registry = SQLRegistry(args.registry)
@@ -218,6 +227,35 @@ def main(argv: Sequence[str] = None):
 			print(f"Report saved to {args.output}")
 		else:
 			print(report)
+		return 0
+
+	elif args.command == "todos":
+		calls = registry.data["calls"]
+		if not calls:
+			print("No SQL calls found in registry. Run scan first.")
+			return 0
+
+		todo_calls = []
+		for call in calls.values():
+			if call.query_builder_equivalent and "# TODO" in call.query_builder_equivalent:
+				todo_calls.append(call)
+
+		if not todo_calls:
+			print("✅ No TODOs found - all conversions complete!")
+			return 0
+
+		print(f"\n⚠️  Found {len(todo_calls)} calls with TODOs:")
+		print("=" * 80)
+
+		for call in sorted(todo_calls, key=lambda x: (x.file_path, x.line_number)):
+			file_name = Path(call.file_path).name
+			print(f"\n{call.call_id[:8]}  {file_name}:{call.line_number}")
+			print(f"   Function: {call.function_context}")
+			# Extract the TODO line
+			for line in call.query_builder_equivalent.split("\n"):
+				if "# TODO" in line:
+					print(f"   TODO: {line.strip()}")
+
 		return 0
 
 	else:

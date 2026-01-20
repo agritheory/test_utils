@@ -1768,6 +1768,13 @@ def main():
 		"--apply", action="store_true", help="Apply changes to file"
 	)
 
+	todos_parser = subparsers.add_parser(
+		"todos", help="List calls with TODO in conversion"
+	)
+	todos_parser.add_argument(
+		"--registry", default=".sql_registry.pkl", help="Registry file path"
+	)
+
 	args = parser.parse_args()
 
 	if not args.command:
@@ -1873,6 +1880,33 @@ def main():
 		success = rewriter.rewrite_sql(args.call_id, dry_run)
 		if not success:
 			sys.exit(1)
+
+	elif args.command == "todos":
+		calls = registry.data["calls"]
+		if not calls:
+			print("No SQL calls found in registry.")
+			return
+
+		todo_calls = []
+		for call in calls.values():
+			if call.query_builder_equivalent and "# TODO" in call.query_builder_equivalent:
+				todo_calls.append(call)
+
+		if not todo_calls:
+			print("✅ No TODOs found - all conversions complete!")
+			return
+
+		print(f"\n⚠️  Found {len(todo_calls)} calls with TODOs:")
+		print("=" * 80)
+
+		for call in sorted(todo_calls, key=lambda x: (x.file_path, x.line_number)):
+			file_name = Path(call.file_path).name
+			print(f"\n{call.call_id[:8]}  {file_name}:{call.line_number}")
+			print(f"   Function: {call.function_context}")
+			# Extract the TODO line(s)
+			for line in call.query_builder_equivalent.split("\n"):
+				if "# TODO" in line:
+					print(f"   {line.strip()}")
 
 
 if __name__ == "__main__":
