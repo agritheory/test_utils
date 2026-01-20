@@ -1775,6 +1775,13 @@ def main():
 		"--registry", default=".sql_registry.pkl", help="Registry file path"
 	)
 
+	orm_parser = subparsers.add_parser(
+		"orm", help="List calls converted to simple ORM (frappe.get_all)"
+	)
+	orm_parser.add_argument(
+		"--registry", default=".sql_registry.pkl", help="Registry file path"
+	)
+
 	args = parser.parse_args()
 
 	if not args.command:
@@ -1862,8 +1869,16 @@ def main():
 		print("-" * 40)
 		print(call.sql_query)
 
+		# Check if this is ORM-eligible
+		is_orm = "frappe.get_all(" in call.query_builder_equivalent
+		has_todo = "# TODO" in call.query_builder_equivalent
+
 		print("\nQuery Builder Equivalent:")
 		print("-" * 40)
+		if is_orm:
+			print("💡 [ORM-ELIGIBLE] Can use frappe.get_all instead of frappe.db.sql")
+		if has_todo:
+			print("⚠️  [HAS TODO] Needs manual review")
 		print(call.query_builder_equivalent)
 
 		if call.notes:
@@ -1907,6 +1922,36 @@ def main():
 			for line in call.query_builder_equivalent.split("\n"):
 				if "# TODO" in line:
 					print(f"   {line.strip()}")
+
+	elif args.command == "orm":
+		calls = registry.data["calls"]
+		if not calls:
+			print("No SQL calls found in registry.")
+			return
+
+		orm_calls = []
+		for call in calls.values():
+			if (
+				call.query_builder_equivalent and "frappe.get_all(" in call.query_builder_equivalent
+			):
+				orm_calls.append(call)
+
+		if not orm_calls:
+			print("No ORM-eligible calls found.")
+			return
+
+		print(f"\n🔄 Found {len(orm_calls)} calls that can use simple ORM (frappe.get_all):")
+		print("=" * 80)
+		print(
+			"These are simple queries that could be refactored to use frappe.get_all/get_value"
+		)
+		print("instead of frappe.db.sql - often quick wins!\n")
+
+		for call in sorted(orm_calls, key=lambda x: (x.file_path, x.line_number)):
+			file_name = Path(call.file_path).name
+			print(f"{call.call_id[:8]}  {file_name}:{call.line_number}")
+			print(f"   Function: {call.function_context}")
+			print(f"   SQL: {call.sql_query[:80]}{'...' if len(call.sql_query) > 80 else ''}")
 
 
 if __name__ == "__main__":
