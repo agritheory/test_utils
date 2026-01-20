@@ -1177,7 +1177,7 @@ class SQLRegistry:
 					left = self.format_field(inner.this, table_vars)
 					return f"{left}.isnotnull()"
 				elif isinstance(inner, exp.In):
-					# NOT IN - use .notin() method  # codespell:ignore notin
+					# NOT IN - use .notin() method
 					left = self.format_field(inner.this, table_vars)
 					subquery = inner.args.get("query")
 					if subquery:
@@ -1186,7 +1186,7 @@ class SQLRegistry:
 							subquery_str = self.convert_subquery_to_qb(
 								inner_select, replacements, sql_params
 							)
-							return f"{left}.notin(SubQuery({subquery_str}))"  # codespell:ignore notin
+							return f"{left}.notin(SubQuery({subquery_str}))"
 						else:
 							return "# TODO: Complex NOT IN subquery"
 					else:
@@ -1194,7 +1194,7 @@ class SQLRegistry:
 							self.format_value_or_field(v, replacements, table_vars, sql_params)
 							for v in inner.expressions
 						]
-						return f"{left}.notin([{', '.join(values)}])"  # codespell:ignore notin
+						return f"{left}.notin([{', '.join(values)}])"
 				else:
 					# General NOT
 					inner_cond = self.convert_condition_to_qb(

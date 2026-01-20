@@ -23,7 +23,7 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
-        args: ["--check-filenames"]
+        args: ["--check-filenames", "--ignore-words-list", "notin"]
         additional_dependencies:
           - tomli
 
