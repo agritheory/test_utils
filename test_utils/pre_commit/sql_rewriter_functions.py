@@ -3,6 +3,7 @@ import shutil
 import sys
 import subprocess
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 import difflib
@@ -146,6 +147,14 @@ class SQLRewriter:
 
 		call = matching_calls[0]
 
+		# Check if this call is flagged for manual review
+		if call.query_builder_equivalent and "# MANUAL:" in call.query_builder_equivalent:
+			print(
+				f"\n{Colors.YELLOW}Skipping {call.call_id[:12]} - flagged for manual review:{Colors.RESET}"
+			)
+			print(f"  {call.query_builder_equivalent}")
+			return False
+
 		print(f"\n{Colors.BOLD}Rewriting SQL call: {call.call_id[:12]}{Colors.RESET}")
 		print(f"File: {call.file_path}")
 		print(f"Line: {call.line_number}")
@@ -203,6 +212,118 @@ class SQLRewriter:
 		except Exception as e:
 			print(f"{Colors.RED}Error during rewrite: {e}{Colors.RESET}")
 			return False
+
+	def rewrite_batch(
+		self, call_ids: list[str], dry_run: bool = True, backup: bool = True
+	) -> tuple[int, list[str]]:
+		"""
+		Rewrite multiple SQL calls, handling multiple calls per file correctly.
+
+		Groups calls by file and applies them in reverse line order to avoid
+		line number invalidation.
+
+		Returns: (success_count, failed_call_ids)
+		"""
+		# Collect all matching calls, skip those flagged for manual review
+		calls_to_rewrite = []
+		skipped_manual = []
+		for call_id in call_ids:
+			matching = [
+				call
+				for call in self.registry.data["calls"].values()
+				if call.call_id.startswith(call_id)
+			]
+			if matching:
+				call = matching[0]
+				# Skip calls flagged for manual review
+				if call.query_builder_equivalent and "# MANUAL:" in call.query_builder_equivalent:
+					skipped_manual.append(call)
+					continue
+				calls_to_rewrite.append(call)
+
+		if skipped_manual:
+			print(
+				f"\n{Colors.YELLOW}Skipping {len(skipped_manual)} calls flagged for manual review:{Colors.RESET}"
+			)
+			for call in skipped_manual:
+				print(f"  - {call.call_id[:12]}: {call.file_path}:{call.line_number}")
+
+		if not calls_to_rewrite:
+			return 0, call_ids
+
+		# Group calls by file
+		calls_by_file: dict[str, list] = {}
+		for call in calls_to_rewrite:
+			if call.file_path not in calls_by_file:
+				calls_by_file[call.file_path] = []
+			calls_by_file[call.file_path].append(call)
+
+		success_count = 0
+		failed_ids = []
+
+		for file_path, file_calls in calls_by_file.items():
+			# Sort by line number in REVERSE order (bottom to top)
+			# This ensures earlier line numbers remain valid as we modify
+			file_calls_sorted = sorted(file_calls, key=lambda c: c.line_number, reverse=True)
+
+			path = Path(file_path)
+			if not path.exists():
+				print(f"{Colors.RED}File not found: {file_path}{Colors.RESET}")
+				failed_ids.extend([c.call_id for c in file_calls])
+				continue
+
+			try:
+				content = path.read_text(encoding="utf-8")
+				original_content = content
+
+				# Create backup once per file
+				if backup and not dry_run:
+					backup_path = path.with_suffix(f"{path.suffix}.bak")
+					shutil.copy2(path, backup_path)
+					print(f"{Colors.BLUE}Backup created: {backup_path}{Colors.RESET}")
+
+				# Apply each rewrite in reverse line order
+				for call in file_calls_sorted:
+					print(f"\n{Colors.BOLD}Rewriting SQL call: {call.call_id[:12]}{Colors.RESET}")
+					print(f"File: {call.file_path}")
+					print(f"Line: {call.line_number}")
+					print(f"Variable: {call.variable_name or 'None'}")
+
+					new_content = self.replace_sql_in_content(content, call)
+
+					if new_content == content:
+						print(f"{Colors.YELLOW}Warning: No changes for {call.call_id[:8]}{Colors.RESET}")
+						failed_ids.append(call.call_id)
+					else:
+						content = new_content
+						success_count += 1
+
+						if dry_run:
+							print(f"\n{Colors.BOLD}DRY RUN - Changes that would be made:{Colors.RESET}")
+							print("=" * 50)
+							self.show_diff(original_content, content, call.line_number)
+							# Update original for next diff display
+							original_content = content
+
+				if not dry_run and content != path.read_text(encoding="utf-8"):
+					# Apply Black formatting once at the end
+					formatted_content = self.apply_black_formatting(content)
+					path.write_text(formatted_content, encoding="utf-8")
+
+					# Update registry for successful rewrites
+					for call in file_calls_sorted:
+						if call.call_id not in failed_ids:
+							call.implementation_type = "query_builder"
+							call.notes = f"Converted by sql_rewriter batch on {datetime.now()}"
+
+					self.registry.save_registry()
+					print(f"{Colors.GREEN}Successfully modified: {file_path}{Colors.RESET}")
+
+			except Exception as e:
+				print(f"{Colors.RED}Error processing {file_path}: {e}{Colors.RESET}")
+				failed_ids.extend([c.call_id for c in file_calls])
+
+		return success_count, failed_ids
 
 	def replace_sql_in_content(self, content: str, call) -> str:
 		"""Replace SQL call with Query Builder equivalent in file content"""
