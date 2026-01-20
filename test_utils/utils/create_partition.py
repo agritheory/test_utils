@@ -1419,10 +1419,6 @@ def create_partition(
 
 	All doctypes are normalized to use 'posting_date' as the partition field.
 	For doctypes that use 'transaction_date', a virtual column is created.
-
-	Args:
-	                                                                                                                                partition_doctypes: Optional dict to bypass hooks, e.g.:
-	                                                                                                                                                                                                                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
 	"""
 	from frappe.utils import get_table_name
 
@@ -1560,10 +1556,6 @@ def create_partition_phase1(
 	- Creates virtual posting_date columns for parent tables using transaction_date
 	- Adds posting_date columns to all child tables
 	- Creates Custom Field metadata
-
-	Args:
-	                                                                                                                                partition_doctypes: Optional dict to bypass hooks, e.g.:
-	                                                                                                                                                                                                                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
 	"""
 	from frappe.utils import get_table_name
 
@@ -1689,10 +1681,6 @@ def create_partition_phase2(
 	- Populates posting_date in all child tables from their parent tables
 	- Uses chunked updates for progress tracking
 	- Can be resumed if interrupted
-
-	Args:
-	                                                                                                                                partition_doctypes: Optional dict to bypass hooks, e.g.:
-	                                                                                                                                                                                                                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
 	"""
 	from frappe.utils import get_table_name
 
@@ -1811,19 +1799,19 @@ def create_partition_phase3(
 	shell script for manual execution outside bench console.
 
 	Args:
-	                doc: Optional document to process only that doctype
-	                output_file: Path to write shell script (default: ./percona_pk_commands.sh)
-	                root_user: Database root user for Percona commands
-	                root_password: Database root password for Percona commands
-	                partition_doctypes: Optional dict to bypass hooks
+	doc: Optional document to process only that doctype
+	output_file: Path to write shell script (default: ./percona_pk_commands.sh)
+	root_user: Database root user for Percona commands
+	root_password: Database root password for Percona commands
+	partition_doctypes: Optional dict to bypass hooks
 
 	Returns:
-	                bool: True if commands were generated successfully
+	bool: True if commands were generated successfully
 
 	Usage:
-	                1. Run this function to generate the shell script
-	                2. Execute the shell script manually in a terminal
-	                3. Run create_partition_phase4() to apply partitioning
+	1. Run this function to generate the shell script
+	2. Execute the shell script manually in a terminal
+	3. Run create_partition_phase4() to apply partitioning
 	"""
 	import shlex
 	from frappe.utils import get_table_name
@@ -2123,12 +2111,12 @@ def create_partition_phase4(
 	partitioning is primarily a metadata operation.
 
 	Args:
-	                doc: Optional document to process only that doctype
-	                years_ahead: Number of years ahead to create partitions for (default: 10)
-	                partition_doctypes: Optional dict to bypass hooks
+	doc: Optional document to process only that doctype
+	years_ahead: Number of years ahead to create partitions for (default: 10)
+	partition_doctypes: Optional dict to bypass hooks
 
 	Returns:
-	                bool: True if all tables were partitioned successfully
+	bool: True if all tables were partitioned successfully
 	"""
 	from frappe.utils import get_table_name
 
@@ -3105,24 +3093,6 @@ def inspect_partitions(doctype: str):
 def check_partition_status(doctype: str) -> dict:
 	"""
 	Check if a doctype and all its child doctypes are partitioned.
-
-	Args:
-	                                                                                                                                                                                                                                                                doctype: The parent doctype to check (e.g., 'Sales Order')
-
-	Returns:
-	                                                                                                                                                                                                                                                                dict with partition status for main table and all child tables
-
-	Example:
-	                                                                                                                                                                                                                                                                >>> check_partition_status('Sales Order')
-	                                                                                                                                                                                                                                                                {
-	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                'doctype': 'Sales Order',
-	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                'main_table': {'table': 'tabSales Order', 'partitioned': True, 'partitions': 96},
-	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                'child_tables': [
-	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                {'doctype': 'Sales Order Item', 'table': 'tabSales Order Item', 'partitioned': True, 'partitions': 96},
-	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ...
-	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ],
-	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                'all_partitioned': True
-	                                                                                                                                                                                                                                                                }
 	"""
 	from frappe.utils import get_table_name
 
@@ -3214,15 +3184,6 @@ def get_partition_progress(doctype: str) -> dict:
 	"""
 	Check the progress of partitioning for a doctype.
 	Useful for resuming interrupted operations.
-
-	Args:
-	                                                                                                                                                                                                                                                                doctype: The doctype to check (e.g., 'Sales Order')
-
-	Returns:
-	                                                                                                                                                                                                                                                                dict with partition progress for main table and all child tables
-
-	Example:
-	                                                                                                                                                                                                                                                                >>> get_partition_progress('Sales Order')
 	"""
 	from frappe.utils import get_table_name
 
@@ -3320,10 +3281,6 @@ def get_partition_progress(doctype: str) -> dict:
 def get_largest_tables(limit=50, include_child_tables=True):
 	"""
 	Get the tables with the most rows in the ERPNext instance.
-
-	Args:
-	                                                                                                                                limit: Number of tables to return
-	                                                                                                                                include_child_tables: If False, excludes tables that are child doctypes
 	"""
 	db_name = frappe.conf.db_name
 
