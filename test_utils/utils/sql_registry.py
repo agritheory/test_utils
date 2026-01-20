@@ -1661,10 +1661,17 @@ doc.insert()"""
 
 		total = len(calls)
 		by_type = {}
+		orm_count = 0
+		todo_count = 0
 
 		for call in calls.values():
 			impl_type = call.implementation_type
 			by_type[impl_type] = by_type.get(impl_type, 0) + 1
+			if call.query_builder_equivalent:
+				if "frappe.get_all(" in call.query_builder_equivalent:
+					orm_count += 1
+				if "# TODO" in call.query_builder_equivalent:
+					todo_count += 1
 
 		report = f"""# SQL Operations Registry Report
 
@@ -1672,6 +1679,13 @@ doc.insert()"""
 **Last Updated**: {metadata.get('last_scan', 'Never')}
 **Commit**: {metadata.get('commit_hash', 'N/A')}
 **Total SQL Operations**: {total}
+
+## Conversion Status
+| Status | Count | Percentage |
+|--------|-------|------------|
+| ✅ Query Builder | {total - orm_count - todo_count} | {((total - orm_count - todo_count) / max(total, 1) * 100):.1f}% |
+| 💡 ORM-eligible | {orm_count} | {(orm_count / max(total, 1) * 100):.1f}% |
+| ⚠️ Needs Review | {todo_count} | {(todo_count / max(total, 1) * 100):.1f}% |
 
 ## Implementation Distribution
 | Type | Count | Percentage |
@@ -1706,15 +1720,24 @@ doc.insert()"""
 
 			sorted_calls = sorted(file_calls, key=lambda x: x.line_number)
 
-			report += "| Call ID | Line | Function | SQL Preview |\n"
-			report += "|---------|------|----------|-------------|\n"
+			report += "| Call ID | Status | Line | Function | SQL Preview |\n"
+			report += "|---------|--------|------|----------|-------------|\n"
 
 			for call in sorted_calls:
-				sql_preview = call.sql_query.replace("\n", " ").strip()[:60]
-				if len(call.sql_query) > 60:
+				# Determine status
+				status = "✅"
+				if call.query_builder_equivalent:
+					if "frappe.get_all(" in call.query_builder_equivalent:
+						status = "💡"
+					elif "# TODO" in call.query_builder_equivalent:
+						status = "⚠️"
+
+				sql_preview = call.sql_query.replace("\n", " ").strip()[:50]
+				if len(call.sql_query) > 50:
 					sql_preview += "..."
 				sql_preview = sql_preview.replace("|", "\\|")
-				report += f"| `{call.call_id[:8]}` | {call.line_number} | {call.function_context[:30]} | {sql_preview} |\n"
+				func_name = call.function_context[:25] if call.function_context else ""
+				report += f"| `{call.call_id[:8]}` | {status} | {call.line_number} | {func_name} | {sql_preview} |\n"
 
 			report += "\n"
 
