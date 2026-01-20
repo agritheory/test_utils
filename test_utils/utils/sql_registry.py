@@ -665,6 +665,18 @@ class SQLRegistry:
 			lines.append("from frappe.query_builder.terms import SubQuery")
 			lines.append("")
 
+		# Check if we need CustomFunction import (for DATEDIFF, etc.)
+		needs_custom_function = any(isinstance(expr, exp.DateDiff) for expr in select.walk())
+		if needs_custom_function:
+			lines.append("from frappe.query_builder import CustomFunction")
+			lines.append("")
+
+		# Check if we need ExistsCriterion import (for EXISTS subqueries)
+		needs_exists_import = any(isinstance(expr, exp.Exists) for expr in select.walk())
+		if needs_exists_import:
+			lines.append("from pypika.terms import ExistsCriterion")
+			lines.append("")
+
 		# Generate DocType declarations
 		for table_name, alias in tables:
 			doctype_name = (
@@ -704,7 +716,9 @@ class SQLRegistry:
 			if select.expressions:
 				select_fields = []
 				for expr in select.expressions:
-					field_ref = self.format_select_field(expr, table_vars, main_var)
+					field_ref = self.format_select_field(
+						expr, table_vars, main_var, replacements, sql_params
+					)
 					select_fields.append(field_ref)
 
 				if len(select_fields) == 1:
@@ -784,9 +798,33 @@ class SQLRegistry:
 
 		return "\n".join(lines)
 
-	def format_select_field(self, expr, table_vars: dict, main_var: str) -> str:
+	def format_select_field(
+		self,
+		expr,
+		table_vars: dict,
+		main_var: str,
+		replacements: list = None,
+		sql_params: dict = None,
+	) -> str:
 		if isinstance(expr, exp.Star):
 			return "'*'"
+
+		# Handle placeholder resolution for parameter substitution
+		if replacements and sql_params:
+			expr_str = str(expr).strip()
+			for placeholder, original in replacements:
+				if placeholder == expr_str:
+					# Extract parameter name from %(param)s format
+					param_match = re.match(r"%\((\w+)\)s", original)
+					if param_match:
+						param_name = param_match.group(1)
+						if param_name in sql_params:
+							return str(sql_params[param_name])
+					# Positional parameter
+					if original == "%s":
+						pos_key = f"__pos_{replacements.index((placeholder, original))}__"
+						if pos_key in sql_params:
+							return str(sql_params[pos_key])
 
 		# Handle literal values (numbers, strings)
 		if isinstance(expr, exp.Literal):
@@ -797,12 +835,16 @@ class SQLRegistry:
 
 		# Handle parenthesized expressions
 		if isinstance(expr, exp.Paren):
-			inner = self.format_select_field(expr.this, table_vars, main_var)
+			inner = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
 			return f"({inner})"
 
 		# Handle Alias expressions (e.g., COUNT(*) AS total)
 		if isinstance(expr, exp.Alias):
-			inner = self.format_select_field(expr.this, table_vars, main_var)
+			inner = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
 			alias_name = str(expr.alias).strip("`\"'")
 			return f'{inner}.as_("{alias_name}")'
 
@@ -811,52 +853,91 @@ class SQLRegistry:
 			if isinstance(expr.this, exp.Star):
 				return 'fn.Count("*")'
 			else:
-				inner_field = self.format_select_field(expr.this, table_vars, main_var)
+				inner_field = self.format_select_field(
+					expr.this, table_vars, main_var, replacements, sql_params
+				)
 				return f"fn.Count({inner_field})"
 
 		if isinstance(expr, exp.Avg):
-			inner_field = self.format_select_field(expr.this, table_vars, main_var)
+			inner_field = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
 			return f"fn.Avg({inner_field})"
 
 		if isinstance(expr, exp.Sum):
-			inner_field = self.format_select_field(expr.this, table_vars, main_var)
+			inner_field = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
 			return f"fn.Sum({inner_field})"
 
 		if isinstance(expr, exp.Max):
-			inner_field = self.format_select_field(expr.this, table_vars, main_var)
+			inner_field = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
 			return f"fn.Max({inner_field})"
 
 		if isinstance(expr, exp.Min):
-			inner_field = self.format_select_field(expr.this, table_vars, main_var)
+			inner_field = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
 			return f"fn.Min({inner_field})"
 
 		# Handle Date/Cast functions
 		if isinstance(expr, (exp.Date, exp.TsOrDsToDate, exp.Cast)):
-			inner_field = self.format_select_field(expr.this, table_vars, main_var)
+			inner_field = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
 			if isinstance(expr, exp.Cast) and hasattr(expr, "to"):
 				cast_type = str(expr.to).upper()
 				return f'fn.Cast({inner_field}, "{cast_type}")'
 			return f"fn.Date({inner_field})"
 
+		# Handle DateDiff function - use CustomFunction since pypika doesn't have DateDiff
+		if isinstance(expr, exp.DateDiff):
+			# DATEDIFF(end, start) -> difference in days
+			end_field = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
+			start_field = self.format_select_field(
+				expr.expression, table_vars, main_var, replacements, sql_params
+			)
+			return f"CustomFunction('DATEDIFF', ['end', 'start'])({end_field}, {start_field})"
+
 		# Handle arithmetic expressions (Sub, Add, Mul, Div)
 		if isinstance(expr, exp.Sub):
-			left = self.format_select_field(expr.this, table_vars, main_var)
-			right = self.format_select_field(expr.expression, table_vars, main_var)
+			left = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
+			right = self.format_select_field(
+				expr.expression, table_vars, main_var, replacements, sql_params
+			)
 			return f"({left} - {right})"
 
 		if isinstance(expr, exp.Add):
-			left = self.format_select_field(expr.this, table_vars, main_var)
-			right = self.format_select_field(expr.expression, table_vars, main_var)
+			left = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
+			right = self.format_select_field(
+				expr.expression, table_vars, main_var, replacements, sql_params
+			)
 			return f"({left} + {right})"
 
 		if isinstance(expr, exp.Mul):
-			left = self.format_select_field(expr.this, table_vars, main_var)
-			right = self.format_select_field(expr.expression, table_vars, main_var)
+			left = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
+			right = self.format_select_field(
+				expr.expression, table_vars, main_var, replacements, sql_params
+			)
 			return f"({left} * {right})"
 
 		if isinstance(expr, exp.Div):
-			left = self.format_select_field(expr.this, table_vars, main_var)
-			right = self.format_select_field(expr.expression, table_vars, main_var)
+			left = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
+			right = self.format_select_field(
+				expr.expression, table_vars, main_var, replacements, sql_params
+			)
 			return f"({left} / {right})"
 
 		expr_str = str(expr)
@@ -1132,6 +1213,15 @@ class SQLRegistry:
 					right = self.format_field(condition.expression, table_vars)
 					return f"({left} == {right})"
 
+			elif isinstance(condition, exp.Exists):
+				# Handle EXISTS subquery
+				inner_select = condition.this
+				if isinstance(inner_select, exp.Select):
+					subquery_str = self.convert_subquery_to_qb(inner_select, replacements, sql_params)
+					return f"ExistsCriterion({subquery_str})"
+				else:
+					return "# TODO: Complex EXISTS subquery"
+
 			else:
 				return f"# TODO: Handle {type(condition).__name__}"
 
@@ -1194,7 +1284,9 @@ class SQLRegistry:
 		if select.expressions:
 			select_fields = []
 			for expr in select.expressions:
-				field_ref = self.format_select_field(expr, table_vars, main_var)
+				field_ref = self.format_select_field(
+					expr, table_vars, main_var, replacements, sql_params
+				)
 				select_fields.append(field_ref)
 			parts.append(f".select({', '.join(select_fields)})")
 
