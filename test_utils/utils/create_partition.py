@@ -438,6 +438,7 @@ class FieldManager:
 						"label": "Posting Date",
 						"read_only": 1,
 						"hidden": 1,
+						"default": "Today",
 					}
 				)
 				custom_field.insert(ignore_permissions=True)
@@ -2932,6 +2933,7 @@ def populate_partition_fields(doc, event=None):
 							"label": "Posting Date",
 							"read_only": 1,
 							"hidden": 1,
+							"default": "Today",
 						}
 					)
 					custom_field.insert(ignore_permissions=True)
@@ -3407,3 +3409,266 @@ def print_partition_candidates(min_rows=100000, limit=20):
 		print(f'    "{t["doctype"]}": {{"field": ["{field}"], "partition_by": ["month"]}},')
 	print("}")
 	print()
+
+
+def create_posting_date_defaults_phase(
+	doc=None,
+	output_file: str = None,
+	root_user: str = None,
+	root_password: str = None,
+	partition_doctypes=None,
+):
+	"""
+	Generate Percona commands to add DEFAULT (CURRENT_DATE) to posting_date columns
+	in all child tables.
+	"""
+	from frappe.utils import get_table_name
+
+	if partition_doctypes is None:
+		partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if not partition_doctypes:
+		print("\nNo partition_doctypes found in hooks")
+		return False
+
+	if doc:
+		if doc.doctype in partition_doctypes:
+			partition_doctypes = {doc.doctype: partition_doctypes[doc.doctype]}
+		else:
+			print(f"ERROR: {doc.doctype} not in partition_doctypes hook")
+			return False
+
+	db = DatabaseConnection(root_user, root_password)
+	analyzer = TableAnalyzer(db)
+	processed_child_tables = set()
+
+	commands = []
+	tables_info = []
+
+	print(f"\n{'='*80}")
+	print("Generating Percona commands for posting_date DEFAULT (CURRENT_DATE)")
+	print(f"{'='*80}\n")
+
+	for doctype, settings in partition_doctypes.items():
+		print(f"\nProcessing: {doctype}")
+
+		meta = frappe.get_meta(doctype)
+		for df in meta.get_table_fields():
+			child_doctype = df.options
+			child_table = get_table_name(df.options)
+
+			if child_table in processed_child_tables:
+				print(f"  ⊘ {child_doctype} already processed, skipping...")
+				continue
+
+			processed_child_tables.add(child_table)
+
+			if not db.column_exists(child_table, "posting_date"):
+				print(f"  ⊘ {child_doctype}: posting_date column doesn't exist")
+				continue
+
+			column_info = frappe.db.sql(
+				f"""
+                SELECT
+                    COLUMN_TYPE,
+                    IS_NULLABLE,
+                    COLUMN_DEFAULT
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                AND table_name = '{child_table}'
+                AND column_name = 'posting_date'
+            """,
+				as_dict=True,
+			)
+
+			if not column_info:
+				print(f"  ✗ {child_doctype}: Could not get column info")
+				continue
+
+			current_default = column_info[0].get("COLUMN_DEFAULT")
+
+			# Check if already has expression default
+			if current_default and "curdate" in str(current_default).lower():
+				print(f"  ⊘ {child_doctype}: Already has DEFAULT (CURRENT_DATE)")
+				continue
+
+			# Check if table is partitioned
+			is_partitioned = analyzer.is_partitioned(child_table)
+
+			# Generate Percona command
+			cmd = _generate_posting_date_default_command(
+				table=child_table,
+				db=db,
+			)
+			if cmd:
+				commands.append(cmd)
+				tables_info.append(
+					{
+						"table": child_table,
+						"doctype": child_doctype,
+						"type": "child",
+						"partitioned": is_partitioned,
+					}
+				)
+				print(f"  ✓ {child_doctype} - command generated")
+			else:
+				print(f"  ⊘ {child_doctype} - skipped")
+
+	if not commands:
+		print("\nNo DEFAULT modifications needed - all columns already have defaults")
+		return True
+
+	if output_file is None:
+		output_file = "./percona_posting_date_defaults.sh"
+
+	script_content = _generate_posting_date_defaults_script(commands, tables_info, db)
+
+	with open(output_file, "w") as f:
+		f.write(script_content)
+
+	os.chmod(output_file, 0o755)
+
+	print(f"\n{'='*80}")
+	print("Summary")
+	print(f"{'='*80}")
+	print(f"Commands generated: {len(commands)}")
+	print(f"Shell script written to: {output_file}")
+	print("\nNext steps:")
+	print(f"  1. Review and execute the script: bash {output_file}")
+	print(f"{'='*80}\n")
+
+	# Also print commands to console
+	print("\n" + "=" * 80)
+	print("GENERATED COMMANDS (also saved to script file):")
+	print("=" * 80 + "\n")
+	for i, cmd in enumerate(commands, 1):
+		info = tables_info[i - 1]
+		partitioned_note = " (PARTITIONED)" if info.get("partitioned") else ""
+		print(f"# {i}. {info['doctype']}{partitioned_note}")
+		print(cmd)
+		print()
+
+	return True
+
+
+def _generate_posting_date_default_command(
+	table: str,
+	db: DatabaseConnection,
+) -> str | None:
+	"""
+	Generate the Percona pt-online-schema-change command for adding DEFAULT to posting_date.
+
+	Returns None if column doesn't exist or on error.
+	"""
+	import shlex
+
+	try:
+		# Build ALTER statement - MariaDB 10.6+ supports expression defaults
+		alter_statement = "MODIFY COLUMN `posting_date` DATE NULL DEFAULT (CURRENT_DATE)"
+
+		dsn = db.get_dsn(table)
+
+		user_arg = f"--user={db.user}" if db.user else "--user=YOUR_DB_USER"
+		pass_arg = (
+			f"--password={db.password}" if db.password else "--password=YOUR_DB_PASSWORD"
+		)
+
+		cmd_parts = [
+			"pt-online-schema-change",
+			shlex.quote(f"--alter={alter_statement}"),
+			shlex.quote(dsn),
+			shlex.quote(user_arg),
+			shlex.quote(pass_arg),
+			"--execute",
+			"--chunk-size=10000",
+			"--max-load=Threads_running=100",
+			"--critical-load=Threads_running=200",
+			"--recursion-method=none",
+			"--progress=time,30",
+			"--print",
+			"--no-check-alter",
+		]
+
+		return " ".join(cmd_parts)
+
+	except Exception as e:
+		print(f"    ERROR generating command for {table}: {e}")
+		return None
+
+
+def _generate_posting_date_defaults_script(
+	commands: list,
+	tables_info: list,
+	db: DatabaseConnection,
+) -> str:
+	"""Generate a shell script with all Percona commands for posting_date defaults"""
+
+	has_real_creds = db.user and db.password and "YOUR_" not in str(db.user)
+
+	script = f"""#!/bin/bash
+#
+# Percona posting_date DEFAULT Script
+# Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+# Database: {db.database}
+# Host: {db.host}
+#
+# This script adds DEFAULT (CURRENT_DATE) to posting_date columns in child tables.
+# This ensures NULL errors don't occur when hooks fail to populate the field.
+#
+"""
+
+	if not has_real_creds:
+		script += """# IMPORTANT: Database credentials were not provided.
+# Please replace YOUR_DB_USER and YOUR_DB_PASSWORD in the commands below.
+#
+# Option: Find and replace in this file:
+#   sed -i 's/YOUR_DB_USER/actual_user/g' percona_posting_date_defaults.sh
+#   sed -i 's/YOUR_DB_PASSWORD/actual_password/g' percona_posting_date_defaults.sh
+#
+"""
+
+	script += f"""# Usage: bash percona_posting_date_defaults.sh
+#
+
+set -e  # Exit on error
+
+echo "Starting Percona posting_date DEFAULT modifications..."
+echo "Database: {db.database}"
+echo "Host: {db.host}"
+echo "Tables to modify: {len(commands)}"
+echo ""
+
+"""
+
+	for i, (cmd, info) in enumerate(zip(commands, tables_info), 1):
+		partitioned_note = (
+			" (PARTITIONED - may take longer)" if info.get("partitioned") else ""
+		)
+		script += f"""
+# ============================================================================
+# {i}/{len(commands)}: {info['doctype']}{partitioned_note}
+# Table: {info['table']}
+# ============================================================================
+echo ""
+echo "Processing {i}/{len(commands)}: {info['table']}..."
+echo ""
+
+{cmd}
+
+echo ""
+echo "✓ Completed: {info['table']}"
+echo ""
+
+"""
+
+	script += """
+echo ""
+echo "============================================================================"
+echo "All posting_date DEFAULT modifications completed successfully!"
+echo "============================================================================"
+echo ""
+echo "Custom Field metadata has also been updated to set default='Today'"
+echo ""
+"""
+
+	return script
