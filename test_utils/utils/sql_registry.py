@@ -14,6 +14,18 @@ import sqlglot
 from sqlglot import exp
 
 
+class UnresolvedParameterError(Exception):
+	"""Raised when a SQL parameter cannot be resolved to a Python variable."""
+
+	pass
+
+
+class ConversionIneligible(Exception):
+	"""Raised when SQL cannot be automatically converted."""
+
+	pass
+
+
 @dataclass
 class SQLCall:
 	call_id: str
@@ -32,6 +44,25 @@ class SQLCall:
 	notes: str | None
 	created_at: datetime
 	updated_at: datetime
+	# Validation fields
+	conversion_eligible: bool = True
+	conversion_validated: bool = False
+	ineligibility_reason: str | None = None
+
+
+@dataclass
+class SQLStructure:
+	"""Normalized structure extracted from SQL for comparison."""
+
+	query_type: str  # SELECT, INSERT, UPDATE, DELETE
+	tables: list[str]
+	fields: list[str]
+	conditions: list[str]  # Normalized condition strings
+	joins: list[str]
+	group_by: list[str]
+	order_by: list[str]
+	limit: int | None
+	has_aggregation: bool
 
 
 class SQLRegistry:
@@ -118,9 +149,57 @@ class SQLRegistry:
 			existing.variable_name = variable_name
 			return call_id
 
+		# Check conversion eligibility first
+		sql_cleaned, replacements = self.replace_sql_patterns(sql_query)
+		is_eligible, ineligibility_reason = self.check_conversion_eligibility(
+			sql_query, replacements, sql_params
+		)
+
+		if not is_eligible:
+			# Mark as ineligible with reason
+			sql_call = SQLCall(
+				call_id=call_id,
+				file_path=file_path,
+				line_number=line_num,
+				function_context=function_context,
+				sql_query=sql_query,
+				sql_params=sql_params,
+				sql_kwargs=sql_kwargs,
+				variable_name=variable_name,
+				ast_object="",
+				ast_normalized="INELIGIBLE",
+				query_builder_equivalent=f"# MANUAL: {ineligibility_reason}",
+				implementation_type="frappe_db_sql",
+				semantic_signature="INELIGIBLE",
+				notes=ineligibility_reason,
+				created_at=datetime.now(),
+				updated_at=datetime.now(),
+				conversion_eligible=False,
+				conversion_validated=False,
+				ineligibility_reason=ineligibility_reason,
+			)
+			self.data["calls"][call_id] = sql_call
+			return call_id
+
 		ast_str, semantic_sig, qb_equivalent = self.analyze_sql(
 			sql_query, sql_params, variable_name
 		)
+
+		# Validate conversion if we have a valid QB output
+		conversion_validated = False
+		validation_notes = None
+		if not qb_equivalent.startswith("#"):
+			try:
+				parsed = sqlglot.parse(sql_cleaned, dialect="mysql")
+				if parsed and parsed[0]:
+					is_valid, validation_error = self.validate_conversion(parsed[0], qb_equivalent)
+					conversion_validated = is_valid
+					if not is_valid:
+						validation_notes = f"Validation failed: {validation_error}"
+						# Mark as needing manual review
+						qb_equivalent = f"# MANUAL: Validation failed - {validation_error}\n# Generated (unvalidated):\n# {qb_equivalent.replace(chr(10), chr(10) + '# ')}"
+			except Exception as e:
+				validation_notes = f"Validation error: {str(e)}"
 
 		sql_call = SQLCall(
 			call_id=call_id,
@@ -136,9 +215,12 @@ class SQLRegistry:
 			query_builder_equivalent=qb_equivalent,
 			implementation_type="frappe_db_sql",
 			semantic_signature=semantic_sig,
-			notes=None,
+			notes=validation_notes,
 			created_at=datetime.now(),
 			updated_at=datetime.now(),
+			conversion_eligible=True,
+			conversion_validated=conversion_validated,
+			ineligibility_reason=None,
 		)
 
 		self.data["calls"][call_id] = sql_call
@@ -195,11 +277,13 @@ class SQLRegistry:
 			elif isinstance(ast_object, exp.Insert):
 				return self.convert_insert_to_qb(ast_object, replacements)
 			elif isinstance(ast_object, exp.Update):
-				return self.convert_update_to_qb(ast_object, replacements)
+				return self.convert_update_to_qb(ast_object, replacements, sql_params)
 			elif isinstance(ast_object, exp.Delete):
-				return self.convert_delete_to_qb(ast_object, replacements)
+				return self.convert_delete_to_qb(ast_object, replacements, sql_params)
 			else:
 				return f"# Unsupported query type: {type(ast_object).__name__}"
+		except UnresolvedParameterError as e:
+			return f"# MANUAL: {str(e)} - needs manual conversion"
 		except Exception as e:
 			return f"# Error converting to Query Builder: {str(e)}"
 
@@ -285,6 +369,455 @@ class SQLRegistry:
 		except Exception as e:
 			return "", f"ERROR: {str(e)}", f"# Error analyzing SQL: {str(e)}"
 
+	def check_conversion_eligibility(
+		self,
+		sql_query: str,
+		replacements: list[tuple[str, str]],
+		sql_params: dict | None = None,
+	) -> tuple[bool, str | None]:
+		"""
+		Check if a SQL query is eligible for automatic conversion.
+
+		Returns: (is_eligible, reason_if_not)
+
+		Ineligible cases:
+		- F-strings with complex expressions (not simple variable references)
+		- String concatenation that can't be statically resolved
+		- Dynamic table names
+		- SQL parameters (%(name)s, %s) without corresponding values in sql_params
+		"""
+		# Track parameter requirements
+		named_params_needed = []
+		positional_params_count = 0
+
+		for placeholder, original in replacements:
+			# Check for f-string blocks with complex expressions
+			if original.startswith("{") and original.endswith("}"):
+				inner = original[1:-1]
+				# Simple variable references are OK: {var}, {self.var}, {obj.attr}
+				# Complex expressions are NOT OK: {func()}, {a + b}, {x[0]}
+				if re.search(r"[\[\]()+=\-*/]", inner):
+					return False, f"Complex f-string expression: {original}"
+				if "(" in inner:
+					return False, f"F-string with function call: {original}"
+
+			# Track named parameters like %(name)s
+			elif original.startswith("%(") and original.endswith(")s"):
+				param_name = original[2:-2]  # Extract 'name' from '%(name)s'
+				named_params_needed.append(param_name)
+
+			# Track positional parameters %s
+			elif original == "%s":
+				positional_params_count += 1
+
+		# Check if named parameters are provided
+		if named_params_needed:
+			if sql_params is None:
+				return (
+					False,
+					f"Named parameters {named_params_needed} used but no params dict provided",
+				)
+			missing = [p for p in named_params_needed if p not in sql_params]
+			if missing:
+				return False, f"Named parameters {missing} not found in params dict"
+
+		# Check if positional parameters are provided
+		if positional_params_count > 0:
+			if sql_params is None:
+				return (
+					False,
+					f"{positional_params_count} positional parameter(s) used but no params provided",
+				)
+			# Check if we have enough positional params
+			# Positional params are stored as __pos_0__, __pos_1__, etc.
+			provided_positional = sum(1 for k in sql_params.keys() if k.startswith("__pos_"))
+			if provided_positional < positional_params_count:
+				return (
+					False,
+					f"{positional_params_count} positional parameter(s) needed but only {provided_positional} provided",
+				)
+
+		# Check for dynamic table names (table name is a placeholder)
+		try:
+			sql_cleaned, _ = self.replace_sql_patterns(sql_query)
+			parsed = sqlglot.parse(sql_cleaned, dialect="mysql")
+			if parsed and parsed[0]:
+				ast = parsed[0]
+				# Check if FROM clause contains a placeholder
+				from_clause = ast.find(exp.From)
+				if from_clause:
+					table_str = str(from_clause.this) if from_clause.this else ""
+					if "__PH" in table_str:
+						return False, "Dynamic table name"
+		except Exception:
+			pass
+
+		return True, None
+
+	def extract_sql_structure(self, ast_object: exp.Expression) -> SQLStructure:
+		"""Extract normalized structure from SQL AST for comparison."""
+		query_type = type(ast_object).__name__.upper()
+		tables = []
+		fields = []
+		conditions = []
+		joins = []
+		group_by = []
+		order_by = []
+		limit_val = None
+		has_aggregation = False
+
+		if isinstance(ast_object, exp.Select):
+			# Extract tables
+			from_clause = ast_object.find(exp.From)
+			if from_clause and from_clause.this:
+				tables.append(self._normalize_table_name(str(from_clause.this)))
+
+			# Extract joins
+			for join in ast_object.find_all(exp.Join):
+				if join.this:
+					tables.append(self._normalize_table_name(str(join.this)))
+					joins.append(f"JOIN {self._normalize_table_name(str(join.this))}")
+
+			# Extract fields
+			for expr in ast_object.expressions:
+				field_str = self._normalize_field(str(expr))
+				fields.append(field_str)
+				# Check for aggregations
+				if any(
+					agg in str(expr).upper() for agg in ["COUNT(", "SUM(", "AVG(", "MAX(", "MIN("]
+				):
+					has_aggregation = True
+
+			# Extract conditions
+			where = ast_object.find(exp.Where)
+			if where:
+				conditions.append(self._normalize_condition(str(where.this)))
+
+			# Extract GROUP BY
+			group = ast_object.find(exp.Group)
+			if group:
+				for expr in group.expressions:
+					group_by.append(self._normalize_field(str(expr)))
+
+			# Extract ORDER BY
+			order = ast_object.find(exp.Order)
+			if order:
+				for expr in order.expressions:
+					order_by.append(self._normalize_field(str(expr)))
+
+			# Extract LIMIT
+			limit = ast_object.find(exp.Limit)
+			if limit and limit.expression:
+				try:
+					limit_val = int(str(limit.expression))
+				except ValueError:
+					pass
+
+		elif isinstance(ast_object, exp.Delete):
+			table = ast_object.this
+			if table:
+				tables.append(self._normalize_table_name(str(table)))
+			where = ast_object.find(exp.Where)
+			if where:
+				conditions.append(self._normalize_condition(str(where.this)))
+
+		elif isinstance(ast_object, exp.Update):
+			table = ast_object.this
+			if table:
+				tables.append(self._normalize_table_name(str(table)))
+			# Extract SET fields
+			for expr in ast_object.expressions:
+				if isinstance(expr, exp.EQ):
+					field_name = str(expr.left).strip("`\"'")
+					fields.append(field_name.lower())
+			where = ast_object.find(exp.Where)
+			if where:
+				conditions.append(self._normalize_condition(str(where.this)))
+
+		return SQLStructure(
+			query_type=query_type,
+			tables=tables,
+			fields=fields,
+			conditions=conditions,
+			joins=joins,
+			group_by=group_by,
+			order_by=order_by,
+			limit=limit_val,
+			has_aggregation=has_aggregation,
+		)
+
+	def _normalize_table_name(self, name: str) -> str:
+		"""Normalize table name by removing quotes, aliases, and 'tab' prefix.
+
+		Frappe table names can have spaces (e.g., 'tabEmail Queue'), so we must
+		be careful to distinguish between spaces in names vs implicit aliases.
+		"""
+		name = name.strip("`\"'")
+
+		# Remove explicit alias (AS clause)
+		if " AS " in name.upper():
+			name = name.upper().split(" AS ")[0].strip()
+		# Check for implicit alias - but only if pattern looks like: `tabName` alias
+		# where alias is a single lowercase word at the end
+		elif " " in name:
+			# Split into parts
+			parts = name.split()
+			# If last part is a simple lowercase identifier (alias), remove it
+			# Frappe table names start with 'tab' and use Title Case for spaces
+			if len(parts) >= 2 and parts[-1].islower() and parts[-1].isalpha():
+				# Likely an alias - check if remaining parts form a valid Frappe table
+				potential_table = " ".join(parts[:-1])
+				if potential_table.startswith("`tab") or potential_table.lower().startswith("tab"):
+					name = potential_table
+			# Otherwise, keep the full name (it's a multi-word table name like "Email Queue")
+
+		name = name.strip("`\"'")
+		if name.lower().startswith("tab"):
+			name = name[3:]
+		return name.lower()
+
+	def _normalize_field(self, field: str) -> str:
+		"""Normalize field reference."""
+		# Remove backticks, quotes, and standardize
+		field = field.strip("`\"'")
+		# Replace placeholders with generic marker
+		field = re.sub(r"__PH\d+__", "PARAM", field)
+		return field.lower()
+
+	def _normalize_condition(self, condition: str) -> str:
+		"""Normalize condition for comparison."""
+		# Replace placeholders with generic marker
+		condition = re.sub(r"__PH\d+__", "PARAM", condition)
+		# Remove extra whitespace
+		condition = " ".join(condition.split())
+		return condition.lower()
+
+	def extract_qb_structure(self, qb_code: str) -> SQLStructure | None:
+		"""
+		Extract structure from generated Query Builder code.
+
+		Parses the QB code as Python AST and extracts the query structure.
+		"""
+		try:
+			tree = ast.parse(qb_code)
+		except SyntaxError:
+			return None
+
+		tables = []
+		fields = []
+		conditions = []
+		joins = []
+		group_by = []
+		order_by = []
+		limit_val = None
+		has_aggregation = False
+		query_type = "SELECT"  # Default
+
+		for node in ast.walk(tree):
+			# Look for frappe.get_all / frappe.get_list calls (ORM)
+			if isinstance(node, ast.Call):
+				func = node.func
+				if isinstance(func, ast.Attribute):
+					method_name = func.attr
+
+					# ORM methods
+					if method_name in ("get_all", "get_list", "get_value"):
+						if node.args:
+							first_arg = node.args[0]
+							if isinstance(first_arg, ast.Constant):
+								tables.append(first_arg.value.lower())
+						# Extract fields from 'fields' kwarg
+						for kw in node.keywords:
+							if kw.arg == "fields":
+								fields.extend(self._extract_list_values(kw.value))
+							elif kw.arg == "filters":
+								conditions.append("HAS_FILTERS")
+							elif kw.arg == "limit":
+								if isinstance(kw.value, ast.Constant):
+									limit_val = kw.value.value
+
+					# Query Builder methods
+					elif method_name == "delete":
+						query_type = "DELETE"
+					elif method_name == "select":
+						fields.extend(self._extract_qb_fields(node))
+					elif method_name == "where":
+						conditions.append("HAS_WHERE")
+					elif method_name == "groupby":
+						group_by.append("HAS_GROUPBY")
+					elif method_name == "orderby":
+						order_by.append("HAS_ORDERBY")
+					elif method_name == "limit":
+						if node.args and isinstance(node.args[0], ast.Constant):
+							limit_val = node.args[0].value
+
+				# Look for frappe.qb.DocType calls
+				if isinstance(func, ast.Attribute) and func.attr == "DocType":
+					if node.args and isinstance(node.args[0], ast.Constant):
+						tables.append(node.args[0].value.lower())
+
+			# Check for db.delete calls
+			if isinstance(node, ast.Call):
+				func = node.func
+				if isinstance(func, ast.Attribute) and func.attr == "delete":
+					# Check if it's frappe.db.delete
+					if isinstance(func.value, ast.Attribute) and func.value.attr == "db":
+						query_type = "DELETE"
+						if node.args and isinstance(node.args[0], ast.Constant):
+							tables.append(node.args[0].value.lower())
+						# Check for filters (second argument = WHERE equivalent)
+						if len(node.args) >= 2 or any(kw.arg == "filters" for kw in node.keywords):
+							conditions.append("HAS_FILTERS")
+
+			# Check for db.set_value calls (UPDATE)
+			if isinstance(node, ast.Call):
+				func = node.func
+				if isinstance(func, ast.Attribute) and func.attr == "set_value":
+					# Check if it's frappe.db.set_value
+					if isinstance(func.value, ast.Attribute) and func.value.attr == "db":
+						query_type = "UPDATE"
+						if node.args and isinstance(node.args[0], ast.Constant):
+							tables.append(node.args[0].value.lower())
+						# set_value always has a name/filter (WHERE equivalent)
+						if len(node.args) >= 2:
+							conditions.append("HAS_NAME_FILTER")
+						# Extract fields from 3rd argument (field name) or 3rd argument dict
+						if len(node.args) >= 3:
+							third_arg = node.args[2]
+							if isinstance(third_arg, ast.Constant):
+								fields.append(str(third_arg.value).lower())
+							elif isinstance(third_arg, ast.Dict):
+								for key in third_arg.keys:
+									if isinstance(key, ast.Constant):
+										fields.append(str(key.value).lower())
+
+			# Check for QB update operations
+			if isinstance(node, ast.Call):
+				func = node.func
+				if isinstance(func, ast.Attribute):
+					if func.attr == "update":
+						query_type = "UPDATE"
+					elif func.attr == "set" and query_type == "UPDATE":
+						# Extract field from .set(field, value)
+						if node.args:
+							first_arg = node.args[0]
+							if isinstance(first_arg, ast.Attribute):
+								fields.append(first_arg.attr.lower())
+
+		return SQLStructure(
+			query_type=query_type,
+			tables=tables,
+			fields=[f.lower() for f in fields],
+			conditions=conditions,
+			joins=joins,
+			group_by=group_by,
+			order_by=order_by,
+			limit=limit_val,
+			has_aggregation=has_aggregation,
+		)
+
+	def _extract_list_values(self, node: ast.AST) -> list[str]:
+		"""Extract string values from a list AST node."""
+		values = []
+		if isinstance(node, ast.List):
+			for elt in node.elts:
+				if isinstance(elt, ast.Constant):
+					values.append(str(elt.value))
+		return values
+
+	def _extract_qb_fields(self, call_node: ast.Call) -> list[str]:
+		"""Extract field names from QB select() call."""
+		fields = []
+		for arg in call_node.args:
+			if isinstance(arg, ast.Constant):
+				fields.append(str(arg.value))
+			elif isinstance(arg, ast.Attribute):
+				fields.append(arg.attr)
+			elif isinstance(arg, ast.Call):
+				# Handle function calls like fn.Count(), fn.Sum(), etc.
+				# These count as a field (aggregation result)
+				func = arg.func
+				if isinstance(func, ast.Attribute):
+					func_name = func.attr.lower()
+					if func_name in ("count", "sum", "avg", "min", "max", "coalesce", "ifnull", "abs"):
+						fields.append(f"__{func_name}__")
+					elif func_name == "as_":
+						# field.as_("alias") - count as 1 field
+						fields.append("__aliased__")
+					else:
+						fields.append("__func__")
+				else:
+					fields.append("__func__")
+			elif isinstance(arg, ast.BinOp):
+				# Arithmetic expressions like (fn.Sum(x) - fn.Sum(y)) count as 1 field
+				fields.append("__expr__")
+			elif isinstance(arg, ast.Tuple):
+				# Multiple fields as a tuple - count each
+				fields.extend(["__tuple_elem__"] * len(arg.elts))
+		return fields
+
+	def validate_conversion(
+		self, original_ast: exp.Expression, qb_code: str
+	) -> tuple[bool, str | None]:
+		"""
+		Validate that QB code produces equivalent query structure.
+
+		Returns: (is_valid, error_message_if_not)
+		"""
+		# Skip validation for manual/error conversions
+		if qb_code.startswith("#"):
+			return True, None
+
+		original_struct = self.extract_sql_structure(original_ast)
+		qb_struct = self.extract_qb_structure(qb_code)
+
+		if qb_struct is None:
+			return False, "Could not parse QB code"
+
+		errors = []
+
+		# Compare query types
+		if original_struct.query_type != qb_struct.query_type:
+			errors.append(
+				f"Query type mismatch: {original_struct.query_type} vs {qb_struct.query_type}"
+			)
+
+		# Compare tables
+		orig_tables = set(original_struct.tables)
+		qb_tables = set(qb_struct.tables)
+		if orig_tables != qb_tables:
+			# QB may have MORE tables than original (subquery tables need DocType declarations)
+			# Only error if original has tables that QB doesn't have
+			missing_in_qb = orig_tables - qb_tables
+			if missing_in_qb:
+				errors.append(f"Table mismatch: {orig_tables} vs {qb_tables}")
+
+		# For SELECT, compare field count (not exact match due to normalization differences)
+		if original_struct.query_type == "SELECT":
+			# Check if both have fields or both use *
+			orig_has_star = "*" in str(original_struct.fields)
+			qb_has_star = "*" in str(qb_struct.fields)
+			if not orig_has_star and not qb_has_star:
+				if len(original_struct.fields) != len(qb_struct.fields):
+					errors.append(
+						f"Field count mismatch: {len(original_struct.fields)} vs {len(qb_struct.fields)}"
+					)
+
+		# Compare condition presence
+		orig_has_where = bool(original_struct.conditions)
+		qb_has_where = bool(qb_struct.conditions)
+		if orig_has_where != qb_has_where:
+			errors.append(f"WHERE clause mismatch: original={orig_has_where}, qb={qb_has_where}")
+
+		# Compare LIMIT
+		if original_struct.limit != qb_struct.limit:
+			errors.append(f"LIMIT mismatch: {original_struct.limit} vs {qb_struct.limit}")
+
+		if errors:
+			return False, "; ".join(errors)
+
+		return True, None
+
 	def convert_select_to_orm(
 		self,
 		select: exp.Select,
@@ -318,7 +851,13 @@ class SQLRegistry:
 		if not from_clause or not from_clause.this:
 			return "# Error: No FROM clause found"
 
-		table_name = str(from_clause.this).strip("`\"'")
+		# Extract table name, ignoring alias if present
+		table_node = from_clause.this
+		if hasattr(table_node, "this") and table_node.this:
+			# Table has alias, get actual table name
+			table_name = str(table_node.this).strip("`\"'")
+		else:
+			table_name = str(table_node).strip("`\"'")
 		# Convert 'tabDocType' to 'DocType'
 		doctype = (
 			table_name.replace("tab", "") if table_name.startswith("tab") else table_name
@@ -413,13 +952,15 @@ class SQLRegistry:
 			formatted_filters = self.format_filters_for_orm(filters, needs_imports)
 			lines.append(f"\tfilters={formatted_filters},")
 
-		# Add fields if specified (not *)
-		if fields:
-			if is_single_field:
-				lines.append(f'\tfields=["{fields[0]}"],')
-			else:
-				fields_str = ", ".join(f'"{f}"' for f in fields)
-				lines.append(f"\tfields=[{fields_str}],")
+		# Add fields - use ["*"] for SELECT *, otherwise list specific fields
+		if fields is None:
+			# SELECT * - need to explicitly request all fields
+			lines.append('\tfields=["*"],')
+		elif is_single_field:
+			lines.append(f'\tfields=["{fields[0]}"],')
+		else:
+			fields_str = ", ".join(f'"{f}"' for f in fields)
+			lines.append(f"\tfields=[{fields_str}],")
 
 		# Add order_by if present
 		if order_by:
@@ -544,6 +1085,29 @@ class SQLRegistry:
 				pattern = self.extract_value(condition.expression, replacements, sql_params)
 				return [[field, "like", pattern]]
 
+			elif isinstance(condition, exp.Is):
+				# IS NULL
+				field = self.extract_field_name(condition.this)
+				return [[field, "is", "null"]]
+
+			elif isinstance(condition, exp.Not):
+				# Check if this is IS NOT NULL
+				if isinstance(condition.this, exp.Is):
+					field = self.extract_field_name(condition.this.this)
+					return [[field, "is", "set"]]
+				# Otherwise it's a NOT of something else
+				inner = self.convert_where_to_filters(condition.this, replacements, sql_params)
+				# Can't easily negate arbitrary filters in ORM
+				return {}
+
+			elif isinstance(condition, exp.Between):
+				# BETWEEN low AND high
+				field = self.extract_field_name(condition.this)
+				low = self.extract_value(condition.args.get("low"), replacements, sql_params)
+				high = self.extract_value(condition.args.get("high"), replacements, sql_params)
+				# Frappe uses ["between", [low, high]]
+				return [[field, "between", [low, high]]]
+
 			elif isinstance(condition, exp.NEQ):
 				# Handle != conditions (v16 compatible)
 				left_expr = condition.left
@@ -644,8 +1208,17 @@ class SQLRegistry:
 				# Dictionary filters
 				items = []
 				for key, value in filters.items():
-					if isinstance(value, str) and not value.startswith("doc."):
-						items.append(f'"{key}": "{value}"')
+					if isinstance(value, str):
+						# Check if value is already quoted or is a variable reference
+						if value.startswith('"') or value.startswith("'"):
+							# Already quoted, use as-is
+							items.append(f'"{key}": {value}')
+						elif value.startswith("doc.") or "." in value or value.isidentifier():
+							# Variable reference - don't quote
+							items.append(f'"{key}": {value}')
+						else:
+							# String literal - add quotes
+							items.append(f'"{key}": "{value}"')
 					else:
 						items.append(f'"{key}": {value}')
 				return "{" + ", ".join(items) + "}"
@@ -740,12 +1313,29 @@ class SQLRegistry:
 		needs_fn_import = any(
 			isinstance(
 				expr,
-				(exp.Count, exp.Avg, exp.Sum, exp.Max, exp.Min, exp.Date, exp.Cast, exp.Coalesce),
+				(
+					exp.Count,
+					exp.Avg,
+					exp.Sum,
+					exp.Max,
+					exp.Min,
+					exp.Date,
+					exp.Cast,
+					exp.Coalesce,
+					exp.Abs,
+				),
 			)
 			for expr in select.walk()
 		)
+
+		# Check if we need Case import
+		needs_case_import = any(isinstance(expr, exp.Case) for expr in select.walk())
 		if needs_fn_import:
 			lines.append("from frappe.query_builder import functions as fn")
+			lines.append("")
+
+		if needs_case_import:
+			lines.append("from pypika import Case")
 			lines.append("")
 
 		# Check if we need SubQuery import (for IN/NOT IN with subqueries)
@@ -1003,6 +1593,48 @@ class SQLRegistry:
 			)
 			return f"CustomFunction('DATEDIFF', ['end', 'start'])({end_field}, {start_field})"
 
+		# Handle Coalesce/IfNull
+		if isinstance(expr, exp.Coalesce):
+			inner = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
+			if expr.expressions:
+				fallback = self.format_select_field(
+					expr.expressions[0], table_vars, main_var, replacements, sql_params
+				)
+			else:
+				fallback = "0"
+			return f"fn.Coalesce({inner}, {fallback})"
+
+		# Handle CASE expressions - complex, produce QB Case syntax
+		if isinstance(expr, exp.Case):
+			# CASE WHEN cond1 THEN val1 WHEN cond2 THEN val2 ELSE default END
+			# -> Case().when(cond1, val1).when(cond2, val2).else_(default)
+			parts = ["Case()"]
+			ifs = expr.args.get("ifs", [])
+			for if_clause in ifs:
+				condition = self.convert_condition_to_qb(
+					if_clause.this, replacements, table_vars, sql_params
+				)
+				result_val = self.format_select_field(
+					if_clause.args.get("true"), table_vars, main_var, replacements, sql_params
+				)
+				parts.append(f".when({condition}, {result_val})")
+			default = expr.args.get("default")
+			if default:
+				default_val = self.format_select_field(
+					default, table_vars, main_var, replacements, sql_params
+				)
+				parts.append(f".else_({default_val})")
+			return "".join(parts)
+
+		# Handle ABS function
+		if isinstance(expr, exp.Abs):
+			inner = self.format_select_field(
+				expr.this, table_vars, main_var, replacements, sql_params
+			)
+			return f"fn.Abs({inner})"
+
 		# Handle arithmetic expressions (Sub, Add, Mul, Div)
 		if isinstance(expr, exp.Sub):
 			left = self.format_select_field(
@@ -1132,7 +1764,8 @@ class SQLRegistry:
 							if isinstance(value, str) and ("." in value or value.isidentifier()):
 								return value
 							return f'"{value}"' if isinstance(value, str) else str(value)
-					return original
+					# Cannot resolve %s parameter - flag for manual review
+					raise UnresolvedParameterError("Cannot resolve positional parameter %s")
 				else:
 					# Not a parameter pattern, keep original
 					return original
@@ -1430,6 +2063,57 @@ class SQLRegistry:
 				fallback = '""'
 			return f"fn.Coalesce({inner}, {fallback})"
 
+		# Handle aggregation functions
+		if isinstance(field, exp.Count):
+			if field.this and str(field.this) == "*":
+				return 'fn.Count("*")'
+			elif field.this:
+				inner = self.format_field(field.this, table_vars)
+				return f"fn.Count({inner})"
+			return 'fn.Count("*")'
+
+		if isinstance(field, exp.Sum):
+			inner = self.format_field(field.this, table_vars) if field.this else '"*"'
+			return f"fn.Sum({inner})"
+
+		if isinstance(field, exp.Avg):
+			inner = self.format_field(field.this, table_vars) if field.this else '"*"'
+			return f"fn.Avg({inner})"
+
+		if isinstance(field, exp.Max):
+			inner = self.format_field(field.this, table_vars) if field.this else '"*"'
+			return f"fn.Max({inner})"
+
+		if isinstance(field, exp.Min):
+			inner = self.format_field(field.this, table_vars) if field.this else '"*"'
+			return f"fn.Min({inner})"
+
+		# Handle arithmetic operations (Add, Sub, Mul, Div)
+		if isinstance(field, exp.Add):
+			left = self.format_field(field.left, table_vars)
+			right = self.format_field(field.right, table_vars)
+			return f"({left} + {right})"
+
+		if isinstance(field, exp.Sub):
+			left = self.format_field(field.left, table_vars)
+			right = self.format_field(field.right, table_vars)
+			return f"({left} - {right})"
+
+		if isinstance(field, exp.Mul):
+			left = self.format_field(field.left, table_vars)
+			right = self.format_field(field.right, table_vars)
+			return f"({left} * {right})"
+
+		if isinstance(field, exp.Div):
+			left = self.format_field(field.left, table_vars)
+			right = self.format_field(field.right, table_vars)
+			return f"({left} / {right})"
+
+		# Handle Paren (parenthesized expressions)
+		if isinstance(field, exp.Paren):
+			inner = self.format_field(field.this, table_vars)
+			return f"({inner})"
+
 		# Handle Column expressions
 		if isinstance(field, exp.Column):
 			column_name = str(field.this).strip("`\"'") if field.this else ""
@@ -1496,14 +2180,249 @@ doc = frappe.get_doc({{
 doc.insert()"""
 
 	def convert_update_to_qb(
-		self, update: exp.Update, replacements: list[tuple[str, str]]
+		self, update: exp.Update, replacements: list[tuple[str, str]], sql_params: dict = None
 	) -> str:
-		return "# UPDATE: Use frappe.db.set_value() or doc.save() for single records"
+		"""Convert UPDATE statement to frappe.db.set_value() or Query Builder.
+
+		UPDATE tabX SET field = value WHERE name = %s
+		        -> frappe.db.set_value("X", name_var, "field", value)
+		UPDATE tabX SET f1 = v1, f2 = v2 WHERE name = %s
+		        -> frappe.db.set_value("X", name_var, {"f1": v1, "f2": v2})
+		UPDATE with complex WHERE -> Query Builder
+		"""
+		# Extract table name
+		table = update.this
+		if not table:
+			return "# MANUAL: UPDATE - Could not determine table"
+
+		table_name = str(table).strip("`\"'")
+
+		# Check for multi-table UPDATE (MySQL-specific, not supported)
+		if "," in table_name or " AS " in table_name.upper():
+			return "# MANUAL: Multi-table UPDATE - requires manual conversion"
+		if table_name.startswith("tab"):
+			doctype = table_name[3:]
+		else:
+			doctype = table_name
+
+		# Extract SET assignments
+		set_fields = {}
+		for expr in update.expressions:
+			if isinstance(expr, exp.EQ):
+				field_name = str(expr.left).strip("`\"'")
+				value_expr = expr.right
+
+				# Resolve the value
+				value_str = str(value_expr).strip()
+				resolved_value = self._resolve_update_value(value_str, replacements, sql_params)
+				set_fields[field_name] = resolved_value
+
+		if not set_fields:
+			return "# MANUAL: UPDATE - Could not extract SET fields"
+
+		# Extract WHERE clause
+		where_clause = update.find(exp.Where)
+
+		if not where_clause:
+			# UPDATE without WHERE - dangerous, flag for manual review
+			return f"# MANUAL: UPDATE without WHERE on {doctype} - needs manual review"
+
+		# Check if WHERE is simple "name = value" pattern
+		where_cond = where_clause.this
+		is_name_filter, name_value = self._is_simple_name_filter(
+			where_cond, replacements, sql_params
+		)
+
+		if is_name_filter and name_value:
+			# Use frappe.db.set_value with name
+			if len(set_fields) == 1:
+				field, value = list(set_fields.items())[0]
+				return f'frappe.db.set_value("{doctype}", {name_value}, "{field}", {value})'
+			else:
+				# Multiple fields - use dict
+				fields_dict = self._format_update_fields_dict(set_fields)
+				return f'frappe.db.set_value("{doctype}", {name_value}, {fields_dict})'
+
+		# Complex WHERE - try Query Builder
+		try:
+			var_name = doctype.replace(" ", "").replace("-", "")
+			table_vars = {table_name: var_name}
+			condition = self.convert_condition_to_qb(
+				where_cond, replacements, table_vars, sql_params
+			)
+
+			# Check for unresolved placeholders
+			if "__PH" in condition or "%s" in condition:
+				raise UnresolvedParameterError("Unresolved parameter in WHERE")
+
+			lines = [f'{var_name} = frappe.qb.DocType("{doctype}")']
+
+			# Build the update chain
+			update_parts = [f"frappe.qb.update({var_name})"]
+			for field, value in set_fields.items():
+				update_parts.append(f".set({var_name}.{field}, {value})")
+			update_parts.append(f".where({condition})")
+			update_parts.append(".run()")
+
+			lines.append("".join(update_parts))
+			return "\n".join(lines)
+
+		except (UnresolvedParameterError, Exception) as e:
+			# Fall back to manual review with helpful template
+			var_name = doctype.replace(" ", "").replace("-", "")
+			return f'# MANUAL: UPDATE with complex WHERE on {doctype}\n# frappe.db.set_value("{doctype}", filters, fields_dict) or use Query Builder'
+
+	def _resolve_update_value(
+		self, value_str: str, replacements: list, sql_params: dict
+	) -> str:
+		"""Resolve a value from UPDATE SET clause."""
+		# Check if it's a placeholder
+		for placeholder, original in replacements:
+			if placeholder in value_str:
+				# Try to resolve the parameter
+				if original.startswith("%(") and original.endswith(")s"):
+					param_name = original[2:-2]
+					if sql_params and param_name in sql_params:
+						resolved = sql_params[param_name]
+						if isinstance(resolved, str) and ("." in resolved or resolved.isidentifier()):
+							return resolved
+						return f'"{resolved}"' if isinstance(resolved, str) else str(resolved)
+					return param_name  # Return param name as variable
+				elif original == "%s":
+					# Positional parameter
+					ph_match = re.match(r"__PH(\d+)__", placeholder)
+					if ph_match and sql_params:
+						pos_key = f"__pos_{ph_match.group(1)}__"
+						if pos_key in sql_params:
+							resolved = sql_params[pos_key]
+							if isinstance(resolved, str) and ("." in resolved or resolved.isidentifier()):
+								return resolved
+							return f'"{resolved}"' if isinstance(resolved, str) else str(resolved)
+					raise UnresolvedParameterError("Cannot resolve positional parameter")
+
+		# Literal value
+		if value_str.isdigit():
+			return value_str
+		elif value_str.upper() in ("NULL", "TRUE", "FALSE"):
+			return value_str.capitalize() if value_str.upper() != "NULL" else "None"
+		elif value_str.startswith("'") and value_str.endswith("'"):
+			return f'"{value_str[1:-1]}"'
+		else:
+			return f'"{value_str}"'
+
+	def _is_simple_name_filter(
+		self, where_cond, replacements: list, sql_params: dict
+	) -> tuple[bool, str | None]:
+		"""Check if WHERE is simple 'name = value' pattern."""
+		if isinstance(where_cond, exp.EQ):
+			left = str(where_cond.left).strip("`\"'").lower()
+			if left == "name":
+				right_str = str(where_cond.right).strip()
+				# Try to resolve the value
+				for placeholder, original in replacements:
+					if placeholder in right_str:
+						if original.startswith("%(") and original.endswith(")s"):
+							param_name = original[2:-2]
+							if sql_params and param_name in sql_params:
+								return True, sql_params[param_name]
+							return True, param_name
+						elif original == "%s":
+							ph_match = re.match(r"__PH(\d+)__", placeholder)
+							if ph_match and sql_params:
+								pos_key = f"__pos_{ph_match.group(1)}__"
+								if pos_key in sql_params:
+									return True, sql_params[pos_key]
+							raise UnresolvedParameterError("Cannot resolve name parameter")
+				# Literal value
+				if right_str.startswith("'") and right_str.endswith("'"):
+					return True, f'"{right_str[1:-1]}"'
+				return True, right_str
+		return False, None
+
+	def _format_update_fields_dict(self, fields: dict) -> str:
+		"""Format fields dict for frappe.db.set_value."""
+		items = []
+		for key, value in fields.items():
+			items.append(f'"{key}": {value}')
+		return "{" + ", ".join(items) + "}"
 
 	def convert_delete_to_qb(
-		self, delete: exp.Delete, replacements: list[tuple[str, str]]
+		self, delete: exp.Delete, replacements: list[tuple[str, str]], sql_params: dict = None
 	) -> str:
-		return "# DELETE: Use frappe.delete_doc() for single records or qb.delete() for bulk"
+		"""Convert DELETE statement to frappe.db.delete() or Query Builder.
+
+		Simple DELETE FROM `tabX` -> frappe.db.delete("X")
+		DELETE with WHERE -> frappe.db.delete("X", filters) or Query Builder
+		"""
+		# Extract table name
+		table = delete.this
+		if not table:
+			return "# MANUAL: DELETE - Could not determine table"
+
+		table_name = table.name
+		# Remove 'tab' prefix if present
+		if table_name.startswith("tab"):
+			doctype = table_name[3:]
+		else:
+			doctype = table_name
+
+		# Check for WHERE clause
+		where_clause = delete.args.get("where")
+
+		if not where_clause:
+			# Simple DELETE without WHERE - use frappe.db.delete()
+			return f'frappe.db.delete("{doctype}")'
+
+		# Try to convert WHERE to filters for frappe.db.delete()
+		try:
+			filters = self.convert_where_to_filters(where_clause.this, replacements, sql_params)
+			if filters and not any(
+				isinstance(v, str) and v.startswith("__PH") for v in filters.values()
+			):
+				# Successfully converted to simple filters
+				filter_str = self._format_filters_dict(filters)
+				return f'frappe.db.delete("{doctype}", {filter_str})'
+		except Exception:
+			pass
+
+		# Try Query Builder approach for more complex WHERE
+		try:
+			var_name = doctype.replace(" ", "").replace("-", "")
+			table_vars = {table_name: var_name}
+			condition = self.convert_condition_to_qb(
+				where_clause.this, replacements, table_vars, sql_params
+			)
+			# Check if condition contains unresolved placeholders
+			if "__PH" not in condition and "%s" not in condition:
+				lines = [
+					f'{var_name} = frappe.qb.DocType("{doctype}")',
+					f"frappe.qb.from_({var_name}).delete().where({condition}).run()",
+				]
+				return "\n".join(lines)
+		except (UnresolvedParameterError, Exception):
+			pass
+
+		# Fall back to manual review
+		return f'# MANUAL: DELETE with WHERE on {doctype} - convert to frappe.db.delete("{doctype}", filters) or Query Builder'
+
+	def _format_filters_dict(self, filters: dict) -> str:
+		"""Format a filters dict as a Python dict literal."""
+		items = []
+		for key, value in filters.items():
+			if isinstance(value, str):
+				# Check if it's a variable reference (like doc.name, self.name, etc.)
+				if "." in value or value.isidentifier():
+					items.append(f'"{key}": {value}')
+				else:
+					items.append(f'"{key}": "{value}"')
+			elif isinstance(value, (int, float)):
+				items.append(f'"{key}": {value}')
+			elif isinstance(value, list):
+				# List of values for IN clause
+				items.append(f'"{key}": {value}')
+			else:
+				items.append(f'"{key}": {repr(value)}')
+		return "{" + ", ".join(items) + "}"
 
 	def scan_directory(self, directory: Path, pattern: str = "**/*.py") -> int:
 		count = 0
@@ -1514,6 +2433,9 @@ doc.insert()"""
 
 	def scan_file(self, file_path: Path) -> int:
 		count = 0
+		# Track SQL queries we've already registered from frappe.db.sql calls
+		# to avoid duplicate registration from docstring scanning
+		registered_sql_hashes = set()
 
 		try:
 			content = file_path.read_text(encoding="utf-8")
@@ -1539,12 +2461,19 @@ doc.insert()"""
 								variable_name,
 							)
 							count += 1
+							# Track this SQL to avoid duplicate from docstring scan
+							sql_hash = hashlib.md5(sql_query.encode()).hexdigest()
+							registered_sql_hashes.add(sql_hash)
 
-			sql_strings = self.find_sql_docstrings(content)
-			for line_num, sql_query in sql_strings:
-				function_context = f"docstring at line {line_num}"
-				self.register_sql_call(str(file_path), line_num, sql_query, function_context)
-				count += 1
+			# Skip docstring scanning - it creates duplicates and the AST-based
+			# detection is more accurate for frappe.db.sql calls
+			# sql_strings = self.find_sql_docstrings(content)
+			# for line_num, sql_query in sql_strings:
+			# 	sql_hash = hashlib.md5(sql_query.encode()).hexdigest()
+			# 	if sql_hash not in registered_sql_hashes:
+			# 		function_context = f"docstring at line {line_num}"
+			# 		self.register_sql_call(str(file_path), line_num, sql_query, function_context)
+			# 		count += 1
 
 		except Exception as e:
 			print(f"Error scanning {file_path}: {e}")
@@ -1602,16 +2531,15 @@ doc.insert()"""
 					return params
 
 				elif isinstance(param_node, ast.Name):
-					# Single variable passed like: frappe.db.sql(sql, user)
-					# We need to infer the parameter name from the SQL
-					# Look for %(param_name)s in the SQL
+					# Single variable passed like: frappe.db.sql(sql, filters)
+					# The variable is a dict containing all named parameters
 					sql_query = self.extract_sql_from_call(node)
 					if sql_query:
 						param_matches = re.findall(r"%\((\w+)\)s", sql_query)
 						if param_matches:
-							# Assume the variable maps to the first parameter found
-							# Return a dict mapping param name to variable name
-							return {param_matches[0]: param_node.id}
+							# Map ALL named parameters to the variable
+							# At runtime, filters[param_name] will be used
+							return {param: param_node.id for param in param_matches}
 						# Check for %s positional parameter
 						if "%s" in sql_query and "%" not in sql_query.replace("%s", ""):
 							return {"__pos_0__": param_node.id}
@@ -1632,7 +2560,8 @@ doc.insert()"""
 					if sql_query:
 						param_matches = re.findall(r"%\((\w+)\)s", sql_query)
 						if param_matches:
-							return {param_matches[0]: attr_value}
+							# Map ALL named parameters to the attribute
+							return {param: attr_value for param in param_matches}
 						# Check for %s positional parameter
 						if "%s" in sql_query:
 							return {"__pos_0__": attr_value}
@@ -1654,11 +2583,60 @@ doc.insert()"""
 							elif isinstance(elem, ast.Constant):
 								params[param_key] = elem.value
 							elif isinstance(elem, ast.Attribute):
-								if isinstance(elem.value, ast.Name):
+								# Use ast.unparse for any attribute, handles complex chains
+								if hasattr(ast, "unparse"):
+									params[param_key] = ast.unparse(elem)
+								elif isinstance(elem.value, ast.Name):
 									params[param_key] = f"{elem.value.id}.{elem.attr}"
+								else:
+									params[param_key] = str(elem)
+							elif isinstance(elem, ast.Call):
+								# Function call like nowdate()
+								if hasattr(ast, "unparse"):
+									params[param_key] = ast.unparse(elem)
+								else:
+									params[param_key] = "__call__"
 							else:
 								params[param_key] = ast.unparse(elem) if hasattr(ast, "unparse") else str(elem)
 						return params if params else None
+
+				elif isinstance(param_node, ast.Call):
+					# Function call like dict(key=value, ...) or nowdate()
+					func = param_node.func
+					func_name = ""
+					if isinstance(func, ast.Name):
+						func_name = func.id
+					elif isinstance(func, ast.Attribute):
+						func_name = func.attr
+
+					if func_name == "dict" and param_node.keywords:
+						# dict(item_name=self.item_name, ...) - extract keyword args
+						params = {}
+						for kw in param_node.keywords:
+							if kw.arg:
+								if hasattr(ast, "unparse"):
+									params[kw.arg] = ast.unparse(kw.value)
+								elif isinstance(kw.value, ast.Attribute):
+									if isinstance(kw.value.value, ast.Name):
+										params[kw.arg] = f"{kw.value.value.id}.{kw.value.attr}"
+								elif isinstance(kw.value, ast.Name):
+									params[kw.arg] = kw.value.id
+						return params if params else None
+					else:
+						# Other function call like nowdate() - check for params in SQL
+						sql_query = self.extract_sql_from_call(node)
+						if sql_query:
+							# Check named params first
+							param_matches = re.findall(r"%\((\w+)\)s", sql_query)
+							if param_matches:
+								return {param: f"__from_{func_name}__" for param in param_matches}
+							# Check for single positional param (function returns one value)
+							positional_count = len(re.findall(r"(?<!%)%s", sql_query))
+							if positional_count == 1:
+								func_repr = (
+									ast.unparse(param_node) if hasattr(ast, "unparse") else func_name + "()"
+								)
+								return {"__pos_0__": func_repr}
 
 		except Exception as e:
 			print(f"Error extracting params: {e}")
