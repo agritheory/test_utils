@@ -160,6 +160,65 @@ A query is ORM-eligible when:
 - No subqueries
 - Simple WHERE conditions
 
+## Frappe v16 Compatibility
+
+The converter generates v16-compatible ORM syntax for:
+
+### IFNULL/COALESCE in Filters
+
+**Original SQL:**
+```python
+frappe.db.sql("""
+    SELECT name FROM tabDepartment
+    WHERE ifnull(company, '') != ''
+""")
+```
+
+**v16 ORM Output:**
+```python
+from frappe.query_builder import Field
+from frappe.query_builder.functions import IfNull
+
+frappe.get_all(
+    "Department",
+    filters=[[IfNull(Field("company"), ""), "!=", ""]]
+)
+```
+
+### DISTINCT Queries
+
+**Original SQL:**
+```python
+frappe.db.sql("""
+    SELECT DISTINCT parent FROM `tabBOM Operation`
+    WHERE workstation = %s
+""", (workstation,))
+```
+
+**v16 ORM Output:**
+```python
+frappe.get_all(
+    "BOM Operation",
+    filters={"workstation": workstation},
+    fields=["parent"],
+    distinct=True
+)
+```
+
+### v16 Breaking Changes
+
+Frappe v16 changed how `frappe.get_all()` handles fields and filters internally (now using Pypika Query Builder). Raw SQL strings for functions are **no longer supported**:
+
+```python
+# OLD (broken in v16)
+frappe.get_all("DocType", fields=["sum(qty) as total"])
+
+# NEW (v16 compatible)
+frappe.get_all("DocType", fields=[{"SUM": "qty", "as": "total"}])
+```
+
+The converter automatically uses the Query Builder path for aggregate queries, which generates valid pypika syntax that works in both v15 and v16.
+
 ## Example Workflow
 
 ```bash

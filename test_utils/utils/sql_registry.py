@@ -292,8 +292,9 @@ class SQLRegistry:
 		sql_params: dict = None,
 		variable_name: str = None,
 	) -> str:
-		"""Convert a simple SELECT to Frappe ORM calls"""
+		"""Convert a simple SELECT to Frappe ORM calls (v16 compatible)"""
 		lines = []
+		needs_imports = set()  # Track required imports for v16
 
 		# Determine how to handle the result
 		if variable_name == "__return__":
@@ -323,21 +324,43 @@ class SQLRegistry:
 			table_name.replace("tab", "") if table_name.startswith("tab") else table_name
 		)
 
-		# Extract fields
+		# Extract fields - check for DISTINCT modifier
 		fields = []
 		is_single_field = False
 		has_distinct = False
+
+		# Check for SELECT DISTINCT
+		if select.args.get("distinct"):
+			has_distinct = True
 
 		if select.expressions:
 			for expr in select.expressions:
 				if isinstance(expr, exp.Star):
 					fields = None  # Get all fields
 					break
+				elif isinstance(expr, exp.Distinct):
+					# Handle DISTINCT wrapper
+					has_distinct = True
+					inner_exprs = expr.expressions if hasattr(expr, "expressions") else [expr.this]
+					for inner in inner_exprs:
+						field_name = (
+							str(inner.this).strip("`\"'")
+							if hasattr(inner, "this")
+							else str(inner).strip("`\"'")
+						)
+						if "." in field_name:
+							_, field_name = field_name.rsplit(".", 1)
+						fields.append(field_name)
 				else:
 					expr_str = str(expr)
+					# Check for DISTINCT keyword in expression string
 					if "DISTINCT" in expr_str.upper():
 						has_distinct = True
-						field_name = expr_str.replace("DISTINCT", "").strip("`\"' ")
+						field_name = (
+							str(expr.this).strip("`\"'")
+							if hasattr(expr, "this")
+							else expr_str.upper().replace("DISTINCT", "").strip("`\"' ")
+						)
 					else:
 						field_name = (
 							str(expr.this).strip("`\"'") if hasattr(expr, "this") else expr_str.strip("`\"'")
@@ -387,7 +410,8 @@ class SQLRegistry:
 
 		# Add filters if present
 		if filters:
-			lines.append(f"\tfilters={self.format_filters_for_orm(filters)},")
+			formatted_filters = self.format_filters_for_orm(filters, needs_imports)
+			lines.append(f"\tfilters={formatted_filters},")
 
 		# Add fields if specified (not *)
 		if fields:
@@ -405,14 +429,24 @@ class SQLRegistry:
 		if limit:
 			lines.append(f"\tlimit={limit},")
 
-		# Handle DISTINCT on single field (use pluck)
-		if is_single_field and has_distinct:
-			lines.append(f'\tpluck="{fields[0]}"')
+		# v16: Handle DISTINCT with distinct=True parameter
+		if has_distinct:
+			lines.append("\tdistinct=True,")
 
 		# Close the function call
 		if lines[-1].endswith(","):
 			lines[-1] = lines[-1][:-1]  # Remove trailing comma
 		lines.append(")")
+
+		# Generate imports if needed (v16 features)
+		import_lines = []
+		if "Field" in needs_imports or "IfNull" in needs_imports:
+			import_lines.append("from frappe.query_builder import Field")
+		if "IfNull" in needs_imports:
+			import_lines.append("from frappe.query_builder.functions import IfNull")
+
+		if import_lines:
+			return "\n".join(import_lines) + "\n\n" + "\n".join(lines)
 
 		return "\n".join(lines)
 
@@ -510,6 +544,38 @@ class SQLRegistry:
 				pattern = self.extract_value(condition.expression, replacements, sql_params)
 				return [[field, "like", pattern]]
 
+			elif isinstance(condition, exp.NEQ):
+				# Handle != conditions (v16 compatible)
+				left_expr = condition.left
+				right_value = self.extract_value(condition.right, replacements, sql_params)
+
+				# Check if left side is a function call (IFNULL/COALESCE)
+				if isinstance(left_expr, exp.Coalesce):
+					# v16: Use IfNull(Field("field"), default) format
+					field_name = self.extract_field_name(left_expr.this)
+					default_val = (
+						self.extract_value(left_expr.expressions[0], replacements, sql_params)
+						if left_expr.expressions
+						else '""'
+					)
+					# Return special marker for v16 IFNULL filter
+					return [["__ifnull__", field_name, default_val, "!=", right_value]]
+				else:
+					field = self.extract_field_name(left_expr)
+					return [[field, "!=", right_value]]
+
+			elif isinstance(condition, exp.EQ) and isinstance(condition.left, exp.Coalesce):
+				# Handle IFNULL(field, '') = '' pattern (v16 compatible)
+				left_expr = condition.left
+				right_value = self.extract_value(condition.right, replacements, sql_params)
+				field_name = self.extract_field_name(left_expr.this)
+				default_val = (
+					self.extract_value(left_expr.expressions[0], replacements, sql_params)
+					if left_expr.expressions
+					else '""'
+				)
+				return [["__ifnull__", field_name, default_val, "=", right_value]]
+
 			else:
 				return {}
 
@@ -560,8 +626,16 @@ class SQLRegistry:
 
 		return value_str
 
-	def format_filters_for_orm(self, filters) -> str:
-		"""Format filters for Frappe ORM calls"""
+	def format_filters_for_orm(self, filters, needs_imports: set = None) -> str:
+		"""Format filters for Frappe ORM calls (v16 compatible)
+
+		Args:
+		        filters: The filters to format
+		        needs_imports: Set to track required imports (modified in place)
+		"""
+		if needs_imports is None:
+			needs_imports = set()
+
 		if isinstance(filters, dict):
 			if len(filters) == 1 and "name" in filters:
 				# Single name filter
@@ -576,8 +650,34 @@ class SQLRegistry:
 						items.append(f'"{key}": {value}')
 				return "{" + ", ".join(items) + "}"
 		elif isinstance(filters, list):
-			# List format filters
-			return repr(filters)
+			# List format filters - check for v16 IFNULL markers
+			formatted = []
+			for f in filters:
+				if isinstance(f, list) and len(f) >= 5 and f[0] == "__ifnull__":
+					# v16 IFNULL filter: ["__ifnull__", field, default, op, value]
+					_, field_name, default_val, op, value = f
+					needs_imports.add("Field")
+					needs_imports.add("IfNull")
+					# Format: [IfNull(Field("field"), default), op, value]
+					if isinstance(default_val, str) and default_val not in ('""', "''"):
+						default_repr = (
+							f'"{default_val}"' if not default_val.startswith('"') else default_val
+						)
+					else:
+						default_repr = '""'
+					if isinstance(value, str) and value not in ('""', "''"):
+						value_repr = f'"{value}"' if not value.startswith('"') else value
+					else:
+						value_repr = '""'
+					formatted.append(
+						f'[IfNull(Field("{field_name}"), {default_repr}), "{op}", {value_repr}]'
+					)
+				elif isinstance(f, list):
+					# Regular list filter
+					formatted.append(repr(f))
+				else:
+					formatted.append(repr(f))
+			return "[" + ", ".join(formatted) + "]"
 		else:
 			return str(filters)
 
