@@ -180,9 +180,7 @@ jobs:
             const report = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
             const clones = report.statistics?.total?.clones || 0;
 
-            // 🚫 Do not comment if there are no duplicates
             if (clones === 0) {
-              console.log('No code duplication detected. Skipping PR comment.');
               return;
             }
 
