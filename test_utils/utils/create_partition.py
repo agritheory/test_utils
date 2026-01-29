@@ -2637,16 +2637,8 @@ def _populate_with_time_limit(
 	partition_doctypes: dict = None,
 ) -> int:
 	"""
-	Populate posting_date for a child table using parent-based bulk updates.
-
-	Strategy:
-	1. Find distinct parents that have children with NULL posting_date
-	2. Fetch parent documents in batches (cursor-based pagination)
-	3. Bulk update all children of those parents in one query per batch
-
-	Returns the number of rows updated.
+	Populate posting_date for a child table using direct JOIN UPDATE.
 	"""
-
 	table = f"tab{child_doctype}"
 	total_updated = 0
 
@@ -2660,17 +2652,13 @@ def _populate_with_time_limit(
 		print(f"\nINFO: Time limit reached, skipping '{child_doctype}'")
 		return 0
 
-	print(
-		f"\nINFO: Populating 'posting_date' in '{child_doctype}' (parent-based bulk updates)..."
-	)
+	print(f"\nINFO: Populating 'posting_date' in '{child_doctype}' (JOIN UPDATE)...")
 	sys.stdout.flush()
 
 	parent_types = []
 	for doctype in partition_doctypes.keys():
 		if not should_continue():
-			print("\nTime limit reached during parent type discovery")
 			return total_updated
-
 		try:
 			meta = frappe.get_meta(doctype)
 			for df in meta.get_table_fields():
@@ -2684,37 +2672,16 @@ def _populate_with_time_limit(
 		print(f"INFO: No parent types found in hooks for {child_doctype}")
 		return 0
 
-	print(f"INFO: Parent types from config: {parent_types}")
+	print(f"INFO: Parent types: {parent_types}")
 	sys.stdout.flush()
 
 	for parent_type in parent_types:
 		if not should_continue():
-			print(f"\nTime limit reached before processing {parent_type}, stopping...")
+			print(f"\nTime limit reached before {parent_type}")
 			break
 
 		print(f"\nINFO: Processing parent type: {parent_type}")
 		sys.stdout.flush()
-
-		try:
-			null_check = frappe.db.sql(
-				f"""
-				SELECT EXISTS(
-					SELECT 1 FROM `{table}`
-					WHERE parenttype = %s
-					AND posting_date IS NULL
-					LIMIT 1
-				)
-			""",
-				(parent_type,),
-			)
-			has_nulls = null_check[0][0] > 0 if null_check else False
-		except Exception as e:
-			print(f"  WARNING: Could not check for NULLs: {e}")
-			has_nulls = True
-
-		if not has_nulls:
-			print(f"  No NULL posting_date rows for {parent_type}, skipping...")
-			continue
 
 		parent_table = f"tab{parent_type}"
 		source_field = "posting_date"
@@ -2733,80 +2700,52 @@ def _populate_with_time_limit(
 				source_field = "creation"
 			print(f"  Using field: {source_field}")
 
+		sys.stdout.flush()
+
 		batch_num = 0
 		batch_start_time = time.time()
+		parent_updated = 0
 
 		while should_continue():
 			batch_num += 1
 			batch_start = time.time()
 
 			try:
-				parents_with_nulls = frappe.db.sql(
+				frappe.db.sql(
 					f"""
-					SELECT DISTINCT p.name, p.`{source_field}` as date_value
-					FROM `{parent_table}` p
-					INNER JOIN `{table}` c ON c.parent = p.name
-					WHERE c.parenttype = %s
-					AND c.posting_date IS NULL
+					UPDATE `{table}` AS child
+					INNER JOIN `{parent_table}` AS parent ON child.parent = parent.name
+					SET child.posting_date = DATE(parent.`{source_field}`)
+					WHERE child.parenttype = %s
+					AND child.posting_date IS NULL
 					LIMIT %s
-				""",
+					""",
 					(parent_type, chunk_size),
-					as_dict=True,
 				)
 
-				if not parents_with_nulls:
+				rows = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
+
+				if rows == 0:
 					if batch_num == 1:
-						print(f"  No parents with NULL children for {parent_type}")
+						print(f"  No NULL rows for {parent_type}")
 					break
 
-				date_groups = {}
-				for p in parents_with_nulls:
-					d = str(p["date_value"])
-					if d not in date_groups:
-						date_groups[d] = []
-					date_groups[d].append(p["name"])
-
-				rows_this_batch = 0
-				for date_val, parent_list in date_groups.items():
-					if not should_continue():
-						print(
-							f"\nTime limit reached during batch {batch_num}, committing and stopping..."
-						)
-						frappe.db.commit()
-						return total_updated + rows_this_batch
-
-					parent_placeholders = ", ".join(["%s"] * len(parent_list))
-
-					frappe.db.sql(
-						f"""
-						UPDATE `{table}`
-						SET posting_date = %s
-						WHERE parent IN ({parent_placeholders})
-						AND parenttype = %s
-						AND posting_date IS NULL
-						""",
-						[date_val] + parent_list + [parent_type],
-					)
-
-					rows = frappe.db.sql("SELECT ROW_COUNT()")[0][0]
-					rows_this_batch += rows
-
-				total_updated += rows_this_batch
+				parent_updated += rows
+				total_updated += rows
 				frappe.db.commit()
 
 				batch_time = time.time() - batch_start
 				total_time = time.time() - batch_start_time
-				rate = total_updated / total_time if total_time > 0 else 0
+				rate = parent_updated / total_time if total_time > 0 else 0
 				remaining = time_remaining() / 60
 
 				print(
-					f"  Batch {batch_num}: {len(parents_with_nulls)} parents, "
-					f"{rows_this_batch:,} rows in {batch_time:.1f}s "
-					f"(Total: {total_updated:,}, Rate: {rate:,.0f}/s, {remaining:.1f}min left)"
+					f"  Batch {batch_num}: {rows:,} rows in {batch_time:.1f}s "
+					f"(Total: {parent_updated:,}, Rate: {rate:,.0f}/s, {remaining:.1f}min left)"
 				)
 				sys.stdout.flush()
 
-				if len(parents_with_nulls) < chunk_size:
+				if rows < chunk_size:
 					break
 
 			except Exception as e:
@@ -2814,17 +2753,17 @@ def _populate_with_time_limit(
 				frappe.db.rollback()
 				break
 
-		if total_updated > 0:
+		if parent_updated > 0:
 			total_time = time.time() - batch_start_time
-			avg_rate = total_updated / total_time if total_time > 0 else 0
+			avg_rate = parent_updated / total_time if total_time > 0 else 0
 			print(
-				f"SUCCESS: {total_updated:,} rows updated for {parent_type} "
+				f"SUCCESS: {parent_updated:,} rows updated for {parent_type} "
 				f"in {total_time:.1f}s ({avg_rate:,.0f} rows/s)"
 			)
 			sys.stdout.flush()
 
 		if not should_continue():
-			print(f"\nTime limit reached after {parent_type}, stopping...")
+			print(f"\nTime limit reached after {parent_type}")
 			break
 
 	return total_updated
