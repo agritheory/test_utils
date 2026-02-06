@@ -1,0 +1,53 @@
+# .github/workflows/database-stability-tracking.yml
+
+name: SQL Registry
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - '**/*.py'
+  push:
+    branches: [main, develop]
+
+jobs:
+  track-database-operations:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for comparison
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        pip install sqlglot>=25.0.0
+        # Install your test_utils package
+        pip install -e .
+    
+    - name: Load previous registry (if exists)
+      id: load-registry
+      run: |
+        if [ -f .sql_registry.pkl ]; then
+          echo "registry_exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "registry_exists=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Scan for SQL calls
+      run: |
+        python -m sql_registry scan --directory . --registry .sql_registry.pkl
+        echo "SQL Registry scan completed"
+    
+    - name: Generate stability report
+      run: |
+        python -m sql_registry report --registry .sql_registry.pkl --output sql_registry_report.md
