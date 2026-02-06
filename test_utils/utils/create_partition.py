@@ -438,6 +438,7 @@ class FieldManager:
 						"label": "Posting Date",
 						"read_only": 1,
 						"hidden": 1,
+						"default": "Today",
 					}
 				)
 				custom_field.insert(ignore_permissions=True)
@@ -1008,10 +1009,10 @@ class PartitionEngine:
 		"""Perform direct ALTER TABLE to modify primary key
 
 		Args:
-		                                                                                                                                table: Table name
-		                                                                                                                                pk_field: The field to add to primary key (real field, not virtual)
-		                                                                                                                                pk_columns: Comma-separated list of PK columns
-		                                                                                                                                index_columns: Dict of index name -> column list
+		                                                                                                                                                                                                                                                                table: Table name
+		                                                                                                                                                                                                                                                                pk_field: The field to add to primary key (real field, not virtual)
+		                                                                                                                                                                                                                                                                pk_columns: Comma-separated list of PK columns
+		                                                                                                                                                                                                                                                                index_columns: Dict of index name -> column list
 		"""
 		try:
 			self.db.kill_blocking_queries(table)
@@ -1061,16 +1062,16 @@ class PartitionEngine:
 		Partition a table by the specified field.
 
 		Args:
-		                                                                                                                                table: Table name
-		                                                                                                                                partition_field: Field to use for partition expression
-		                                                                                                                                strategy: Partition strategy (month, quarter, year, fiscal_year)
-		                                                                                                                                years_back: Years of history to partition
-		                                                                                                                                years_ahead: Future years to create partitions for
-		                                                                                                                                dry_run: If True, only show what would be done
-		                                                                                                                                pk_field: Field to add to primary key. Defaults to partition_field.
-		                                                                                                                                                                                                                                                                  Use this when partition_field is virtual (can't be in PK).
-		                                                                                                                                                                                                                                                                  For parent tables with transaction_date, pk_field should be
-		                                                                                                                                                                                                                                                                  the real field (transaction_date), not virtual posting_date.
+		                                                                                                                                                                                                                                                                table: Table name
+		                                                                                                                                                                                                                                                                partition_field: Field to use for partition expression
+		                                                                                                                                                                                                                                                                strategy: Partition strategy (month, quarter, year, fiscal_year)
+		                                                                                                                                                                                                                                                                years_back: Years of history to partition
+		                                                                                                                                                                                                                                                                years_ahead: Future years to create partitions for
+		                                                                                                                                                                                                                                                                dry_run: If True, only show what would be done
+		                                                                                                                                                                                                                                                                pk_field: Field to add to primary key. Defaults to partition_field.
+		                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  Use this when partition_field is virtual (can't be in PK).
+		                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  For parent tables with transaction_date, pk_field should be
+		                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  the real field (transaction_date), not virtual posting_date.
 		"""
 		if pk_field is None:
 			pk_field = partition_field
@@ -1127,9 +1128,9 @@ class PartitionEngine:
 		"""Ensure primary key includes the pk_field.
 
 		Args:
-		                                                                                                                                table: Table name
-		                                                                                                                                pk_field: The REAL field to add to PK (not virtual column)
-		                                                                                                                                dry_run: If True, only show what would be done
+		                                                                                                                                                                                                                                                                table: Table name
+		                                                                                                                                                                                                                                                                pk_field: The REAL field to add to PK (not virtual column)
+		                                                                                                                                                                                                                                                                dry_run: If True, only show what would be done
 		"""
 		print("Checking primary key...")
 
@@ -1419,10 +1420,6 @@ def create_partition(
 
 	All doctypes are normalized to use 'posting_date' as the partition field.
 	For doctypes that use 'transaction_date', a virtual column is created.
-
-	Args:
-	                                                                partition_doctypes: Optional dict to bypass hooks, e.g.:
-	                                                                                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
 	"""
 	from frappe.utils import get_table_name
 
@@ -1560,10 +1557,6 @@ def create_partition_phase1(
 	- Creates virtual posting_date columns for parent tables using transaction_date
 	- Adds posting_date columns to all child tables
 	- Creates Custom Field metadata
-
-	Args:
-	                                                                partition_doctypes: Optional dict to bypass hooks, e.g.:
-	                                                                                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
 	"""
 	from frappe.utils import get_table_name
 
@@ -1689,10 +1682,6 @@ def create_partition_phase2(
 	- Populates posting_date in all child tables from their parent tables
 	- Uses chunked updates for progress tracking
 	- Can be resumed if interrupted
-
-	Args:
-	                                                                partition_doctypes: Optional dict to bypass hooks, e.g.:
-	                                                                                                                                {"Sales Order": {"field": ["transaction_date"], "partition_by": ["month"]}}
 	"""
 	from frappe.utils import get_table_name
 
@@ -1811,19 +1800,19 @@ def create_partition_phase3(
 	shell script for manual execution outside bench console.
 
 	Args:
-	        doc: Optional document to process only that doctype
-	        output_file: Path to write shell script (default: ./percona_pk_commands.sh)
-	        root_user: Database root user for Percona commands
-	        root_password: Database root password for Percona commands
-	        partition_doctypes: Optional dict to bypass hooks
+	doc: Optional document to process only that doctype
+	output_file: Path to write shell script (default: ./percona_pk_commands.sh)
+	root_user: Database root user for Percona commands
+	root_password: Database root password for Percona commands
+	partition_doctypes: Optional dict to bypass hooks
 
 	Returns:
-	        bool: True if commands were generated successfully
+	bool: True if commands were generated successfully
 
 	Usage:
-	        1. Run this function to generate the shell script
-	        2. Execute the shell script manually in a terminal
-	        3. Run create_partition_phase4() to apply partitioning
+	1. Run this function to generate the shell script
+	2. Execute the shell script manually in a terminal
+	3. Run create_partition_phase4() to apply partitioning
 	"""
 	import shlex
 	from frappe.utils import get_table_name
@@ -2123,12 +2112,12 @@ def create_partition_phase4(
 	partitioning is primarily a metadata operation.
 
 	Args:
-	        doc: Optional document to process only that doctype
-	        years_ahead: Number of years ahead to create partitions for (default: 10)
-	        partition_doctypes: Optional dict to bypass hooks
+	doc: Optional document to process only that doctype
+	years_ahead: Number of years ahead to create partitions for (default: 10)
+	partition_doctypes: Optional dict to bypass hooks
 
 	Returns:
-	        bool: True if all tables were partitioned successfully
+	bool: True if all tables were partitioned successfully
 	"""
 	from frappe.utils import get_table_name
 
@@ -2456,8 +2445,6 @@ def scheduled_populate_partition_fields(
 	Args:
 	max_hours: Maximum time to run in hours (default: 2.0)
 	chunk_size: Number of rows to update per batch (default: 50000)
-	root_user: Database root user (optional)
-	root_password: Database root password (optional)
 	partition_doctypes: Optional dict to bypass hooks, e.g.:
 
 	Returns:
@@ -2504,6 +2491,9 @@ def scheduled_populate_partition_fields(
 		children_needing_work = []
 
 		for df in meta.get_table_fields():
+			if not should_continue():
+				break
+
 			child_doctype = df.options
 			child_table = get_table_name(df.options)
 
@@ -2533,6 +2523,16 @@ def scheduled_populate_partition_fields(
 					"children": children_needing_work,
 				}
 			)
+
+	if not should_continue():
+		elapsed = time.time() - start_time
+		print("\nTime limit reached during discovery phase")
+		print(f"Elapsed: {elapsed:.1f}s")
+		return {
+			"status": "time_limit",
+			"message": "Time limit reached during discovery",
+			"elapsed_seconds": elapsed,
+		}
 
 	if not doctypes_to_process:
 		elapsed = time.time() - start_time
@@ -2651,6 +2651,16 @@ def _populate_with_time_limit(
 	table = f"tab{child_doctype}"
 	total_updated = 0
 
+	def time_remaining():
+		return end_time - time.time()
+
+	def should_continue():
+		return time.time() < end_time
+
+	if not should_continue():
+		print(f"\nINFO: Time limit reached, skipping '{child_doctype}'")
+		return 0
+
 	print(
 		f"\nINFO: Populating 'posting_date' in '{child_doctype}' (parent-based bulk updates)..."
 	)
@@ -2658,6 +2668,10 @@ def _populate_with_time_limit(
 
 	parent_types = []
 	for doctype in partition_doctypes.keys():
+		if not should_continue():
+			print("\nTime limit reached during parent type discovery")
+			return total_updated
+
 		try:
 			meta = frappe.get_meta(doctype)
 			for df in meta.get_table_fields():
@@ -2674,46 +2688,80 @@ def _populate_with_time_limit(
 	print(f"INFO: Parent types from config: {parent_types}")
 	sys.stdout.flush()
 
-	# Process by parent type
 	for parent_type in parent_types:
-		if time.time() >= end_time:
-			print(f"\nTime limit reached during {parent_type}, stopping...")
+		if not should_continue():
+			print(f"\nTime limit reached before processing {parent_type}, stopping...")
 			break
 
 		print(f"\nINFO: Processing parent type: {parent_type}")
 		sys.stdout.flush()
 
+		try:
+			null_check = frappe.db.sql(
+				f"""
+				SELECT EXISTS(
+					SELECT 1 FROM `{table}`
+					WHERE parenttype = %s
+					AND posting_date IS NULL
+					LIMIT 1
+				)
+			""",
+				(parent_type,),
+			)
+			has_nulls = null_check[0][0] > 0 if null_check else False
+		except Exception as e:
+			print(f"  WARNING: Could not check for NULLs: {e}")
+			has_nulls = True
+
+		if not has_nulls:
+			print(f"  No NULL posting_date rows for {parent_type}, skipping...")
+			continue
+
 		parent_table = f"tab{parent_type}"
 		source_field = "posting_date"
 
+		if not frappe.db.sql(
+			f"""
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = DATABASE()
+			AND table_name = '{parent_table}'
+			AND column_name = 'posting_date'
+		"""
+		):
+			if parent_type in DOCTYPE_DATE_FIELD_MAP:
+				source_field = DOCTYPE_DATE_FIELD_MAP[parent_type]
+			else:
+				source_field = "creation"
+			print(f"  Using field: {source_field}")
+
 		batch_num = 0
-		last_parent = ""
 		batch_start_time = time.time()
 
-		while time.time() < end_time:
+		while should_continue():
 			batch_num += 1
 			batch_start = time.time()
 
 			try:
-				parents = frappe.db.sql(
+				parents_with_nulls = frappe.db.sql(
 					f"""
-					SELECT name, `{source_field}` as date_value
-					FROM `{parent_table}`
-					WHERE name > %s
-					ORDER BY name
+					SELECT DISTINCT p.name, p.`{source_field}` as date_value
+					FROM `{parent_table}` p
+					INNER JOIN `{table}` c ON c.parent = p.name
+					WHERE c.parenttype = %s
+					AND c.posting_date IS NULL
 					LIMIT %s
-					""",
-					(last_parent, chunk_size),
+				""",
+					(parent_type, chunk_size),
 					as_dict=True,
 				)
 
-				if not parents:
+				if not parents_with_nulls:
+					if batch_num == 1:
+						print(f"  No parents with NULL children for {parent_type}")
 					break
 
-				last_parent = parents[-1]["name"]
-
 				date_groups = {}
-				for p in parents:
+				for p in parents_with_nulls:
 					d = str(p["date_value"])
 					if d not in date_groups:
 						date_groups[d] = []
@@ -2721,6 +2769,12 @@ def _populate_with_time_limit(
 
 				rows_this_batch = 0
 				for date_val, parent_list in date_groups.items():
+					if not should_continue():
+						print(
+							f"\nTime limit reached during batch {batch_num}, committing and stopping..."
+						)
+						frappe.db.commit()
+						return total_updated + rows_this_batch
 
 					parent_placeholders = ", ".join(["%s"] * len(parent_list))
 
@@ -2744,16 +2798,16 @@ def _populate_with_time_limit(
 				batch_time = time.time() - batch_start
 				total_time = time.time() - batch_start_time
 				rate = total_updated / total_time if total_time > 0 else 0
-				remaining = (end_time - time.time()) / 60
+				remaining = time_remaining() / 60
 
 				print(
-					f"  Batch {batch_num}: {len(parents)} parents, "
+					f"  Batch {batch_num}: {len(parents_with_nulls)} parents, "
 					f"{rows_this_batch:,} rows in {batch_time:.1f}s "
 					f"(Total: {total_updated:,}, Rate: {rate:,.0f}/s, {remaining:.1f}min left)"
 				)
 				sys.stdout.flush()
 
-				if len(parents) < chunk_size:
+				if len(parents_with_nulls) < chunk_size:
 					break
 
 			except Exception as e:
@@ -2769,6 +2823,10 @@ def _populate_with_time_limit(
 				f"in {total_time:.1f}s ({avg_rate:,.0f} rows/s)"
 			)
 			sys.stdout.flush()
+
+		if not should_continue():
+			print(f"\nTime limit reached after {parent_type}, stopping...")
+			break
 
 	return total_updated
 
@@ -2932,6 +2990,7 @@ def populate_partition_fields(doc, event=None):
 							"label": "Posting Date",
 							"read_only": 1,
 							"hidden": 1,
+							"default": "Today",
 						}
 					)
 					custom_field.insert(ignore_permissions=True)
@@ -3036,24 +3095,6 @@ def inspect_partitions(doctype: str):
 def check_partition_status(doctype: str) -> dict:
 	"""
 	Check if a doctype and all its child doctypes are partitioned.
-
-	Args:
-	                                                                                                                                doctype: The parent doctype to check (e.g., 'Sales Order')
-
-	Returns:
-	                                                                                                                                dict with partition status for main table and all child tables
-
-	Example:
-	                                                                                                                                >>> check_partition_status('Sales Order')
-	                                                                                                                                {
-	                                                                                                                                                                                                                                                                'doctype': 'Sales Order',
-	                                                                                                                                                                                                                                                                'main_table': {'table': 'tabSales Order', 'partitioned': True, 'partitions': 96},
-	                                                                                                                                                                                                                                                                'child_tables': [
-	                                                                                                                                                                                                                                                                                                                                                                                                {'doctype': 'Sales Order Item', 'table': 'tabSales Order Item', 'partitioned': True, 'partitions': 96},
-	                                                                                                                                                                                                                                                                                                                                                                                                ...
-	                                                                                                                                                                                                                                                                ],
-	                                                                                                                                                                                                                                                                'all_partitioned': True
-	                                                                                                                                }
 	"""
 	from frappe.utils import get_table_name
 
@@ -3145,15 +3186,6 @@ def get_partition_progress(doctype: str) -> dict:
 	"""
 	Check the progress of partitioning for a doctype.
 	Useful for resuming interrupted operations.
-
-	Args:
-	                                                                                                                                doctype: The doctype to check (e.g., 'Sales Order')
-
-	Returns:
-	                                                                                                                                dict with partition progress for main table and all child tables
-
-	Example:
-	                                                                                                                                >>> get_partition_progress('Sales Order')
 	"""
 	from frappe.utils import get_table_name
 
@@ -3251,10 +3283,6 @@ def get_partition_progress(doctype: str) -> dict:
 def get_largest_tables(limit=50, include_child_tables=True):
 	"""
 	Get the tables with the most rows in the ERPNext instance.
-
-	Args:
-	                                                                limit: Number of tables to return
-	                                                                include_child_tables: If False, excludes tables that are child doctypes
 	"""
 	db_name = frappe.conf.db_name
 
@@ -3407,3 +3435,266 @@ def print_partition_candidates(min_rows=100000, limit=20):
 		print(f'    "{t["doctype"]}": {{"field": ["{field}"], "partition_by": ["month"]}},')
 	print("}")
 	print()
+
+
+def create_posting_date_defaults_phase(
+	doc=None,
+	output_file: str = None,
+	root_user: str = None,
+	root_password: str = None,
+	partition_doctypes=None,
+):
+	"""
+	Generate Percona commands to add DEFAULT (CURRENT_DATE) to posting_date columns
+	in all child tables.
+	"""
+	from frappe.utils import get_table_name
+
+	if partition_doctypes is None:
+		partition_doctypes = frappe.get_hooks("partition_doctypes")
+
+	if not partition_doctypes:
+		print("\nNo partition_doctypes found in hooks")
+		return False
+
+	if doc:
+		if doc.doctype in partition_doctypes:
+			partition_doctypes = {doc.doctype: partition_doctypes[doc.doctype]}
+		else:
+			print(f"ERROR: {doc.doctype} not in partition_doctypes hook")
+			return False
+
+	db = DatabaseConnection(root_user, root_password)
+	analyzer = TableAnalyzer(db)
+	processed_child_tables = set()
+
+	commands = []
+	tables_info = []
+
+	print(f"\n{'='*80}")
+	print("Generating Percona commands for posting_date DEFAULT (CURRENT_DATE)")
+	print(f"{'='*80}\n")
+
+	for doctype, settings in partition_doctypes.items():
+		print(f"\nProcessing: {doctype}")
+
+		meta = frappe.get_meta(doctype)
+		for df in meta.get_table_fields():
+			child_doctype = df.options
+			child_table = get_table_name(df.options)
+
+			if child_table in processed_child_tables:
+				print(f"  ⊘ {child_doctype} already processed, skipping...")
+				continue
+
+			processed_child_tables.add(child_table)
+
+			if not db.column_exists(child_table, "posting_date"):
+				print(f"  ⊘ {child_doctype}: posting_date column doesn't exist")
+				continue
+
+			column_info = frappe.db.sql(
+				f"""
+                SELECT
+                    COLUMN_TYPE,
+                    IS_NULLABLE,
+                    COLUMN_DEFAULT
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                AND table_name = '{child_table}'
+                AND column_name = 'posting_date'
+            """,
+				as_dict=True,
+			)
+
+			if not column_info:
+				print(f"  ✗ {child_doctype}: Could not get column info")
+				continue
+
+			current_default = column_info[0].get("COLUMN_DEFAULT")
+
+			# Check if already has expression default
+			if current_default and "curdate" in str(current_default).lower():
+				print(f"  ⊘ {child_doctype}: Already has DEFAULT (CURRENT_DATE)")
+				continue
+
+			# Check if table is partitioned
+			is_partitioned = analyzer.is_partitioned(child_table)
+
+			# Generate Percona command
+			cmd = _generate_posting_date_default_command(
+				table=child_table,
+				db=db,
+			)
+			if cmd:
+				commands.append(cmd)
+				tables_info.append(
+					{
+						"table": child_table,
+						"doctype": child_doctype,
+						"type": "child",
+						"partitioned": is_partitioned,
+					}
+				)
+				print(f"  ✓ {child_doctype} - command generated")
+			else:
+				print(f"  ⊘ {child_doctype} - skipped")
+
+	if not commands:
+		print("\nNo DEFAULT modifications needed - all columns already have defaults")
+		return True
+
+	if output_file is None:
+		output_file = "./percona_posting_date_defaults.sh"
+
+	script_content = _generate_posting_date_defaults_script(commands, tables_info, db)
+
+	with open(output_file, "w") as f:
+		f.write(script_content)
+
+	os.chmod(output_file, 0o755)
+
+	print(f"\n{'='*80}")
+	print("Summary")
+	print(f"{'='*80}")
+	print(f"Commands generated: {len(commands)}")
+	print(f"Shell script written to: {output_file}")
+	print("\nNext steps:")
+	print(f"  1. Review and execute the script: bash {output_file}")
+	print(f"{'='*80}\n")
+
+	# Also print commands to console
+	print("\n" + "=" * 80)
+	print("GENERATED COMMANDS (also saved to script file):")
+	print("=" * 80 + "\n")
+	for i, cmd in enumerate(commands, 1):
+		info = tables_info[i - 1]
+		partitioned_note = " (PARTITIONED)" if info.get("partitioned") else ""
+		print(f"# {i}. {info['doctype']}{partitioned_note}")
+		print(cmd)
+		print()
+
+	return True
+
+
+def _generate_posting_date_default_command(
+	table: str,
+	db: DatabaseConnection,
+) -> str | None:
+	"""
+	Generate the Percona pt-online-schema-change command for adding DEFAULT to posting_date.
+
+	Returns None if column doesn't exist or on error.
+	"""
+	import shlex
+
+	try:
+		# Build ALTER statement - MariaDB 10.6+ supports expression defaults
+		alter_statement = "MODIFY COLUMN `posting_date` DATE NULL DEFAULT (CURRENT_DATE)"
+
+		dsn = db.get_dsn(table)
+
+		user_arg = f"--user={db.user}" if db.user else "--user=YOUR_DB_USER"
+		pass_arg = (
+			f"--password={db.password}" if db.password else "--password=YOUR_DB_PASSWORD"
+		)
+
+		cmd_parts = [
+			"pt-online-schema-change",
+			shlex.quote(f"--alter={alter_statement}"),
+			shlex.quote(dsn),
+			shlex.quote(user_arg),
+			shlex.quote(pass_arg),
+			"--execute",
+			"--chunk-size=10000",
+			"--max-load=Threads_running=100",
+			"--critical-load=Threads_running=200",
+			"--recursion-method=none",
+			"--progress=time,30",
+			"--print",
+			"--no-check-alter",
+		]
+
+		return " ".join(cmd_parts)
+
+	except Exception as e:
+		print(f"    ERROR generating command for {table}: {e}")
+		return None
+
+
+def _generate_posting_date_defaults_script(
+	commands: list,
+	tables_info: list,
+	db: DatabaseConnection,
+) -> str:
+	"""Generate a shell script with all Percona commands for posting_date defaults"""
+
+	has_real_creds = db.user and db.password and "YOUR_" not in str(db.user)
+
+	script = f"""#!/bin/bash
+#
+# Percona posting_date DEFAULT Script
+# Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+# Database: {db.database}
+# Host: {db.host}
+#
+# This script adds DEFAULT (CURRENT_DATE) to posting_date columns in child tables.
+# This ensures NULL errors don't occur when hooks fail to populate the field.
+#
+"""
+
+	if not has_real_creds:
+		script += """# IMPORTANT: Database credentials were not provided.
+# Please replace YOUR_DB_USER and YOUR_DB_PASSWORD in the commands below.
+#
+# Option: Find and replace in this file:
+#   sed -i 's/YOUR_DB_USER/actual_user/g' percona_posting_date_defaults.sh
+#   sed -i 's/YOUR_DB_PASSWORD/actual_password/g' percona_posting_date_defaults.sh
+#
+"""
+
+	script += f"""# Usage: bash percona_posting_date_defaults.sh
+#
+
+set -e  # Exit on error
+
+echo "Starting Percona posting_date DEFAULT modifications..."
+echo "Database: {db.database}"
+echo "Host: {db.host}"
+echo "Tables to modify: {len(commands)}"
+echo ""
+
+"""
+
+	for i, (cmd, info) in enumerate(zip(commands, tables_info), 1):
+		partitioned_note = (
+			" (PARTITIONED - may take longer)" if info.get("partitioned") else ""
+		)
+		script += f"""
+# ============================================================================
+# {i}/{len(commands)}: {info['doctype']}{partitioned_note}
+# Table: {info['table']}
+# ============================================================================
+echo ""
+echo "Processing {i}/{len(commands)}: {info['table']}..."
+echo ""
+
+{cmd}
+
+echo ""
+echo "✓ Completed: {info['table']}"
+echo ""
+
+"""
+
+	script += """
+echo ""
+echo "============================================================================"
+echo "All posting_date DEFAULT modifications completed successfully!"
+echo "============================================================================"
+echo ""
+echo "Custom Field metadata has also been updated to set default='Today'"
+echo ""
+"""
+
+	return script
