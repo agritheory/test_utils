@@ -79,3 +79,11 @@
   require_serial: true
   pass_filenames: false
   args: []
+
+- id: validate_frappe_dependencies
+  name: validate_frappe_dependencies
+  description: "Validate that pyproject.toml declares bounded frappe/erpnext dependencies under [tool.bench.frappe-dependencies]"
+  entry: validate_frappe_dependencies
+  files: 'pyproject\.toml$'
+  language: python
+  require_serial: true

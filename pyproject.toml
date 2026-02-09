@@ -20,6 +20,7 @@ validate_python_dependencies = "test_utils.pre_commit.validate_python_dependenci
 add_translations = "test_utils.pre_commit.add_translations:main"
 bylines = "test_utils.pre_commit.bylines:main"
 patch_linters = "test_utils.pre_commit.patch_linters:main"
+validate_frappe_dependencies = "test_utils.pre_commit.validate_frappe_dependencies:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
