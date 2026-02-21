@@ -338,7 +338,7 @@ class SQLPipeline:
 		self.state_dir = self.app_path / ".sql_pipeline"
 		self.state_file = self.state_dir / "progress.json"
 		self.chunks_file = self.state_dir / "chunks.json"
-		self.registry_file = self.state_dir / ".sql_registry.pkl"
+		self.registry_file = self.state_dir / ".sql_registry.json"
 
 		# Ensure state directory exists
 		self.state_dir.mkdir(exist_ok=True)

@@ -37,7 +37,7 @@ jobs:
     - name: Load previous registry (if exists)
       id: load-registry
       run: |
-        if [ -f .sql_registry.pkl ]; then
+        if [ -f .sql_registry.json ]; then
           echo "registry_exists=true" >> $GITHUB_OUTPUT
         else
           echo "registry_exists=false" >> $GITHUB_OUTPUT
@@ -45,9 +45,9 @@ jobs:
     
     - name: Scan for SQL calls
       run: |
-        python -m sql_registry scan --directory . --registry .sql_registry.pkl
+        python -m sql_registry scan --directory . --registry .sql_registry.json
         echo "SQL Registry scan completed"
     
     - name: Generate stability report
       run: |
-        python -m sql_registry report --registry .sql_registry.pkl --output sql_registry_report.md
+        python -m sql_registry report --registry .sql_registry.json --output sql_registry_report.md

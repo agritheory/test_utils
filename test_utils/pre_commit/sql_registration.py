@@ -19,7 +19,7 @@ def main(argv: Sequence[str] = None):
 		"filenames", nargs="*", help="Files to check (provided by pre-commit)"
 	)
 	scan_parser.add_argument(
-		"--registry", default=".sql_registry.pkl", help="Registry file path"
+		"--registry", default=".sql_registry.json", help="Registry file path"
 	)
 	scan_parser.add_argument("--directory", help="Directory to scan (overrides filenames)")
 	scan_parser.add_argument(
@@ -29,7 +29,7 @@ def main(argv: Sequence[str] = None):
 	# List command
 	list_parser = subparsers.add_parser("list", help="List SQL calls")
 	list_parser.add_argument(
-		"--registry", default=".sql_registry.pkl", help="Registry file path"
+		"--registry", default=".sql_registry.json", help="Registry file path"
 	)
 	list_parser.add_argument("--file-filter", help="Filter by file path")
 
@@ -37,7 +37,7 @@ def main(argv: Sequence[str] = None):
 	show_parser = subparsers.add_parser("show", help="Show details for specific call")
 	show_parser.add_argument("call_id", help="Call ID to show details for")
 	show_parser.add_argument(
-		"--registry", default=".sql_registry.pkl", help="Registry file path"
+		"--registry", default=".sql_registry.json", help="Registry file path"
 	)
 
 	# Rewrite command
@@ -46,7 +46,7 @@ def main(argv: Sequence[str] = None):
 	)
 	rewrite_parser.add_argument("call_id", help="Call ID to rewrite")
 	rewrite_parser.add_argument(
-		"--registry", default=".sql_registry.pkl", help="Registry file path"
+		"--registry", default=".sql_registry.json", help="Registry file path"
 	)
 	rewrite_parser.add_argument(
 		"--apply", action="store_true", help="Apply changes to file"
@@ -55,7 +55,7 @@ def main(argv: Sequence[str] = None):
 	# Report command
 	report_parser = subparsers.add_parser("report", help="Generate usage report")
 	report_parser.add_argument(
-		"--registry", default=".sql_registry.pkl", help="Registry file path"
+		"--registry", default=".sql_registry.json", help="Registry file path"
 	)
 	report_parser.add_argument("--output", help="Output file for report")
 
@@ -64,7 +64,7 @@ def main(argv: Sequence[str] = None):
 		"todos", help="List calls with TODO in conversion"
 	)
 	todos_parser.add_argument(
-		"--registry", default=".sql_registry.pkl", help="Registry file path"
+		"--registry", default=".sql_registry.json", help="Registry file path"
 	)
 
 	args = parser.parse_args(argv)
@@ -117,7 +117,7 @@ def main(argv: Sequence[str] = None):
 				]
 				old_count = len(old_operations)
 
-				file_new_ops = registry._scan_file(file_path)
+				file_new_ops = registry.scan_file(file_path)
 
 				file_operations = [
 					c for c in registry.data["calls"].values() if c.file_path == str(file_path)
