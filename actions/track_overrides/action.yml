@@ -82,4 +82,4 @@ runs:
       shell: bash
       run: |
         echo "Cleaning up any orphan processes..."
-        pkill -f $GITHUB_WORKSPACE/test_utils/actions/src/track_overrides.py || true
+        pkill -f track_overrides.py || true
