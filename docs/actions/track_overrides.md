@@ -12,6 +12,7 @@ To track the overrides, the methods must have a comment with the following struc
 
 ```
 """
+APP: <app_name>
 HASH: <commit_hash>
 REPO: <repository_url>
 PATH: <file_path>
@@ -19,10 +20,17 @@ METHOD: <method_name>
 """
 ```
 
+- **APP**: The app that contains this override (e.g. `frappe`, `inventory_tools`). Required for pre-commit to correctly scope checks when using `--app` or `--directory`.
+- **HASH**: Commit hash of the upstream version when this override was last validated.
+- **REPO**: Upstream repository URL.
+- **PATH**: Path to the file in the upstream repo.
+- **METHOD**: Method name being overridden.
+
 ### Example
 ```python
 def is_system_manager_disabled(user):
     """
+    APP: frappe
     HASH: 171e1d0159cda3b8d9415527590c9c3ca0c827be
     REPO: https://github.com/frappe/frappe/
     PATH: frappe/core/doctype/user/user.py
@@ -32,7 +40,29 @@ def is_system_manager_disabled(user):
     pass
 ```
 
-## Usage
+## Pre-commit Usage
+
+For **monorepos** (bench structure with apps/frappe, apps/erpnext, etc.), use `--directory .` to scan
+the entire workspace—matching GHA behavior. Optionally add `--app` to limit which apps are checked:
+
+```yaml
+# Check all apps
+- id: track_overrides
+  args: ['--directory', '.', '--base-branch', 'version-15']
+
+# Or only frappe and erpnext (requires APP in annotations)
+- id: track_overrides
+  args: ['--directory', '.', '--app', 'frappe', '--app', 'erpnext', '--base-branch', 'version-15']
+```
+
+For **single-app repos**, use `--app`:
+
+```yaml
+- id: track_overrides
+  args: ['--app', 'inventory_tools', '--base-branch', 'version-15']
+```
+
+## GitHub Action Usage
 
 To use the `track-overrides` GitHub Action in your workflow, follow these steps:
 

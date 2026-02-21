@@ -23,7 +23,7 @@ def get_all_python_files(repo_path):
 			abs_path = os.path.join(root, file_name)
 			relative_path = os.path.relpath(abs_path, repo_path)
 			try:
-				with open(abs_path) as f:
+				with open(abs_path, encoding="utf-8", errors="replace") as f:
 					content = f.read()
 				yield relative_path, content
 			except OSError as e:
@@ -60,18 +60,25 @@ def print_diff(diff_text):
 			print("\033[37m" + line)
 
 
-def check_tracked_methods(app, base_branch):
-	repo_directory = str(pathlib.Path(app).resolve().parent)
+def check_tracked_methods(repo_directory, base_branch, apps_filter=None):
 	changed_methods = []
 	pattern = (
+		r"(?:APP:\s*([\w_-]+)\s+)?"
 		r"HASH:\s*(\w+)\s*REPO:\s*([\w\/:.]+)\s*PATH:\s*([\w\/.]+)\s*METHOD:\s*([\w]+)"
 	)
 	for file_path, source_code in get_all_python_files(repo_directory):
 		for match in re.finditer(pattern, source_code, re.DOTALL):
-			commit_hash = match.group(1)
-			repo_url = match.group(2)
-			original_file_path = match.group(3)
-			method_name = match.group(4)
+			app_name = match.group(1)
+			commit_hash = match.group(2)
+			repo_url = match.group(3)
+			original_file_path = match.group(4)
+			method_name = match.group(5)
+			# Infer app from file path if APP not in annotation (backward compat)
+			if not app_name and "/" in file_path:
+				parts = file_path.replace("\\", "/").split("/")
+				app_name = parts[1] if parts[0] == "apps" and len(parts) > 1 else parts[0]
+			elif not app_name:
+				app_name = os.path.basename(repo_directory) if repo_directory else ""
 
 			latest_commit_hash = get_last_commit_hash_for_file_in_branch(
 				repo_url, original_file_path, base_branch
@@ -91,26 +98,52 @@ def check_tracked_methods(app, base_branch):
 
 			diff = compare_method_diff(method_at_hash, latest_method)
 			if diff:
-				changed_methods.append(
-					{
-						"title": f"`{method_name}` in `{file_path}` has changed:",
-						"diff": diff,
-					}
-				)
+				if apps_filter is None or app_name in apps_filter:
+					changed_methods.append(
+						{
+							"title": f"{app_name}: `{method_name}` in `{original_file_path}` has changed:",
+							"diff": diff,
+						}
+					)
 
 	return changed_methods
 
 
 def main(argv: Sequence[str] = None):
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--app", action="append", help="An argument for the hook")
-	parser.add_argument("--base-branch", action="append", help="An argument for the hook")
+	parser.add_argument(
+		"--app", action="append", help="App name(s) to scan (resolves to app directory)"
+	)
+	parser.add_argument(
+		"--directory",
+		help="Directory to scan (e.g. workspace root); overrides --app when set. Use for monorepos to match GHA behavior.",
+	)
+	parser.add_argument(
+		"--base-branch", action="append", help="Base branch to compare against"
+	)
 	args = parser.parse_args(argv)
-	app = args.app[0]
+
+	if not args.base_branch:
+		sys.exit(0)
 	base_branch = args.base_branch[0]
 
-	if app and base_branch:
-		changed_methods = check_tracked_methods(app, base_branch)
+	if args.directory:
+		# Scan entire directory (like GHA with github.workspace)
+		directories = [str(pathlib.Path(args.directory).resolve())]
+		apps_filter = set(args.app) if args.app else None
+	elif args.app:
+		# Scan app directory(ies); supports multiple apps for monorepos
+		directories = [str(pathlib.Path(app).resolve().parent) for app in args.app]
+		apps_filter = None  # Already scoped by directory
+	else:
+		sys.exit(0)
+
+	if base_branch:
+		changed_methods = []
+		for repo_directory in directories:
+			changed_methods.extend(
+				check_tracked_methods(repo_directory, base_branch, apps_filter=apps_filter)
+			)
 		if changed_methods:
 			print(
 				"\n[PRE-COMMIT HOOK] Method changes detected! Please review before committing."
@@ -119,4 +152,5 @@ def main(argv: Sequence[str] = None):
 				print(change["title"])
 				print_diff(change["diff"])
 				print("")
+			sys.exit(1)
 	sys.exit(0)
