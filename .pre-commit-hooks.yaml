@@ -56,6 +56,8 @@
   entry: track_overrides
   language: python
   require_serial: true
+  pass_filenames: false
+  always_run: true
 
 - id: add_translations
   name: add_translations
