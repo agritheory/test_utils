@@ -2,46 +2,32 @@ import argparse
 import os
 import pathlib
 import re
-import subprocess
 import sys
 from collections.abc import Sequence
 
 import requests
-from track_overrides import (
+
+from test_utils.utils.track_overrides import (
 	compare_method_diff,
 	download_file_from_commit,
 	extract_method,
 )
 
-sys.path.append(os.path.abspath(".github/actions/track_overrides/src"))
 
-
-def get_staged_python_files(repo_path):
-	result = subprocess.run(
-		["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
-		capture_output=True,
-		text=True,
-		cwd=repo_path,
-	)
-	return [f.strip() for f in result.stdout.split("\n") if f.strip().endswith(".py")]
-
-
-def get_staged_file_content(file_path, repo_path):
-	try:
-		file_path = f"{repo_path}/{file_path}"
-		abs_file_path = os.path.abspath(file_path)
-		relative_path = os.path.relpath(abs_file_path, repo_path)
-
-		staged_content = subprocess.check_output(
-			["git", "show", f":{relative_path}"], text=True, cwd=repo_path
-		)
-		return staged_content
-	except subprocess.CalledProcessError:
-		print(f"Failed to get staged content of {file_path}")
-		return None
-	except Exception as e:
-		print(f"Error: {e}")
-		return None
+def get_all_python_files(repo_path):
+	"""Yield (file_path, content) for all .py files in repo_path. file_path is relative to repo_path."""
+	for root, _, files in os.walk(repo_path):
+		for file_name in files:
+			if not file_name.endswith(".py"):
+				continue
+			abs_path = os.path.join(root, file_name)
+			relative_path = os.path.relpath(abs_path, repo_path)
+			try:
+				with open(abs_path) as f:
+					content = f.read()
+				yield relative_path, content
+			except OSError as e:
+				print(f"Failed to read {relative_path}: {e}")
 
 
 def get_last_commit_hash_for_file_in_branch(repo_url, file_path, base_branch):
@@ -57,22 +43,6 @@ def get_last_commit_hash_for_file_in_branch(repo_url, file_path, base_branch):
 
 	commits = response.json()
 	return commits[0]["sha"] if commits else None
-
-
-def get_current_git_branch(repo_path):
-	if not os.path.isdir(os.path.join(repo_path, ".git")):
-		raise Exception(f"Directory {repo_path} is not a Git repository.")
-
-	result = subprocess.run(
-		["git", "rev-parse", "--abbrev-ref", "HEAD"],
-		capture_output=True,
-		text=True,
-		cwd=repo_path,
-	)
-
-	if result.returncode == 0:
-		return result.stdout.strip()
-	raise Exception("Failed to get current git branch")
 
 
 def print_diff(diff_text):
@@ -91,18 +61,13 @@ def print_diff(diff_text):
 
 
 def check_tracked_methods(app, base_branch):
-	repo_directory = str(pathlib.Path(app).resolve().parent / app)
+	repo_directory = str(pathlib.Path(app).resolve().parent)
 	changed_methods = []
 	pattern = (
 		r"HASH:\s*(\w+)\s*REPO:\s*([\w\/:.]+)\s*PATH:\s*([\w\/.]+)\s*METHOD:\s*([\w]+)"
 	)
-	staged_files = get_staged_python_files(repo_directory)
-	for file_path in staged_files:
-		staged_content = get_staged_file_content(file_path, repo_directory)
-		if not staged_content:
-			continue
-
-		for match in re.finditer(pattern, staged_content, re.DOTALL):
+	for file_path, source_code in get_all_python_files(repo_directory):
+		for match in re.finditer(pattern, source_code, re.DOTALL):
 			commit_hash = match.group(1)
 			repo_url = match.group(2)
 			original_file_path = match.group(3)
@@ -127,7 +92,10 @@ def check_tracked_methods(app, base_branch):
 			diff = compare_method_diff(method_at_hash, latest_method)
 			if diff:
 				changed_methods.append(
-					{"title": f"`{method_name}` in `{file_path}` has changed:", "diff": diff}
+					{
+						"title": f"`{method_name}` in `{file_path}` has changed:",
+						"diff": diff,
+					}
 				)
 
 	return changed_methods
