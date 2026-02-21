@@ -62,7 +62,7 @@ That's it! The action automatically handles different event types and determines
 
 ### 3. Set Up Release Integration (Optional)
 
-For integrating with release workflows, see the [Release Integration Guide](./docs/release-integration.md).
+For integrating with release workflows, see the [Release Integration Guide](generate_changelog-release-integration.md).
 
 This covers:
 - Integration with the GitHub Releases API
@@ -87,9 +87,9 @@ The action accepts the following inputs:
 |-------|-------------|----------|---------|
 | `github-token` | GitHub token with permissions to read PRs and create comments | Yes | N/A |
 | `anthropic-api-key` | API key for Anthropic | Yes | N/A |
-| `anthropic-model` | Anthropic model to use for generating the changelog | No | `claude-3-7-sonnet-latest` |
+| `anthropic-model` | Anthropic model to use for generating the changelog | No | `claude-haiku-4-5` |
 | `prompt-template` | Path to a custom prompt template file | No | `.github/changelog-prompt.txt` |
-| `comment-header` | Header text for the changelog comment | No | `## 📝 Draft Changelog Entry` |
+| `comment-header` | Header text for the comment that will contain the changelog | No | `## 📝 Draft Changelog Entry` |
 | `max_tokens` | Maximum number of tokens to generate in the response | No | `1500` |
 | `temperature` | Temperature for the model response (lower is more analytical) | No | `0.2` |
 

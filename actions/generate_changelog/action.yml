@@ -12,7 +12,7 @@ inputs:
   anthropic-model:
     description: 'Anthropic model to use for generating the changelog'
     required: false
-    default: 'claude-3-7-sonnet-latest'
+    default: 'claude-haiku-4-5'
   prompt-template:
     description: 'Path to a custom prompt template file for the LLM'
     required: false

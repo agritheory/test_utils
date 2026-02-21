@@ -11,7 +11,7 @@ def get_env_vars():
 	env_vars = {
 		"github_token": os.environ.get("GITHUB_TOKEN"),
 		"anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY"),
-		"anthropic_model": os.environ.get("ANTHROPIC_MODEL", "claude-3-7-sonnet-latest"),
+		"anthropic_model": os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5"),
 		"prompt_template_path": os.environ.get("PROMPT_TEMPLATE_PATH"),
 		"comment_header": os.environ.get("COMMENT_HEADER", "## 📝 Draft Changelog Entry"),
 		"repo_full_name": os.environ.get("REPO_FULL_NAME"),
