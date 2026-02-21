@@ -109,10 +109,10 @@
   pass_filenames: false
   args: []
 
-- id: validate_frappe_dependencies
-  name: validate_frappe_dependencies
-  description: "Validate that pyproject.toml declares bounded frappe/erpnext dependencies under [tool.bench.frappe-dependencies]"
-  entry: validate_frappe_dependencies
+- id: validate_frappe_project
+  name: validate_frappe_project
+  description: "Validate pyproject.toml files for Frappe applications (structure, dependencies, build backend)"
+  entry: validate_frappe_project
   language: python
   always_run: true
   pass_filenames: false
