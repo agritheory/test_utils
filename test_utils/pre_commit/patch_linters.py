@@ -126,6 +126,10 @@ class PatchLinter:
 		if not self.base_path:
 			return False
 
+		# Skip validation for execute: style inline patches (valid Frappe syntax)
+		if patch_name.startswith("execute:"):
+			return True
+
 		parts = patch_name.split(".")
 
 		if len(parts) >= 2 and parts[0] == self.app_name and parts[1] == "patches":
