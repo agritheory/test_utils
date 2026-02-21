@@ -10,6 +10,8 @@ The SQL Registry scans Python files for `frappe.db.sql` calls, analyzes the SQL 
 - **Migration** - Converting raw SQL to Query Builder for better security and maintainability
 - **Quick Wins** - Identifying simple queries that can use `frappe.get_all` instead
 
+Registry data is stored as **JSON** (`.sql_registry.json`), which is human-readable, diffable, and portable. If an existing `.sql_registry.pkl` (pickle) file is found and no JSON registry exists, it is automatically migrated on first load.
+
 ## Installation
 
 The `sql_registry` command is included with test_utils:
@@ -27,18 +29,22 @@ poetry add test_utils
 Scan Python files for SQL operations:
 
 ```bash
-sql_registry scan --directory /path/to/app
+sql_registry scan --directory /path/to/app [--registry .sql_registry.json] [--include-patches]
 ```
 
-This creates a `.sql_registry.pkl` file containing all discovered SQL calls.
+Options:
+- `--directory` - Directory to scan (default: current directory)
+- `--registry` - Registry file path (default: `.sql_registry.json`)
+- `--include-patches` - Include SQL in patch/migration files. **Patches are excluded by default** since they are one-time migrations and typically don't need conversion.
+
+This creates a `.sql_registry.json` file containing all discovered SQL calls.
 
 ### List SQL Calls
 
 List all SQL calls in the registry:
 
 ```bash
-sql_registry list
-sql_registry list --file-filter myfile.py
+sql_registry list [--registry .sql_registry.json] [--file-filter myfile.py]
 ```
 
 ### Show Call Details
@@ -46,33 +52,29 @@ sql_registry list --file-filter myfile.py
 Show detailed information about a specific SQL call:
 
 ```bash
-sql_registry show <call_id>
+sql_registry show <call_id> [--registry .sql_registry.json]
 ```
 
 Output includes:
 - Original SQL query
 - Extracted parameters
 - Query Builder equivalent
-- Status indicators (`💡 ORM-ELIGIBLE`, `⚠️ HAS TODO`)
+- Status indicators (`✅ Query Builder`, `💡 ORM-ELIGIBLE`, `🔧 Manual Review`, `⚠️ HAS TODO`)
 
 ### List TODOs
 
-List calls that need manual review:
+List calls that need manual review (have TODO comments in the conversion):
 
 ```bash
-sql_registry todos
+sql_registry todos [--registry .sql_registry.json]
 ```
-
-These are typically:
-- Dynamic SQL with f-string placeholders (`{}`)
-- Complex queries the converter couldn't fully handle
 
 ### List ORM-Eligible Calls
 
 List simple queries that can use `frappe.get_all`:
 
 ```bash
-sql_registry orm
+sql_registry orm [--registry .sql_registry.json]
 ```
 
 These are quick wins - simple SELECT queries on single tables that don't need Query Builder.
@@ -82,33 +84,36 @@ These are quick wins - simple SELECT queries on single tables that don't need Qu
 Generate a markdown report of all SQL operations:
 
 ```bash
-sql_registry report --output sql_report.md
+sql_registry report [--registry .sql_registry.json] [--output sql_report.md]
 ```
 
 The report includes:
-- Conversion status summary (Query Builder, ORM-eligible, Needs Review)
-- Per-file breakdown with status indicators
-- SQL preview for each call
+- Conversion status summary (Query Builder, ORM-eligible, Manual Review, TODOs)
+- Implementation distribution (frappe_db_sql, query_builder, mixed)
+- Per-file breakdown with status indicators and SQL preview for each call
 
 ### Rewrite SQL Call
 
-Preview or apply Query Builder conversion:
+Preview or apply Query Builder conversion for a single call:
 
 ```bash
 # Preview changes (dry run)
-sql_registry rewrite <call_id>
+sql_registry rewrite <call_id> [--registry .sql_registry.json]
 
 # Apply changes to file
-sql_registry rewrite <call_id> --apply
+sql_registry rewrite <call_id> --apply [--registry .sql_registry.json]
 ```
+
+Only calls with **✅ Query Builder** or **💡 ORM-eligible** status can be rewritten. Calls marked **🔧 Manual Review** require manual conversion.
 
 ## Conversion Status
 
 | Status | Meaning |
 |--------|---------|
-| ✅ Query Builder | Converted to `frappe.qb` Query Builder |
-| 💡 ORM-eligible | Simple query, can use `frappe.get_all` |
-| ⚠️ Needs Review | Has TODO, requires manual intervention |
+| ✅ Query Builder | Validated conversion ready to apply via `rewrite --apply` |
+| 💡 ORM-eligible | Simple query, can use `frappe.get_all` instead |
+| 🔧 Manual Review | Validation failed - complex query needs manual conversion |
+| ⚠️ Has TODOs | Conversion has TODO comments requiring attention |
 
 ## Supported SQL Patterns
 
@@ -222,23 +227,40 @@ The converter automatically uses the Query Builder path for aggregate queries, w
 ## Example Workflow
 
 ```bash
-# 1. Scan your app
-sql_registry scan --directory ~/frappe-bench/apps/myapp
+# 1. Scan your app (from test_utils or with test_utils installed)
+poetry run sql_registry scan --directory ~/frappe-bench/apps/myapp
 
 # 2. Check for quick wins (ORM-eligible)
-sql_registry orm
+poetry run sql_registry orm
 
 # 3. Check for issues needing manual review
-sql_registry todos
+poetry run sql_registry todos
 
 # 4. Generate a report for the team
-sql_registry report --output myapp_sql_audit.md
+poetry run sql_registry report --output myapp_sql_audit.md
 
 # 5. Preview a conversion
-sql_registry show abc12345
+poetry run sql_registry show abc12345
 
-# 6. Apply a conversion
-sql_registry rewrite abc12345 --apply
+# 6. Apply a conversion (only for ✅ or 💡 status)
+poetry run sql_registry rewrite abc12345 --apply
+```
+
+The registry file (`.sql_registry.json`) is typically added to `.gitignore` since it's project-local scan data.
+
+## Scanning Multiple Codebases
+
+Use `--registry` to maintain separate registries per app:
+
+```bash
+# Scan each app with its own registry
+poetry run sql_registry scan --directory ~/bench/apps/erpnext --registry .sql_registry_erpnext.json
+poetry run sql_registry scan --directory ~/bench/apps/hrms --registry .sql_registry_hrms.json
+poetry run sql_registry scan --directory ~/bench/apps/myapp --registry .sql_registry_myapp.json
+
+# Generate reports
+poetry run sql_registry report --registry .sql_registry_erpnext.json --output erpnext_sql_report.md
+poetry run sql_registry report --registry .sql_registry_hrms.json --output hrms_sql_report.md
 ```
 
 ## Full Codebase Audit
@@ -247,18 +269,40 @@ To audit an entire Frappe/ERPNext installation:
 
 ```bash
 cd /path/to/test_utils
-rm -f .sql_registry.pkl
+rm -f .sql_registry.json
 poetry run sql_registry scan --directory ~/frappe-bench/apps/erpnext/erpnext
 poetry run sql_registry report --output erpnext_sql_report.md
 ```
 
-## Known Limitations
+Use `poetry run sql_registry` (or `python -m sql_registry`) when running from the test_utils repo.
 
-The following patterns require manual review:
+## Known Limitations (Manual Review Required)
+
+The following patterns require **🔧 Manual Review** and cannot be auto-rewritten:
 
 1. **Dynamic SQL** - Queries with `{}` f-string placeholders for dynamic conditions
 2. **Complex Subqueries** - Deeply nested or correlated subqueries
-3. **Database-specific Functions** - Some MySQL-specific functions may not have direct equivalents
+3. **Database-specific Functions** - MySQL-specific functions (e.g. `ROW_COUNT()`, `information_schema` queries) without direct Query Builder equivalents
+4. **Multi-table JOINs** - Some JOIN patterns may not validate correctly
+5. **Patches/Migrations** - SQL in patch files is excluded by default; use `--include-patches` to include them
+
+## Package Structure
+
+The sql_registry is implemented as a package (`test_utils/utils/sql_registry/`):
+
+| Module | Purpose |
+|--------|---------|
+| `models.py` | `SQLCall`, `SQLStructure`, `UnresolvedParameterError` |
+| `scanner.py` | AST scanning, param extraction, ORM conversion (`frappe.get_all`) |
+| `converter.py` | `SQLToQBConverter` - SQL-to-Query-Builder conversion logic |
+| `registry.py` | `SQLRegistry` - load/save, scan orchestration, report generation |
+| `cli.py` | `main()` - argparse and command dispatch |
+
+Backward-compatible imports remain unchanged:
+
+```python
+from test_utils.utils.sql_registry import SQLRegistry, SQLCall, main
+```
 
 ## See Also
 

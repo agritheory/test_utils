@@ -40,7 +40,7 @@ class Colors:
 class SQLRewriter:
 	"""SQL to Query Builder rewriter functionality"""
 
-	def __init__(self, registry_file: str = ".sql_registry.pkl", use_colors: bool = True):
+	def __init__(self, registry_file: str = ".sql_registry.json", use_colors: bool = True):
 		self.registry = SQLRegistry(registry_file)
 		if not use_colors or not sys.stdout.isatty():
 			# Disable colors if not in terminal or explicitly disabled
