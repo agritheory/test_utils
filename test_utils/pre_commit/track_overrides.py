@@ -35,7 +35,10 @@ def get_last_commit_hash_for_file_in_branch(repo_url, file_path, base_branch):
 	username, repo_name = repo_url_split[-2], repo_url_split[-1]
 	api_url = f"https://api.github.com/repos/{username}/{repo_name}/commits"
 	params = {"path": file_path, "sha": base_branch}
-	response = requests.get(api_url, params=params)
+	headers = {}
+	if token := os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN"):
+		headers["Authorization"] = f"token {token}"
+	response = requests.get(api_url, params=params, headers=headers or None)
 
 	if response.status_code != 200:
 		print(f"Failed to fetch commits: {response.status_code} - {response.reason}")

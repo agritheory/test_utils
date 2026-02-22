@@ -3,6 +3,13 @@ description: Track Changes in Overrides Methods
 author: Francisco Roldan
 
 inputs:
+  app:
+    description: 'App name to scan (required for filtering)'
+    required: true
+  base-branch:
+    description: 'Base branch to compare against (default: version-15)'
+    required: false
+    default: 'version-15'
   post-comment:
     description: 'Flag to indicate whether to post a comment on the PR (default: true)'
     required: false
@@ -28,17 +35,21 @@ runs:
       env:
         GITHUB_TOKEN: ${{ github.token }}
       run: |
-          set -e
+          set +e
           echo "Using token for authentication with GitHub API"
-          changed_methods=$(python ${{ github.action_path }}/track_overrides.py ${{ github.workspace }})
+          base_branch="${{ inputs.base-branch }}"
+          if [[ -n "${{ github.base_ref }}" ]]; then
+            base_branch="${{ github.base_ref }}"
+          fi
+          changed_methods=$(track_overrides --directory ${{ github.workspace }} --app ${{ inputs.app }} --base-branch "$base_branch" 2>&1)
+          exitcode=$?
+          set -e
 
           # Sanitize the diff content before storing it (escape special characters)
           sanitized_methods=$(echo "$changed_methods" | sed 's/\r//g' | sed 's/\n/\\n/g' | sed 's/\"/\\\"/g')
-
-          # Store the sanitized diff in a file
           echo "$sanitized_methods" > diff_output.txt
 
-          if [[ -n "$changed_methods" ]]; then
+          if [[ $exitcode -ne 0 ]] && [[ -n "$changed_methods" ]]; then
             echo "Override methods have changed in the upstream repository."
             echo "Changed methods: $changed_methods"
             echo "has_changes=true" >> $GITHUB_ENV

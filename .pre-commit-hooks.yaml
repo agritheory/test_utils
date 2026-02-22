@@ -52,12 +52,13 @@
 
 - id: track_overrides
   name: track_overrides
-  description: "Track overrides"
+  description: "Track changes in override methods (requires args: --app APP, --base-branch BRANCH)"
   entry: track_overrides
   language: python
   require_serial: true
   pass_filenames: false
   always_run: true
+  pass_env: [GH_TOKEN, GITHUB_TOKEN]
 
 - id: add_translations
   name: add_translations
