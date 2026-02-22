@@ -51,14 +51,13 @@ repos:
         
   - repo: local
     hooks:
-      - id: jscpd
+      - id: check_code_duplication
         name: Check for code duplication
-        entry: bash -c 'npx jscpd@4 . --format "python,javascript,typescript" --ignore "**/node_modules/**,**/.venv/**,**/venv/**,**/__pycache__/**,**/dist/**,**/build/**,**/*.bundle.js,**/tests/**,**/test_*.py,**/*_test.py,**/*.test.js,**/*.spec.js,**/fixtures/**,**/*fixtures.py,**/*.min.js,**/*.min.css,**/migrations/**" --min-lines 20 --min-tokens 150 --threshold 6 --exitCode 1 --reporters "console" --silent'
-        language: system
+        entry: python -m test_utils.pre_commit.check_code_duplication --max-clones 60 --max-percentage 5.0
+        language: python
+        additional_dependencies: ['.']
         pass_filenames: false
-        files: \.(py|js|ts)$
-        stages: [pre-commit]
-        verbose: true
+        always_run: true
 
   # - repo: https://github.com/pre-commit/mirrors-mypy
   #   rev: v1.5.1

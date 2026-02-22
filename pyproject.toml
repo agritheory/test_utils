@@ -24,6 +24,7 @@ sql_pipeline = "test_utils.utils.sql_pipeline:main"
 bylines = "test_utils.pre_commit.bylines:main"
 patch_linters = "test_utils.pre_commit.patch_linters:main"
 validate_frappe_project = "test_utils.pre_commit.validate_frappe_project:main"
+check_code_duplication = "test_utils.pre_commit.check_code_duplication:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
