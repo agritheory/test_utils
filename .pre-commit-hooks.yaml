@@ -103,10 +103,19 @@
   language: python
   require_serial: true
 
+- id: validate_patches
+  name: validate_patches
+  description: "Validate patches.txt matches patch files for ERPNext apps"
+  entry: validate_patches
+  language: python
+  require_serial: true
+  pass_filenames: false
+  args: []
+
 - id: patch_linters
   name: patch_linters
-  description: "Validate patches.txt matches patch files for ERPNext apps"
-  entry: patch_linters
+  description: "Deprecated alias for validate_patches"
+  entry: validate_patches
   language: python
   require_serial: true
   pass_filenames: false

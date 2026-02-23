@@ -22,7 +22,7 @@ sql_registry = "test_utils.utils.sql_registry:main"
 sql_rewriter = "test_utils.pre_commit.sql_registry:main"
 sql_pipeline = "test_utils.utils.sql_pipeline:main"
 bylines = "test_utils.pre_commit.bylines:main"
-patch_linters = "test_utils.pre_commit.patch_linters:main"
+validate_patches = "test_utils.pre_commit.validate_patches:main"
 validate_frappe_project = "test_utils.pre_commit.validate_frappe_project:main"
 check_code_duplication = "test_utils.pre_commit.check_code_duplication:main"
 
