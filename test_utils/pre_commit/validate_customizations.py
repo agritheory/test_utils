@@ -5,6 +5,11 @@ import sys
 import shutil
 from collections.abc import Sequence
 
+try:
+	import tomllib
+except ImportError:
+	import tomli as tomllib  # type: ignore[no-redef]
+
 
 def is_frappe_bench_environment():
 	"""
@@ -158,12 +163,42 @@ def validate_no_custom_perms(customized_doctypes):
 	return exceptions
 
 
+def load_customization_allowlist(app_dir: pathlib.Path) -> dict:
+	"""Load allowlist from pyproject.toml [tool.test_utils.validate_customizations]."""
+	allowlist: dict = {
+		"allow_duplicate_property_setters": [],
+		"allow_duplicate_custom_fields": [],
+	}
+	for search_dir in [app_dir, app_dir.parent, *app_dir.parents]:
+		pyproject = search_dir / "pyproject.toml"
+		if not pyproject.exists():
+			continue
+		try:
+			with open(pyproject, "rb") as f:
+				data = tomllib.load(f)
+			config = (
+				data.get("tool", {}).get("test_utils", {}).get("validate_customizations", {})
+			)
+			if config:
+				allowlist["allow_duplicate_property_setters"] = config.get(
+					"allow_duplicate_property_setters", []
+				)
+				allowlist["allow_duplicate_custom_fields"] = config.get(
+					"allow_duplicate_custom_fields", []
+				)
+				break
+		except (ValueError, OSError):
+			pass
+	return allowlist
+
+
 def validate_duplicate_customizations(customized_doctypes):
 	exceptions = []
 	common_fields = {}
 	common_property_setters = {}
 	app_dir = pathlib.Path().resolve()
 	this_app = app_dir.stem
+	allowlist = load_customization_allowlist(app_dir)
 	for doctype, customize_files in customized_doctypes.items():
 		if len(customize_files) == 1:
 			continue
@@ -185,13 +220,16 @@ def validate_duplicate_customizations(customized_doctypes):
 				ps = [ps.get("name") for ps in file_contents.get("property_setters")]
 				common_property_setters[doctype][module] = ps
 
+	allowed_fields = set(allowlist["allow_duplicate_custom_fields"])
+	allowed_property_setters = set(allowlist["allow_duplicate_property_setters"])
+
 	for doctype, module_and_fields in common_fields.items():
 		if this_app not in module_and_fields.keys():
 			continue
 		this_modules_fields = module_and_fields.pop(this_app)
 		for module, fields in module_and_fields.items():
 			for field in fields:
-				if field in this_modules_fields:
+				if field in this_modules_fields and field not in allowed_fields:
 					exceptions.append(
 						f"Custom Field for {unscrub(doctype)} in {this_app} '{field}' also appears in customizations for {module}"
 					)
@@ -202,7 +240,7 @@ def validate_duplicate_customizations(customized_doctypes):
 		this_modules_ps = module_and_ps.pop(this_app)
 		for module, ps in module_and_ps.items():
 			for p in ps:
-				if p in this_modules_ps:
+				if p in this_modules_ps and p not in allowed_property_setters:
 					exceptions.append(
 						f"Property Setter for {unscrub(doctype)} in {this_app} on '{p}' also appears in customizations for {module}"
 					)
