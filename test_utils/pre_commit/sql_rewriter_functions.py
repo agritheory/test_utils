@@ -147,8 +147,11 @@ class SQLRewriter:
 
 		call = matching_calls[0]
 
-		# Check if this call is flagged for manual review
-		if call.query_builder_equivalent and "# MANUAL:" in call.query_builder_equivalent:
+		# Check if this call is flagged for manual review or has a conversion error
+		if call.query_builder_equivalent and (
+			"# MANUAL:" in call.query_builder_equivalent
+			or "# Error" in call.query_builder_equivalent
+		):
 			print(
 				f"\n{Colors.YELLOW}Skipping {call.call_id[:12]} - flagged for manual review:{Colors.RESET}"
 			)
@@ -199,9 +202,11 @@ class SQLRewriter:
 			# Write the modified content
 			file_path.write_text(formatted_content, encoding="utf-8")
 
-			# Update registry
+			# Update registry and re-scan the modified file so line numbers stay current
+			# for any subsequent rewrites on the same file in this session
 			call.implementation_type = "query_builder"
 			call.notes = f"Converted by sql_rewriter on {call.updated_at}"
+			self.registry.scan_file(file_path)
 			self.registry.save_registry()
 
 			print(f"{Colors.GREEN}Successfully converted SQL to Query Builder{Colors.RESET}")
@@ -235,8 +240,11 @@ class SQLRewriter:
 			]
 			if matching:
 				call = matching[0]
-				# Skip calls flagged for manual review
-				if call.query_builder_equivalent and "# MANUAL:" in call.query_builder_equivalent:
+				# Skip calls flagged for manual review or with conversion errors
+				if call.query_builder_equivalent and (
+					"# MANUAL:" in call.query_builder_equivalent
+					or "# Error" in call.query_builder_equivalent
+				):
 					skipped_manual.append(call)
 					continue
 				calls_to_rewrite.append(call)
@@ -395,8 +403,17 @@ class SQLRewriter:
 				# Empty lines
 				indented_replacement.append("")
 
-		# Replace the lines
-		new_lines = lines[:start_line] + indented_replacement + lines[end_line + 1 :]
+		# If this call was the iterable in a for loop, reconstruct the for statement
+		if call.variable_name and call.variable_name.startswith("__for_"):
+			loop_var = call.variable_name[
+				len("__for_") : -2
+			]  # strip __for_ prefix and __ suffix
+			for_line = indent_str + f"for {loop_var} in result:"
+			new_lines = (
+				lines[:start_line] + indented_replacement + [for_line] + lines[end_line + 1 :]
+			)
+		else:
+			new_lines = lines[:start_line] + indented_replacement + lines[end_line + 1 :]
 
 		return "\n".join(new_lines)
 

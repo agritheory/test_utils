@@ -440,6 +440,8 @@ class SQLToQBConverter:
 			result_prefix = "yield "
 		elif variable_name == "__expr__":
 			result_prefix = ""
+		elif variable_name and variable_name.startswith("__for_"):
+			result_prefix = "result = "
 		elif variable_name:
 			result_prefix = f"{variable_name} = "
 		else:
