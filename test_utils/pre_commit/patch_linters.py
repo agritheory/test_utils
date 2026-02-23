@@ -140,17 +140,12 @@ class PatchLinter:
 
 	def lint(self) -> bool:
 		"""Run linting checks on patch configuration"""
-		print(f"Linting patches for ERPNext app: {self.app_name}")
-
 		if not self.base_path:
 			print(f"ERROR: Could not find app structure for: {self.app_name}")
 			print(f"       Tried looking in: apps/{self.app_name}/{self.app_name}")
 			return False
 
-		print(f"App location: {self.base_path}")
-		print(f"Patches dir: {self.patches_dir}")
-		print(f"patches.txt: {self.patches_txt_path}\n")
-
+		active_patches, commented_patches = self.parse_patches_txt()
 		all_patches = self.find_patch_files()
 
 		if self.errors:
@@ -158,9 +153,14 @@ class PatchLinter:
 				print(f"ERROR: {error}")
 			return False
 
-		if not all_patches:
-			print("WARNING: No patch files found")
+		# Exit early when there are no patches to validate
+		if not active_patches and not all_patches:
 			return True
+
+		print(f"Linting patches for ERPNext app: {self.app_name}")
+		print(f"App location: {self.base_path}")
+		print(f"Patches dir: {self.patches_dir}")
+		print(f"patches.txt: {self.patches_txt_path}\n")
 
 		print(f"Found patches in {len(all_patches)} location(s):")
 		total_patches = 0
@@ -168,8 +168,6 @@ class PatchLinter:
 			print(f"  - {folder}: {len(patches)} patch(es)")
 			total_patches += len(patches)
 		print(f"  Total: {total_patches} patch file(s)\n")
-
-		active_patches, commented_patches = self.parse_patches_txt()
 
 		print(f"Active patches in patches.txt: {len(active_patches)}")
 		print(f"Commented patches: {len(commented_patches)}\n")
