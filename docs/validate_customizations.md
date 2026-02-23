@@ -28,8 +28,11 @@ The validation system performs several checks to ensure customizations are prope
 	- Prevents customizing DocTypes that are already defined within the same app, ensuring modifications to an app's DocTypes are made in the source rather than through customizations
 
 5. **Duplicate Customizations** (`validate_duplicate_customizations`)
-	- Detects duplicate Custom Fields  and Property Setters across different modules
+	- Detects duplicate Custom Fields and Property Setters across different modules
 	- Prevents conflicting customizations between apps
+	- Exceptions can be configured in `pyproject.toml` under `[tool.test_utils.validate_customizations]`:
+		* `allow_duplicate_property_setters` — list of property setter names (e.g. `"Item Barcode-barcode_type-options"`) to allow when duplicated across apps
+		* `allow_duplicate_custom_fields` — list of custom field names to allow when duplicated across apps
 
 5. **Replace email literals** (`validate_email_literals`)
 	- Checks @ email literals in Custom Fields and Property Setters JSON file in the "modified" or "owner" key

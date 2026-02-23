@@ -5,6 +5,11 @@ import sys
 import shutil
 from collections.abc import Sequence
 
+try:
+	import tomllib
+except ImportError:
+	import tomli as tomllib  # type: ignore[no-redef]
+
 
 def is_frappe_bench_environment():
 	"""
@@ -13,7 +18,6 @@ def is_frappe_bench_environment():
 	Returns:
 	        bool: True if valid Frappe bench, False otherwise
 	"""
-	print("called is frappe bench env")
 	# Get current working directory
 	current_dir = pathlib.Path.cwd()
 
@@ -54,9 +58,28 @@ def unscrub(txt: str) -> str:
 	return txt.replace("_", " ").replace("-", " ").title()
 
 
-def get_customized_doctypes():
-	apps_dir = pathlib.Path().resolve().parent
-	apps_order = pathlib.Path().resolve().parent.parent / "sites" / "apps.txt"
+def _resolve_app_dir(app_name: str | None) -> pathlib.Path:
+	"""Resolve app directory from --app or cwd. Returns path to app (e.g. apps/cad)."""
+	cwd = pathlib.Path().resolve()
+	if not app_name:
+		return cwd
+	# Bench root: has apps/ subdir; app lives at apps/<app_name>
+	if (cwd / "apps" / app_name).is_dir():
+		return (cwd / "apps" / app_name).resolve()
+	if cwd.name == app_name:
+		return cwd
+	# Maybe cwd is inside the app (e.g. apps/cad/cad)
+	for parent in [cwd.parent, cwd.parent.parent]:
+		if (parent / "apps" / app_name).is_dir():
+			return (parent / "apps" / app_name).resolve()
+		if parent.name == app_name:
+			return parent
+	return cwd
+
+
+def get_customized_doctypes(app_dir: pathlib.Path):
+	apps_dir = app_dir.parent
+	apps_order = app_dir.parent.parent / "sites" / "apps.txt"
 	apps_order = apps_order.read_text().split("\n")
 	customized_doctypes = {}
 	for _app_dir in apps_order:
@@ -102,11 +125,10 @@ def get_customized_doctypes():
 	return dict(sorted(customized_doctypes.items()))
 
 
-def validate_module(customized_doctypes):
+def validate_module(customized_doctypes, app_dir: pathlib.Path):
 	exceptions = []
-	app_dir = pathlib.Path().resolve()
-	this_app = app_dir.stem
-	if not pathlib.Path.exists(app_dir / this_app / "modules.txt"):
+	this_app = app_dir.name
+	if not (app_dir / this_app / "modules.txt").exists():
 		modules = []
 	else:
 		modules = (app_dir / this_app / "modules.txt").read_text().split("\n")
@@ -143,9 +165,9 @@ def validate_module(customized_doctypes):
 	return exceptions
 
 
-def validate_no_custom_perms(customized_doctypes):
+def validate_no_custom_perms(customized_doctypes, app_dir: pathlib.Path):
 	exceptions = []
-	this_app = pathlib.Path().resolve().stem
+	this_app = app_dir.name
 	for doctype, customize_files in customized_doctypes.items():
 		for customize_file in customize_files:
 			if not this_app in str(customize_file):
@@ -158,12 +180,41 @@ def validate_no_custom_perms(customized_doctypes):
 	return exceptions
 
 
-def validate_duplicate_customizations(customized_doctypes):
+def load_customization_allowlist(app_dir: pathlib.Path) -> dict:
+	"""Load allowlist from pyproject.toml [tool.test_utils.validate_customizations]."""
+	allowlist: dict = {
+		"allow_duplicate_property_setters": [],
+		"allow_duplicate_custom_fields": [],
+	}
+	for search_dir in [app_dir, app_dir.parent, *app_dir.parents]:
+		pyproject = search_dir / "pyproject.toml"
+		if not pyproject.exists():
+			continue
+		try:
+			with open(pyproject, "rb") as f:
+				data = tomllib.load(f)
+			config = (
+				data.get("tool", {}).get("test_utils", {}).get("validate_customizations", {})
+			)
+			if config:
+				allowlist["allow_duplicate_property_setters"] = config.get(
+					"allow_duplicate_property_setters", []
+				)
+				allowlist["allow_duplicate_custom_fields"] = config.get(
+					"allow_duplicate_custom_fields", []
+				)
+				break
+		except (ValueError, OSError):
+			pass
+	return allowlist
+
+
+def validate_duplicate_customizations(customized_doctypes, app_dir: pathlib.Path):
 	exceptions = []
 	common_fields = {}
 	common_property_setters = {}
-	app_dir = pathlib.Path().resolve()
-	this_app = app_dir.stem
+	this_app = app_dir.name
+	allowlist = load_customization_allowlist(app_dir)
 	for doctype, customize_files in customized_doctypes.items():
 		if len(customize_files) == 1:
 			continue
@@ -185,13 +236,16 @@ def validate_duplicate_customizations(customized_doctypes):
 				ps = [ps.get("name") for ps in file_contents.get("property_setters")]
 				common_property_setters[doctype][module] = ps
 
+	allowed_fields = set(allowlist["allow_duplicate_custom_fields"])
+	allowed_property_setters = set(allowlist["allow_duplicate_property_setters"])
+
 	for doctype, module_and_fields in common_fields.items():
 		if this_app not in module_and_fields.keys():
 			continue
 		this_modules_fields = module_and_fields.pop(this_app)
 		for module, fields in module_and_fields.items():
 			for field in fields:
-				if field in this_modules_fields:
+				if field in this_modules_fields and field not in allowed_fields:
 					exceptions.append(
 						f"Custom Field for {unscrub(doctype)} in {this_app} '{field}' also appears in customizations for {module}"
 					)
@@ -202,7 +256,7 @@ def validate_duplicate_customizations(customized_doctypes):
 		this_modules_ps = module_and_ps.pop(this_app)
 		for module, ps in module_and_ps.items():
 			for p in ps:
-				if p in this_modules_ps:
+				if p in this_modules_ps and p not in allowed_property_setters:
 					exceptions.append(
 						f"Property Setter for {unscrub(doctype)} in {this_app} on '{p}' also appears in customizations for {module}"
 					)
@@ -210,9 +264,9 @@ def validate_duplicate_customizations(customized_doctypes):
 	return exceptions
 
 
-def validate_system_generated(customized_doctypes):
+def validate_system_generated(customized_doctypes, app_dir: pathlib.Path):
 	exceptions = []
-	this_app = pathlib.Path().resolve().stem
+	this_app = app_dir.name
 	for doctype, customize_files in customized_doctypes.items():
 		for customize_file in customize_files:
 			# checking if customize_file is a dict, as for hrms it returns a dict of custom_fields
@@ -236,22 +290,21 @@ def validate_system_generated(customized_doctypes):
 	return exceptions
 
 
-def validate_customizations_on_own_doctypes(customized_doctypes):
+def validate_customizations_on_own_doctypes(customized_doctypes, app_dir: pathlib.Path):
 	exceptions = []
-	app_dir = pathlib.Path().resolve()
-	this_app = pathlib.Path().resolve().stem
-	if not pathlib.Path.exists(app_dir / this_app / "modules.txt"):
+	this_app = app_dir.name
+	if not (app_dir / this_app / "modules.txt").exists():
 		modules = []
 	else:
-		modules = (app_dir / app_dir.stem / "modules.txt").read_text().split("\n")
+		modules = (app_dir / this_app / "modules.txt").read_text().split("\n")
 	own_doctypes = {}
+	app_modules_dir = app_dir / this_app
 	for module in modules:
-		app_dir = (app_dir / app_dir.stem).resolve()
-		if not (app_dir / scrub(module)).is_dir():
+		if not (app_modules_dir / scrub(module)).is_dir():
 			continue
-		if not (app_dir / scrub(module) / "doctype").is_dir():
+		if not (app_modules_dir / scrub(module) / "doctype").is_dir():
 			continue
-		for doctype in (app_dir / scrub(module) / "doctype").iterdir():
+		for doctype in (app_modules_dir / scrub(module) / "doctype").iterdir():
 			doctype_definition = doctype / f"{doctype.stem}.json"
 			if doctype_definition.exists():
 				file_contents = json.loads(doctype_definition.read_text())
@@ -274,8 +327,8 @@ def validate_customizations_on_own_doctypes(customized_doctypes):
 	return exceptions
 
 
-def validate_email_literals(customized_doctypes):
-	this_app = pathlib.Path().resolve().stem
+def validate_email_literals(customized_doctypes, app_dir: pathlib.Path):
+	this_app = app_dir.name
 	for doctype, customize_files in customized_doctypes.items():
 		for customize_file in customize_files:
 			file_contents = json.loads(customize_file.read_text())
@@ -306,24 +359,28 @@ def validate_email_literals(customized_doctypes):
 				print(f"Updated owner/modified_by fields in {customize_file} to 'Administrator'")
 
 
-def validate_customizations():
-	customized_doctypes = get_customized_doctypes()
-	exceptions = validate_no_custom_perms(customized_doctypes)
-	exceptions += validate_module(customized_doctypes)
-	exceptions += validate_system_generated(customized_doctypes)
-	exceptions += validate_customizations_on_own_doctypes(customized_doctypes)
-	exceptions += validate_duplicate_customizations(customized_doctypes)
-	validate_email_literals(customized_doctypes)
+def validate_customizations(app_dir: pathlib.Path):
+	customized_doctypes = get_customized_doctypes(app_dir)
+	exceptions = validate_no_custom_perms(customized_doctypes, app_dir)
+	exceptions += validate_module(customized_doctypes, app_dir)
+	exceptions += validate_system_generated(customized_doctypes, app_dir)
+	exceptions += validate_customizations_on_own_doctypes(customized_doctypes, app_dir)
+	exceptions += validate_duplicate_customizations(customized_doctypes, app_dir)
+	validate_email_literals(customized_doctypes, app_dir)
 	return exceptions
 
 
 def main(argv: Sequence[str] = None):
 	parser = argparse.ArgumentParser()
 	parser.add_argument("filenames", nargs="*")
+	parser.add_argument(
+		"--app", help="App name (e.g. cad); used to locate app dir and pyproject.toml"
+	)
 	args = parser.parse_args(argv)
 
 	if is_frappe_bench_environment():
-		exceptions = validate_customizations()
+		app_dir = _resolve_app_dir(args.app)
+		exceptions = validate_customizations(app_dir)
 		if exceptions:
 			for exception in list(set(exceptions)):
 				print(exception)
