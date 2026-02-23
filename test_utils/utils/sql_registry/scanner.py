@@ -186,6 +186,13 @@ def extract_variable_name(tree: ast.AST, call_node: ast.Call) -> str | None:
 				return "__yield__"
 
 	for node in ast.walk(tree):
+		if isinstance(node, ast.For):
+			if node_contains(node.iter, call_node):
+				if isinstance(node.target, ast.Name):
+					return f"__for_{node.target.id}__"
+				return "__for_iter__"
+
+	for node in ast.walk(tree):
 		if isinstance(node, ast.Expr):
 			if node_contains(node.value, call_node):
 				return "__expr__"
@@ -452,6 +459,8 @@ def convert_select_to_orm(
 		result_prefix = "yield "
 	elif variable_name == "__expr__":
 		result_prefix = ""
+	elif variable_name and variable_name.startswith("__for_"):
+		result_prefix = "result = "
 	elif variable_name:
 		result_prefix = f"{variable_name} = "
 	else:

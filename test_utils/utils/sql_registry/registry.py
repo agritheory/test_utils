@@ -381,7 +381,10 @@ class SQLRegistry:
 		for call in calls.values():
 			by_type[call.implementation_type] = by_type.get(call.implementation_type, 0) + 1
 			if call.query_builder_equivalent:
-				if "# MANUAL:" in call.query_builder_equivalent:
+				if (
+					"# MANUAL:" in call.query_builder_equivalent
+					or "# Error" in call.query_builder_equivalent
+				):
 					manual_count += 1
 				elif "frappe.get_all(" in call.query_builder_equivalent:
 					orm_count += 1
@@ -451,22 +454,25 @@ class SQLRegistry:
 			report += "| Call ID | Status | Line | Function | SQL Preview |\n"
 			report += "|---------|--------|------|----------|-------------|\n"
 
-			for call in sorted_calls:
-				status = "✅"
-				if call.query_builder_equivalent:
-					if "# MANUAL:" in call.query_builder_equivalent:
-						status = "🔧"
-					elif "frappe.get_all(" in call.query_builder_equivalent:
-						status = "💡"
-					elif "# TODO" in call.query_builder_equivalent:
-						status = "⚠️"
+		for call in sorted_calls:
+			status = "✅"
+			if call.query_builder_equivalent:
+				if (
+					"# MANUAL:" in call.query_builder_equivalent
+					or "# Error" in call.query_builder_equivalent
+				):
+					status = "🔧"
+				elif "frappe.get_all(" in call.query_builder_equivalent:
+					status = "💡"
+				elif "# TODO" in call.query_builder_equivalent:
+					status = "⚠️"
 
-				sql_preview = call.sql_query.replace("\n", " ").strip()[:50]
-				if len(call.sql_query) > 50:
-					sql_preview += "..."
-				sql_preview = sql_preview.replace("|", "\\|")
-				func_name = call.function_context[:25] if call.function_context else ""
-				report += f"| `{call.call_id[:8]}` | {status} | {call.line_number} | {func_name} | {sql_preview} |\n"
+			sql_preview = call.sql_query.replace("\n", " ").strip()[:50]
+			if len(call.sql_query) > 50:
+				sql_preview += "..."
+			sql_preview = sql_preview.replace("|", "\\|")
+			func_name = call.function_context[:25] if call.function_context else ""
+			report += f"| `{call.call_id[:8]}` | {status} | {call.line_number} | {func_name} | {sql_preview} |\n"
 
 			report += "\n"
 
