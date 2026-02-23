@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Patch Linter - Validates and manages patch files for ERPNext/Frappe applications
+Validate Patches - Validates and manages patch files for ERPNext/Frappe applications
 
 Usage:
-    python patch_linter.py --app inventory_tools [--check]
-    python patch_linter.py --app inventory_tools --list
+    python -m test_utils.pre_commit.validate_patches --app inventory_tools [--check]
+    python -m test_utils.pre_commit.validate_patches --app inventory_tools --list
 
 For pre-commit (run from bench root):
-    python patch_linter.py --app inventory_tools --check
+    validate_patches --app inventory_tools --check
 """
 
 import os
@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import List, Set, Dict, Tuple
 
 
-class PatchLinter:
+class PatchValidator:
 	def __init__(self, app_name: str):
 		self.app_name = app_name
 		self.base_path = self._find_app_base_path()
@@ -138,8 +138,8 @@ class PatchLinter:
 		file_path = self.patches_dir / Path(*parts[:-1]) / f"{parts[-1]}.py"
 		return file_path.exists()
 
-	def lint(self) -> bool:
-		"""Run linting checks on patch configuration"""
+	def run(self) -> bool:
+		"""Run validation checks on patch configuration"""
 		if not self.base_path:
 			print(f"ERROR: Could not find app structure for: {self.app_name}")
 			print(f"       Tried looking in: apps/{self.app_name}/{self.app_name}")
@@ -157,7 +157,7 @@ class PatchLinter:
 		if not active_patches and not all_patches:
 			return True
 
-		print(f"Linting patches for ERPNext app: {self.app_name}")
+		print(f"Validating patches for ERPNext app: {self.app_name}")
 		print(f"App location: {self.base_path}")
 		print(f"Patches dir: {self.patches_dir}")
 		print(f"patches.txt: {self.patches_txt_path}\n")
@@ -197,7 +197,7 @@ class PatchLinter:
 			print()
 
 		if self.errors:
-			print(f"FAILED: Linting failed with {len(self.errors)} error(s):")
+			print(f"FAILED: Validation failed with {len(self.errors)} error(s):")
 			for error in self.errors:
 				print(f"  - {error}")
 		else:
@@ -242,13 +242,13 @@ class PatchLinter:
 
 def main():
 	parser = argparse.ArgumentParser(
-		description="Lint and validate patch files for ERPNext/Frappe applications"
+		description="Validate patch files for ERPNext/Frappe applications"
 	)
 	parser.add_argument(
 		"--app", required=True, help="Application name (e.g., inventory_tools)"
 	)
 	parser.add_argument(
-		"--check", action="store_true", help="Run linting checks (exit code 1 on failure)"
+		"--check", action="store_true", help="Run validation checks (exit code 1 on failure)"
 	)
 	parser.add_argument(
 		"--list", action="store_true", help="List all patches with their status"
@@ -259,13 +259,13 @@ def main():
 	if not args.list:
 		args.check = True
 
-	linter = PatchLinter(args.app)
+	validator = PatchValidator(args.app)
 
 	if args.list:
-		linter.list_patches()
+		validator.list_patches()
 		sys.exit(0)
 	elif args.check:
-		success = linter.lint()
+		success = validator.run()
 		sys.exit(0 if success else 1)
 
 
