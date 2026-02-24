@@ -1,0 +1,41 @@
+name: Static Analysis
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: ["*"]
+
+permissions:
+  contents: read
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test_utils with vulture
+        run: pip install ".[dev]" vulture || pip install -e . vulture
+
+      - name: Run Frappe static analysis
+        # Pass the app path as the first argument.
+        # In a Frappe bench CI job, replace '.' with the path to your app, e.g.:
+        #   static_analysis apps/my_app --no-orphans
+        #
+        # --no-orphans is set here because orphan detection requires all app
+        # dependencies to be present on sys.path to avoid false positives.
+        # Enable it in your app's own CI where the full bench environment is available.
+        run: |
+          if [ -f "pyproject.toml" ]; then
+            static_analysis . --no-orphans
+          else
+            echo "No pyproject.toml found at repo root — skipping analysis"
+          fi

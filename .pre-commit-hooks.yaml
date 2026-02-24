@@ -138,3 +138,13 @@
   pass_filenames: false
   always_run: true
   require_serial: true
+
+- id: static_analysis
+  name: static_analysis
+  description: "Validate Frappe app paths in hooks, patches, frontend calls, Python calls, and Jinja templates; detect orphaned code"
+  entry: static_analysis
+  language: python
+  pass_filenames: false
+  always_run: true
+  require_serial: true
+  additional_dependencies: [vulture>=2.0]
