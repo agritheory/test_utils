@@ -147,7 +147,11 @@ def ensure_imports(content: str, import_lines: list[str]) -> str:
 	if not import_lines:
 		return content
 
-	missing = [line for line in import_lines if line not in content]
+	# Deduplicate within the list first (preserve order), then filter against content.
+	seen: dict[str, None] = {}
+	for line in import_lines:
+		seen[line] = None
+	missing = [line for line in seen if line not in content]
 	if not missing:
 		return content
 

@@ -67,21 +67,30 @@ class SQLToQBConverter:
 	) -> str:
 		try:
 			if isinstance(ast_object, exp.Select):
-				# Check if this is a simple query that can use Frappe ORM
 				if can_use_frappe_orm(ast_object):
-					return convert_select_to_orm(ast_object, replacements, sql_params, variable_name)
+					result = convert_select_to_orm(ast_object, replacements, sql_params, variable_name)
 				else:
-					return self.convert_select_to_qb(
+					result = self.convert_select_to_qb(
 						ast_object, replacements, sql_params, variable_name
 					)
 			elif isinstance(ast_object, exp.Insert):
-				return self.convert_insert_to_qb(ast_object, replacements)
+				result = self.convert_insert_to_qb(ast_object, replacements)
 			elif isinstance(ast_object, exp.Update):
-				return self.convert_update_to_qb(ast_object, replacements, sql_params)
+				result = self.convert_update_to_qb(ast_object, replacements, sql_params)
 			elif isinstance(ast_object, exp.Delete):
-				return self.convert_delete_to_qb(ast_object, replacements, sql_params)
+				result = self.convert_delete_to_qb(ast_object, replacements, sql_params)
 			else:
 				return f"# Unsupported query type: {type(ast_object).__name__}"
+
+			# Catch any internal placeholder tokens that survived conversion —
+			# these indicate a parameter the converter couldn't resolve.
+			if "__PH" in result and not result.lstrip().startswith("# "):
+				return (
+					"# MANUAL: unresolved parameter placeholder in generated code\n# Generated (unvalidated):\n"
+					+ "\n".join(f"# {line}" for line in result.splitlines())
+				)
+			return result
+
 		except UnresolvedParameterError as e:
 			return f"# MANUAL: {str(e)} - needs manual conversion"
 		except Exception as e:
