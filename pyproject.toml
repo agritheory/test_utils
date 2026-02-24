@@ -40,9 +40,11 @@ mypy = "^1.15.0"
 toml = "^0.10.2"
 requests = "^2.32.3"
 sqlglot = "^25.33.0"
+asttokens = ">=2.4.0"
+astpath = {extras = ["xpath"], version = "^0.9.1"}
 
 [tool.codespell]
-skip = "CHANGELOG.md"
+skip = "CHANGELOG.md, poetry.lock"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:tool.poetry.version"]

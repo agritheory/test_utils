@@ -22,6 +22,14 @@ def main():
 		action="store_true",
 		help="Include SQL in patch files (excluded by default - patches are one-time migrations)",
 	)
+	scan_parser.add_argument(
+		"--force",
+		action="store_true",
+		help=(
+			"Attempt to scan files that do not compile using a regex fallback. "
+			"SQL content from broken files will be incomplete (line numbers only)."
+		),
+	)
 
 	report_parser = subparsers.add_parser("report", help="Generate usage report")
 	report_parser.add_argument(
@@ -51,6 +59,16 @@ def main():
 	rewrite_parser.add_argument(
 		"--apply", action="store_true", help="Apply changes to file"
 	)
+	rewrite_parser.add_argument(
+		"--force",
+		action="store_true",
+		help=(
+			"Override two safety gates: (1) attempt MANUAL-flagged calls using the "
+			"unvalidated generated code stored in the registry, and (2) write the "
+			"output even if it does not compile. A .bak backup is always created. "
+			"The result will almost certainly need manual cleanup."
+		),
+	)
 
 	todos_parser = subparsers.add_parser(
 		"todos", help="List calls with TODO in conversion"
@@ -77,7 +95,9 @@ def main():
 	if args.command == "scan":
 		print("Scanning for SQL operations...")
 		count = registry.scan_directory(
-			Path(args.directory), include_patches=getattr(args, "include_patches", False)
+			Path(args.directory),
+			include_patches=getattr(args, "include_patches", False),
+			force=getattr(args, "force", False),
 		)
 		registry.save_registry()
 		print(f"Found and registered {count} SQL operations")
@@ -179,8 +199,9 @@ def main():
 
 		rewriter = SQLRewriter(args.registry)
 		dry_run = not args.apply
+		force = getattr(args, "force", False)
 
-		success = rewriter.rewrite_sql(args.call_id, dry_run)
+		success = rewriter.rewrite_sql(args.call_id, dry_run, force=force)
 		if not success:
 			sys.exit(1)
 

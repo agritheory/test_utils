@@ -552,9 +552,7 @@ class SQLPipeline:
 
 		# Use batch rewrite to handle multiple calls per file correctly
 		rewriter = SQLRewriter(str(self.registry_file))
-		success_count, failed_ids = rewriter.rewrite_batch(
-			chunk.call_ids, dry_run=dry_run, backup=True
-		)
+		success_count, failed_ids = rewriter.rewrite_batch(chunk.call_ids, dry_run=dry_run)
 
 		print(f"\n{Colors.BOLD}Results:{Colors.RESET}")
 		print(f"  Successful: {success_count}/{len(chunk.call_ids)}")
