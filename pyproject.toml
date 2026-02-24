@@ -25,6 +25,7 @@ bylines = "test_utils.pre_commit.bylines:main"
 validate_patches = "test_utils.pre_commit.validate_patches:main"
 validate_frappe_project = "test_utils.pre_commit.validate_frappe_project:main"
 check_code_duplication = "test_utils.pre_commit.check_code_duplication:main"
+static_analysis = "test_utils.pre_commit.static_analysis:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -42,6 +43,10 @@ requests = "^2.32.3"
 sqlglot = "^25.33.0"
 asttokens = ">=2.4.0"
 astpath = {extras = ["xpath"], version = "^0.9.1"}
+vulture = ">=2.0"
+
+[tool.poetry.group.dev.dependencies]
+coverage = "^7.13.4"
 
 [tool.codespell]
 skip = "CHANGELOG.md, poetry.lock"
