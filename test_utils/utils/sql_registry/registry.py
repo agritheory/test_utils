@@ -700,12 +700,12 @@ class SQLRegistry:
 					elif "# TODO" in call.query_builder_equivalent:
 						status = "⚠️"
 
-				sql_preview = call.sql_query.replace("\n", " ").strip()[:50]
-				if len(call.sql_query) > 50:
-					sql_preview += "..."
-				sql_preview = sql_preview.replace("|", "\\|")
-				func_name = call.function_context[:25] if call.function_context else ""
-				report += f"| `{call.call_id[:8]}` | {status} | {call.line_number} | {func_name} | {sql_preview} |\n"
+			sql_preview = call.sql_query.replace("\n", " ").strip()[:50]
+			if len(call.sql_query) > 50:
+				sql_preview += "..."
+			sql_preview = sql_preview.replace("|", "\\|")
+			func_name = call.function_context[:25] if call.function_context else ""
+			report += f"| `{call.call_id[:8]}` | {status} | {call.line_number} | {func_name} | {sql_preview} |\n"
 
 			report += "\n"
 		# fmt: on
