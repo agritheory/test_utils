@@ -224,6 +224,167 @@ frappe.get_all("DocType", fields=[{"SUM": "qty", "as": "total"}])
 
 The converter automatically uses the Query Builder path for aggregate queries, which generates valid pypika syntax that works in both v15 and v16.
 
+## How It Works
+
+### Conversion Pipeline
+
+Every `frappe.db.sql` call passes through five stages before it reaches the registry.
+
+```mermaid
+flowchart TD
+    SRC("📄 Python source file\nfrappe.db.sql(&quot;SELECT …&quot;, params)")
+
+    SRC --> AST
+
+    subgraph AST ["① Python AST — understand the call site"]
+        A1["Detect frappe.db.sql call"]
+        A2["Extract SQL string"]
+        A3["Extract params\nast.Constant → raw literal\nast.Name / Attribute / Call → VarRef"]
+        A4["Detect assignment context\nvariable name / return / for-loop / expression"]
+        A1 --> A2 & A3 & A4
+    end
+
+    AST --> SQL
+
+    subgraph SQL ["② SQL Parsing — understand the query"]
+        S1["Replace %s / %(name)s / {expr}\nwith internal placeholders"]
+        S2["sqlglot.parse() → SQL AST"]
+        S1 --> S2
+    end
+
+    SQL --> ELIG
+
+    subgraph ELIG ["③ Eligibility Check"]
+        E1{"All named params\nresolvable?"}
+        E2{"No dynamic\ntable names?"}
+    end
+
+    ELIG -->|No| MAN1("🔧 Manual Review\n— stored in registry,\nskipped by rewrite")
+
+    ELIG -->|Yes| CONV
+
+    subgraph CONV ["④ Conversion — choose the right target"]
+        C1{"Single table?\nNo JOINs, aggregations,\nor subqueries?"}
+        C2["convert_select_to_orm()\n→ frappe.get_all(…)"]
+        C3["SQLToQBConverter\n→ frappe.qb chain\n  UPDATE → frappe.db.set_value or QB\n  DELETE → frappe.db.delete or QB"]
+        C1 -->|Yes — ORM path| C2
+        C1 -->|No — QB path| C3
+    end
+
+    CONV --> VAL
+
+    subgraph VAL ["⑤ Validation — verify structural equivalence"]
+        V1["Extract structure from original SQL AST\n(tables, fields, conditions, LIMIT …)"]
+        V2["Extract structure from generated QB code\nvia Python AST"]
+        V3{"Structures match?"}
+        V1 & V2 --> V3
+    end
+
+    VAL -->|No| MAN2("🔧 Manual Review\n— generated template\ncommented out")
+    VAL -->|Yes| OK("✅ Ready to apply\nstored in .sql_registry.json")
+
+    style MAN1 fill:#fff3cd,stroke:#ffc107
+    style MAN2 fill:#fff3cd,stroke:#ffc107
+    style OK   fill:#d1e7dd,stroke:#198754
+```
+
+### Applying a Conversion
+
+Once a call has `✅` status in the registry, `rewrite --apply` writes it back to the source file.
+
+#### Pin-drop strategy: from line numbers to structural XPath
+
+Early versions located the call by line number, then re-scanned the entire directory after each write to refresh stale line numbers. This was fragile: any edit to the file invalidated every other call's ID.
+
+The current approach stores a structural **XPath address** (`ast_path`) for each call at scan time, e.g.:
+
+```
+/Module/body[3]/FunctionDef/body[2]/For/iter/Call
+```
+
+This path encodes the call's position in the Python AST, not its line number. It survives whitespace changes, comment edits, and sibling conversions that shift line numbers — as long as the surrounding statement structure is unchanged. No re-scan is needed between rewrites.
+
+#### Batch write pipeline
+
+`rewrite_batch` groups calls by file, then dispatches each file to a worker in a `ProcessPoolExecutor`. Each worker runs the full pipeline independently:
+
+```mermaid
+flowchart TD
+    REG[(".sql_registry.json\nquery_builder_equivalent\nast_path")]
+
+    REG --> BATCH
+
+    subgraph BATCH ["rewrite_batch() — main process"]
+        B1["Group calls by file"]
+        B2["ProcessPoolExecutor\n(one worker per CPU)"]
+        B1 --> B2
+    end
+
+    BATCH --> WORKER
+
+    subgraph WORKER ["_rewrite_file_calls() — worker process (per file)"]
+        W1["Parse AST once\nast.parse(content)"]
+        W2["Build XML tree once\nastpath.convert_to_xml()"]
+        W3["asttokens — char positions\nfor all targets in one pass"]
+        W4["Collect all splices\n(call ranges + DocType inserts)"]
+        W5["Apply right-to-left\none string operation"]
+        W6["_ensure_imports()\nhoist missing imports to module level"]
+        W7["black.format_str()\nPython API — no subprocess"]
+        W8{"Compile check\nast.parse()"}
+        W9["Write file\nremove .bak + __pycache__"]
+        W1 --> W2 --> W3 --> W4 --> W5 --> W6 --> W7 --> W8
+        W8 -->|Pass| W9
+        W8 -->|Fail| ABORT("Abort — file untouched\n(or write with --force)"]
+    end
+
+    WORKER --> DONE("✓ Registry updated\nfor all written files")
+
+    style DONE fill:#d1e7dd,stroke:#198754
+    style ABORT fill:#fff3cd,stroke:#ffc107
+```
+
+**Key design decisions:**
+
+| Old approach | Current approach |
+|---|---|
+| Line-number call IDs | Structural XPath IDs (`ast_path`) |
+| Re-scan directory after each rewrite | No rescan needed — XPath is stable |
+| Sequential file processing | Parallel across files (`ProcessPoolExecutor`) |
+| One `ast.parse` + `convert_to_xml` per call | One parse + one XML build per *file* |
+| `black` subprocess + temp file per file | `black.format_str()` Python API in-process |
+| `replace_sql_in_content` called N times, each re-parsing | Splices collected in one pass, applied right-to-left |
+
+### The VarRef Type
+
+A key design insight: Python SQL params contain two fundamentally different kinds of values that must be rendered differently in generated code.
+
+```mermaid
+flowchart LR
+    subgraph IN ["frappe.db.sql params dict"]
+        P1["{'as_of_date': as_of_date}\nast.Name → variable reference"]
+        P2["{'status': 'Active'}\nast.Constant → string literal"]
+        P3["{'amount': 100}\nast.Constant → numeric literal"]
+    end
+
+    subgraph EXTRACT ["extract_params_from_call()"]
+        E1["VarRef('as_of_date')\nemit unquoted"]
+        E2["'Active'\nraw str — emit quoted"]
+        E3["100\nraw int — emit as-is"]
+    end
+
+    subgraph OUT ["Generated filter"]
+        O1["['start_date', '<=', as_of_date]"]
+        O2["{'status': 'Active'}"]
+        O3["{'amount': 100}"]
+    end
+
+    P1 --> E1 --> O1
+    P2 --> E2 --> O2
+    P3 --> E3 --> O3
+```
+
+`VarRef` objects survive JSON serialization in the registry as `"__varref__:<expr>"` and are reconstructed on load, so the distinction is preserved across sessions.
+
 ## Example Workflow
 
 ```bash
@@ -292,11 +453,24 @@ The sql_registry is implemented as a package (`test_utils/utils/sql_registry/`):
 
 | Module | Purpose |
 |--------|---------|
-| `models.py` | `SQLCall`, `SQLStructure`, `UnresolvedParameterError` |
-| `scanner.py` | AST scanning, param extraction, ORM conversion (`frappe.get_all`) |
-| `converter.py` | `SQLToQBConverter` - SQL-to-Query-Builder conversion logic |
-| `registry.py` | `SQLRegistry` - load/save, scan orchestration, report generation |
-| `cli.py` | `main()` - argparse and command dispatch |
+| `models.py` | `SQLCall` (incl. `ast_path` field), `SQLStructure`, `VarRef`, `UnresolvedParameterError` |
+| `scanner.py` | AST scanning, param extraction (`VarRef` for variable refs), ORM conversion |
+| `converter.py` | `SQLToQBConverter` — SQL→Query Builder, positional `%s` mapping |
+| `registry.py` | `SQLRegistry` — load/save, scan with XPath extraction, report generation |
+| `cli.py` | `main()` — argparse and command dispatch |
+
+The rewriter lives in `test_utils/pre_commit/sql_rewriter_functions.py`:
+
+| Symbol | Kind | Purpose |
+|--------|------|---------|
+| `apply_black` | function | Format Python with `black.format_str()` — no subprocess |
+| `locate_call_node` | function | Find AST Call via XPath (primary) or SQL-text+occurrence (fallback) |
+| `locate_enclosing_stmt_node` | function | Find enclosing statement for DocType line insertion |
+| `rewrite_file_calls` | function | Full per-file pipeline — picklable worker for `ProcessPoolExecutor` |
+| `FileRewriteResult` | dataclass | Structured result from worker process |
+| `split_qb_code` | function | Split QB equivalent into `(imports, doctype_lines, expr)` |
+| `ensure_imports` | function | Hoist missing imports to module level (AST-aware, deduplicating) |
+| `SQLRewriter` | class | CLI entry point — orchestrates scan, show, rewrite |
 
 Backward-compatible imports remain unchanged:
 

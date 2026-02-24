@@ -5,12 +5,42 @@ import re
 import sqlglot
 from sqlglot import exp
 
-from test_utils.utils.sql_registry.models import SQLStructure, UnresolvedParameterError
+from test_utils.utils.sql_registry.models import (
+	SQLStructure,
+	UnresolvedParameterError,
+	VarRef,
+)
 from test_utils.utils.sql_registry.scanner import (
 	can_use_frappe_orm,
 	convert_select_to_orm,
 	convert_where_to_filters,
 )
+
+
+def _positional_index(placeholder: str, replacements: list[tuple[str, str]]) -> int:
+	"""Return the 0-based positional-parameter index for a *%s* placeholder.
+
+	Named params (``%(x)s``) and f-string blocks occupy slots in the
+	replacements list but are *not* positional arguments, so only ``%s``
+	entries before *placeholder* are counted.
+	"""
+	for idx, (ph, orig) in enumerate(replacements):
+		if ph == placeholder:
+			return sum(1 for _, o in replacements[:idx] if o == "%s")
+	return 0
+
+
+def _resolve_positional(placeholder: str, replacements: list, sql_params: dict):
+	"""Resolve a positional *%s* placeholder to a Python value.
+
+	Returns the value from *sql_params* (a ``VarRef`` or a literal), or raises
+	``UnresolvedParameterError`` if the parameter is not found.
+	"""
+	pos_idx = _positional_index(placeholder, replacements)
+	pos_key = f"__pos_{pos_idx}__"
+	if sql_params and pos_key in sql_params:
+		return sql_params[pos_key]
+	raise UnresolvedParameterError(f"Cannot resolve positional parameter {pos_key}")
 
 
 class SQLToQBConverter:
@@ -37,21 +67,30 @@ class SQLToQBConverter:
 	) -> str:
 		try:
 			if isinstance(ast_object, exp.Select):
-				# Check if this is a simple query that can use Frappe ORM
 				if can_use_frappe_orm(ast_object):
-					return convert_select_to_orm(ast_object, replacements, sql_params, variable_name)
+					result = convert_select_to_orm(ast_object, replacements, sql_params, variable_name)
 				else:
-					return self.convert_select_to_qb(
+					result = self.convert_select_to_qb(
 						ast_object, replacements, sql_params, variable_name
 					)
 			elif isinstance(ast_object, exp.Insert):
-				return self.convert_insert_to_qb(ast_object, replacements)
+				result = self.convert_insert_to_qb(ast_object, replacements)
 			elif isinstance(ast_object, exp.Update):
-				return self.convert_update_to_qb(ast_object, replacements, sql_params)
+				result = self.convert_update_to_qb(ast_object, replacements, sql_params)
 			elif isinstance(ast_object, exp.Delete):
-				return self.convert_delete_to_qb(ast_object, replacements, sql_params)
+				result = self.convert_delete_to_qb(ast_object, replacements, sql_params)
 			else:
 				return f"# Unsupported query type: {type(ast_object).__name__}"
+
+			# Catch any internal placeholder tokens that survived conversion —
+			# these indicate a parameter the converter couldn't resolve.
+			if "__PH" in result and not result.lstrip().startswith("# "):
+				return (
+					"# MANUAL: unresolved parameter placeholder in generated code\n# Generated (unvalidated):\n"
+					+ "\n".join(f"# {line}" for line in result.splitlines())
+				)
+			return result
+
 		except UnresolvedParameterError as e:
 			return f"# MANUAL: {str(e)} - needs manual conversion"
 		except Exception as e:
@@ -669,19 +708,26 @@ class SQLToQBConverter:
 		# Handle placeholder resolution for parameter substitution
 		if replacements and sql_params:
 			expr_str = str(expr).strip()
-			for placeholder, original in replacements:
+			for r_idx, (placeholder, original) in enumerate(replacements):
 				if placeholder == expr_str:
 					# Extract parameter name from %(param)s format
 					param_match = re.match(r"%\((\w+)\)s", original)
 					if param_match:
 						param_name = param_match.group(1)
 						if param_name in sql_params:
-							return str(sql_params[param_name])
-					# Positional parameter
+							value = sql_params[param_name]
+							if isinstance(value, VarRef):
+								return value.expr
+							return repr(value) if isinstance(value, str) else str(value)
+					# Positional parameter — count only %s entries before this one
 					if original == "%s":
-						pos_key = f"__pos_{replacements.index((placeholder, original))}__"
+						pos_idx = sum(1 for _, orig in replacements[:r_idx] if orig == "%s")
+						pos_key = f"__pos_{pos_idx}__"
 						if pos_key in sql_params:
-							return str(sql_params[pos_key])
+							value = sql_params[pos_key]
+							if isinstance(value, VarRef):
+								return value.expr
+							return repr(value) if isinstance(value, str) else str(value)
 
 		# Handle literal values (numbers, strings)
 		if isinstance(expr, exp.Literal):
@@ -901,44 +947,27 @@ class SQLToQBConverter:
 		# Check if this is a parameter placeholder
 		for placeholder, original in replacements:
 			if placeholder == expr_str:
-				# Extract parameter name from %(param)s format
 				param_match = re.match(r"%\((\w+)\)s", original)
 				if param_match:
 					param_name = param_match.group(1)
 					if sql_params and param_name in sql_params:
 						param_value = sql_params[param_name]
-						# Check if it's a doc reference like "doc.doctype"
-						if isinstance(param_value, str) and param_value.startswith("doc."):
-							return param_value
-						elif isinstance(param_value, str) and "." in param_value:
-							# It's already a reference like "doc.something"
-							return param_value
-						elif isinstance(param_value, str) and param_value.isidentifier():
-							# It's a variable name reference, return without quotes
-							return param_value
+						if isinstance(param_value, VarRef):
+							return param_value.expr  # Python variable — emit unquoted
+						elif isinstance(param_value, str):
+							return f'"{param_value}"'  # SQL string literal — emit quoted
 						else:
-							# It's a literal value, wrap in quotes if string
-							return f'"{param_value}"' if isinstance(param_value, str) else str(param_value)
+							return str(param_value)  # numeric literal
 					else:
-						# No params dict or param not found, assume doc.param_name pattern
+						# Param not in dict — must be a runtime variable with the same name
 						return param_name
-				elif original == "%s":
-					# Positional parameter - extract index from placeholder name
-					# Placeholder is like __PH0__, __PH1__, etc.
-					ph_match = re.match(r"__PH(\d+)__", placeholder)
-					if ph_match and sql_params:
-						pos_index = ph_match.group(1)
-						pos_key = f"__pos_{pos_index}__"
-						if pos_key in sql_params:
-							value = sql_params[pos_key]
-							if isinstance(value, str) and ("." in value or value.isidentifier()):
-								return value
-							return f'"{value}"' if isinstance(value, str) else str(value)
-					# Cannot resolve %s parameter - flag for manual review
-					raise UnresolvedParameterError("Cannot resolve positional parameter %s")
-				else:
-					# Not a parameter pattern, keep original
-					return original
+			elif original == "%s":
+				value = _resolve_positional(placeholder, replacements, sql_params)
+				if isinstance(value, VarRef):
+					return value.expr
+				return f'"{value}"' if isinstance(value, str) else str(value)
+			else:
+				return original
 
 		# Not a placeholder, format as field or literal
 		return self.format_field(expr, table_vars)
@@ -1475,29 +1504,21 @@ doc.insert()"""
 		self, value_str: str, replacements: list, sql_params: dict
 	) -> str:
 		"""Resolve a value from UPDATE SET clause."""
-		# Check if it's a placeholder
 		for placeholder, original in replacements:
 			if placeholder in value_str:
-				# Try to resolve the parameter
 				if original.startswith("%(") and original.endswith(")s"):
 					param_name = original[2:-2]
 					if sql_params and param_name in sql_params:
 						resolved = sql_params[param_name]
-						if isinstance(resolved, str) and ("." in resolved or resolved.isidentifier()):
-							return resolved
+						if isinstance(resolved, VarRef):
+							return resolved.expr
 						return f'"{resolved}"' if isinstance(resolved, str) else str(resolved)
-					return param_name  # Return param name as variable
+					return param_name  # runtime variable with same name as param key
 				elif original == "%s":
-					# Positional parameter
-					ph_match = re.match(r"__PH(\d+)__", placeholder)
-					if ph_match and sql_params:
-						pos_key = f"__pos_{ph_match.group(1)}__"
-						if pos_key in sql_params:
-							resolved = sql_params[pos_key]
-							if isinstance(resolved, str) and ("." in resolved or resolved.isidentifier()):
-								return resolved
-							return f'"{resolved}"' if isinstance(resolved, str) else str(resolved)
-					raise UnresolvedParameterError("Cannot resolve positional parameter")
+					resolved = _resolve_positional(placeholder, replacements, sql_params)
+					if isinstance(resolved, VarRef):
+						return resolved.expr
+					return f'"{resolved}"' if isinstance(resolved, str) else str(resolved)
 
 		# Literal value
 		if value_str.isdigit():
@@ -1517,22 +1538,17 @@ doc.insert()"""
 			left = str(where_cond.left).strip("`\"'").lower()
 			if left == "name":
 				right_str = str(where_cond.right).strip()
-				# Try to resolve the value
 				for placeholder, original in replacements:
 					if placeholder in right_str:
 						if original.startswith("%(") and original.endswith(")s"):
 							param_name = original[2:-2]
 							if sql_params and param_name in sql_params:
-								return True, sql_params[param_name]
+								val = sql_params[param_name]
+								return True, val.expr if isinstance(val, VarRef) else val
 							return True, param_name
-						elif original == "%s":
-							ph_match = re.match(r"__PH(\d+)__", placeholder)
-							if ph_match and sql_params:
-								pos_key = f"__pos_{ph_match.group(1)}__"
-								if pos_key in sql_params:
-									return True, sql_params[pos_key]
-							raise UnresolvedParameterError("Cannot resolve name parameter")
-				# Literal value
+					elif original == "%s":
+						val = _resolve_positional(placeholder, replacements, sql_params)
+						return True, val.expr if isinstance(val, VarRef) else val
 				if right_str.startswith("'") and right_str.endswith("'"):
 					return True, f'"{right_str[1:-1]}"'
 				return True, right_str
@@ -1608,17 +1624,12 @@ doc.insert()"""
 		"""Format a filters dict as a Python dict literal."""
 		items = []
 		for key, value in filters.items():
-			if isinstance(value, str):
-				# Check if it's a variable reference (like doc.name, self.name, etc.)
-				if "." in value or value.isidentifier():
-					items.append(f'"{key}": {value}')
-				else:
-					items.append(f'"{key}": "{value}"')
-			elif isinstance(value, (int, float)):
-				items.append(f'"{key}": {value}')
+			if isinstance(value, VarRef):
+				items.append(f'"{key}": {value.expr}')
+			elif isinstance(value, str):
+				items.append(f'"{key}": "{value}"')
 			elif isinstance(value, list):
-				# List of values for IN clause
-				items.append(f'"{key}": {value}')
+				items.append(f'"{key}": {repr(value)}')
 			else:
 				items.append(f'"{key}": {repr(value)}')
 		return "{" + ", ".join(items) + "}"

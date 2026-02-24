@@ -4,6 +4,8 @@ import ast
 import re
 from sqlglot import exp
 
+from test_utils.utils.sql_registry.models import VarRef
+
 
 def is_frappe_db_sql_call(node: ast.Call) -> bool:
 	try:
@@ -32,6 +34,18 @@ def extract_sql_from_call(node: ast.Call) -> str | None:
 	return None
 
 
+def _ast_node_to_param_value(node: ast.expr):
+	"""Convert a Python AST expression node to a sql_params value.
+
+	- ``ast.Constant``  → raw Python value (str/int/float/bool/None) — a SQL literal
+	- everything else   → ``VarRef(ast.unparse(node))``   — a Python expression
+	"""
+	if isinstance(node, ast.Constant):
+		return node.value
+	expr_str = ast.unparse(node) if hasattr(ast, "unparse") else str(node)
+	return VarRef(expr_str)
+
+
 def extract_params_from_call(node: ast.Call) -> dict | None:
 	try:
 		if len(node.args) > 1:
@@ -41,16 +55,7 @@ def extract_params_from_call(node: ast.Call) -> dict | None:
 				params = {}
 				for key, value in zip(param_node.keys, param_node.values):
 					if isinstance(key, ast.Constant):
-						key_str = key.value
-						if isinstance(value, ast.Attribute):
-							if isinstance(value.value, ast.Name):
-								params[key_str] = f"{value.value.id}.{value.attr}"
-						elif isinstance(value, ast.Constant):
-							params[key_str] = value.value
-						elif isinstance(value, ast.Name):
-							params[key_str] = value.id
-						else:
-							params[key_str] = ast.unparse(value) if hasattr(ast, "unparse") else str(value)
+						params[key.value] = _ast_node_to_param_value(value)
 				return params
 
 			elif isinstance(param_node, ast.Name):
@@ -58,50 +63,30 @@ def extract_params_from_call(node: ast.Call) -> dict | None:
 				if sql_query:
 					param_matches = re.findall(r"%\((\w+)\)s", sql_query)
 					if param_matches:
-						return {param: param_node.id for param in param_matches}
+						return {param: VarRef(param_node.id) for param in param_matches}
 					if "%s" in sql_query and "%" not in sql_query.replace("%s", ""):
-						return {"__pos_0__": param_node.id}
+						return {"__pos_0__": VarRef(param_node.id)}
 				return {"__var_ref__": param_node.id}
 
 			elif isinstance(param_node, ast.Attribute):
-				if isinstance(param_node.value, ast.Name):
-					attr_value = f"{param_node.value.id}.{param_node.attr}"
-				else:
-					attr_value = (
-						ast.unparse(param_node) if hasattr(ast, "unparse") else str(param_node)
-					)
+				attr_expr = ast.unparse(param_node) if hasattr(ast, "unparse") else str(param_node)
 				sql_query = extract_sql_from_call(node)
 				if sql_query:
 					param_matches = re.findall(r"%\((\w+)\)s", sql_query)
 					if param_matches:
-						return {param: attr_value for param in param_matches}
+						return {param: VarRef(attr_expr) for param in param_matches}
 					if "%s" in sql_query:
-						return {"__pos_0__": attr_value}
-				return {"__var_ref__": attr_value}
+						return {"__pos_0__": VarRef(attr_expr)}
+				return {"__var_ref__": attr_expr}
 
-			elif isinstance(param_node, ast.Tuple) or isinstance(param_node, ast.List):
+			elif isinstance(param_node, (ast.Tuple, ast.List)):
 				sql_query = extract_sql_from_call(node)
 				if sql_query:
 					placeholders = re.findall(r"(?<!%)%s", sql_query)
 					params = {}
 					elements = param_node.elts if hasattr(param_node, "elts") else []
 					for i, (_, elem) in enumerate(zip(placeholders, elements)):
-						param_key = f"__pos_{i}__"
-						if isinstance(elem, ast.Name):
-							params[param_key] = elem.id
-						elif isinstance(elem, ast.Constant):
-							params[param_key] = elem.value
-						elif isinstance(elem, ast.Attribute):
-							if hasattr(ast, "unparse"):
-								params[param_key] = ast.unparse(elem)
-							elif isinstance(elem.value, ast.Name):
-								params[param_key] = f"{elem.value.id}.{elem.attr}"
-							else:
-								params[param_key] = str(elem)
-						elif isinstance(elem, ast.Call):
-							params[param_key] = ast.unparse(elem) if hasattr(ast, "unparse") else "__call__"
-						else:
-							params[param_key] = ast.unparse(elem) if hasattr(ast, "unparse") else str(elem)
+						params[f"__pos_{i}__"] = _ast_node_to_param_value(elem)
 					return params if params else None
 
 			elif isinstance(param_node, ast.Call):
@@ -111,26 +96,20 @@ def extract_params_from_call(node: ast.Call) -> dict | None:
 					params = {}
 					for kw in param_node.keywords:
 						if kw.arg:
-							if hasattr(ast, "unparse"):
-								params[kw.arg] = ast.unparse(kw.value)
-							elif isinstance(kw.value, ast.Attribute) and isinstance(
-								kw.value.value, ast.Name
-							):
-								params[kw.arg] = f"{kw.value.value.id}.{kw.value.attr}"
-							elif isinstance(kw.value, ast.Name):
-								params[kw.arg] = kw.value.id
+							params[kw.arg] = _ast_node_to_param_value(kw.value)
 					return params if params else None
 				else:
 					sql_query = extract_sql_from_call(node)
 					if sql_query:
 						param_matches = re.findall(r"%\((\w+)\)s", sql_query)
 						if param_matches:
+							# Unknown complex call — can't resolve; mark as literal sentinel
 							return {param: f"__from_{func_name}__" for param in param_matches}
 						if len(re.findall(r"(?<!%)%s", sql_query)) == 1:
 							func_repr = (
 								ast.unparse(param_node) if hasattr(ast, "unparse") else func_name + "()"
 							)
-							return {"__pos_0__": func_repr}
+							return {"__pos_0__": VarRef(func_repr)}
 
 	except Exception as e:
 		print(f"Error extracting params: {e}")
@@ -265,27 +244,52 @@ def extract_field_name(expr: exp.Expression) -> str:
 
 
 def extract_value(expr: exp.Expression, replacements: list, sql_params: dict = None):
+	"""Resolve a sqlglot expression node to a Python value suitable for ORM filters.
+
+	Returns one of:
+	- ``VarRef(expr_str)``  — a Python variable/expression; callers emit it unquoted
+	- ``str``               — a SQL string literal; callers must quote it
+	- ``int`` / ``float``   — a numeric literal; callers emit it unquoted
+	"""
 	value_str = str(expr).strip("`\"'")
-	for placeholder, original in replacements:
+	for idx, (placeholder, original) in enumerate(replacements):
 		if placeholder == value_str:
 			param_match = re.match(r"%\((\w+)\)s", original)
 			if param_match:
 				param_name = param_match.group(1)
 				if sql_params and param_name in sql_params:
-					param_value = sql_params[param_name]
-					if isinstance(param_value, str) and not param_value.startswith("doc."):
-						if param_value.isidentifier():
-							return param_value
-						return f'"{param_value}"'
-					return param_value
-				return param_name
+					# Return the raw value — VarRef, plain str, or numeric.
+					# Callers (_format_filter_value / format_value_or_field) are
+					# responsible for adding quotes based on value type.
+					return sql_params[param_name]
+				# Param name not in sql_params → it must be a runtime variable
+				return VarRef(param_name)
 			if original == "%s":
+				# Count how many positional (%s) replacements appear before this
+				# one in the list — that is the 0-based index into __pos_N__.
+				# We cannot use `idx` directly because named params (%(x)s) and
+				# f-string blocks also occupy slots in the replacements list.
+				pos_idx = sum(1 for _, orig in replacements[:idx] if orig == "%s")
+				pos_key = f"__pos_{pos_idx}__"
+				if sql_params and pos_key in sql_params:
+					return sql_params[pos_key]
+				# Fall back — covers the single-param case where no pos key matches
 				for key, value in (sql_params or {}).items():
 					if key.startswith("__pos_"):
 						return value
 			return original
-	if value_str.startswith("'") or value_str.startswith('"'):
-		return value_str.strip("'\"")
+	# Not a placeholder — inspect the sqlglot node type directly
+	if isinstance(expr, exp.Literal):
+		if expr.is_string:
+			return str(expr.this)  # SQL string literal → plain str (caller quotes it)
+		try:
+			return int(expr.this)
+		except (ValueError, TypeError):
+			try:
+				return float(expr.this)
+			except (ValueError, TypeError):
+				return str(expr.this)
+	# Fallback for identifiers / columns that weren't in replacements
 	return value_str
 
 
@@ -393,24 +397,32 @@ def convert_where_to_filters(
 		return {}
 
 
+def _format_filter_value(value) -> str:
+	"""Render a single filter value as a Python code fragment.
+
+	- ``VarRef``  → unquoted (it's a Python variable/expression)
+	- ``str``     → repr (quoted string literal)
+	- ``list``    → recursively formatted (for ``between`` / ``in`` value lists)
+	- other       → repr (int, float, None, bool …)
+	"""
+	if isinstance(value, VarRef):
+		return value.expr
+	if isinstance(value, list):
+		return "[" + ", ".join(_format_filter_value(v) for v in value) + "]"
+	return repr(value)
+
+
 def format_filters_for_orm(filters, needs_imports: set = None) -> str:
 	if needs_imports is None:
 		needs_imports = set()
 	if isinstance(filters, dict):
 		if len(filters) == 1 and "name" in filters:
-			return filters["name"] if isinstance(filters["name"], str) else str(filters["name"])
+			v = filters["name"]
+			return v.expr if isinstance(v, VarRef) else repr(v)
 		else:
 			items = []
 			for key, value in filters.items():
-				if isinstance(value, str):
-					if value.startswith('"') or value.startswith("'"):
-						items.append(f'"{key}": {value}')
-					elif value.startswith("doc.") or "." in value or value.isidentifier():
-						items.append(f'"{key}": {value}')
-					else:
-						items.append(f'"{key}": "{value}"')
-				else:
-					items.append(f'"{key}": {value}')
+				items.append(f'"{key}": {_format_filter_value(value)}')
 			return "{" + ", ".join(items) + "}"
 	elif isinstance(filters, list):
 		formatted = []
@@ -419,19 +431,12 @@ def format_filters_for_orm(filters, needs_imports: set = None) -> str:
 				_, field_name, default_val, op, value = f
 				needs_imports.add("Field")
 				needs_imports.add("IfNull")
-				default_repr = (
-					f'"{default_val}"'
-					if (isinstance(default_val, str) and default_val not in ('""', "''"))
-					else '""'
-				)
-				value_repr = (
-					f'"{value}"' if (isinstance(value, str) and value not in ('""', "''")) else '""'
-				)
 				formatted.append(
-					f'[IfNull(Field("{field_name}"), {default_repr}), "{op}", {value_repr}]'
+					f'[IfNull(Field("{field_name}"), {_format_filter_value(default_val)}), "{op}", {_format_filter_value(value)}]'
 				)
-			elif isinstance(f, list):
-				formatted.append(repr(f))
+			elif isinstance(f, list) and len(f) == 3:
+				field, op, value = f
+				formatted.append(f"[{repr(field)}, {repr(op)}, {_format_filter_value(value)}]")
 			else:
 				formatted.append(repr(f))
 		return "[" + ", ".join(formatted) + "]"

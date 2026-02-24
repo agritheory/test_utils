@@ -3,9 +3,11 @@
 import ast
 import hashlib
 import json
+import os
 import pickle
 import re
 import subprocess
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
@@ -15,6 +17,145 @@ from sqlglot import exp
 from test_utils.utils.sql_registry.models import SQLCall
 from test_utils.utils.sql_registry.converter import SQLToQBConverter
 from test_utils.utils.sql_registry import scanner
+
+
+def _extract_sql_from_file(
+	file_path_str: str, force: bool = False
+) -> list[dict] | None:
+	"""Extract raw SQL call data from a single file.
+
+	Module-level so it's picklable for ProcessPoolExecutor.
+	Returns plain dicts — no registry state involved.
+
+	Return value semantics:
+	  None  — file was *skipped* (compile error, read error).  The caller must
+	           NOT purge existing registry entries for this file.
+	  []    — file was scanned successfully but contained no frappe.db.sql calls.
+	  [...] — file was scanned successfully; list contains discovered calls.
+
+	When *force* is True a best-effort regex scan is attempted for files that
+	fail to parse, so that at least the line numbers are visible in the registry.
+	The resulting entries have an empty sql_query and no parameters, and are
+	tagged so the report can surface them.
+	"""
+	file_path = Path(file_path_str)
+	try:
+		content = file_path.read_text(encoding="utf-8")
+	except Exception as e:
+		print(f"Error reading {file_path}: {e}")
+		return None
+
+	try:
+		tree = ast.parse(content)
+	except SyntaxError as e:
+		if force:
+			print(
+				f"Warning: {file_path} does not compile ({e}); "
+				"using regex fallback — SQL content may be incomplete"
+			)
+			return _regex_extract_sql_from_content(content, file_path_str)
+		print(f"Skipping {file_path} (does not compile): {e}")
+		return None
+
+	# Build the lxml XML representation so we can compute a stable XPath address
+	# for each frappe.db.sql call node.
+	try:
+		from lxml import etree as lxml_etree
+		from astpath.asts import convert_to_xml
+
+		node_mappings: dict = {}  # xml_elem → ast_node
+		xml_tree = convert_to_xml(tree, node_mappings=node_mappings)
+		lxml_et = lxml_etree.ElementTree(xml_tree)
+		# Reverse: id(ast_node) → xml_elem
+		ast_id_to_xml: dict[int, object] = {id(v): k for k, v in node_mappings.items()}
+	except Exception as e:
+		print(
+			f"Warning: astpath/lxml unavailable for {file_path}: {e}; ast_path will be None"
+		)
+		lxml_et = None
+		ast_id_to_xml = {}
+
+	# Collect all frappe.db.sql calls in source order so occurrence indices are
+	# assigned consistently regardless of ast.walk traversal order.
+	sql_nodes: list[ast.Call] = []
+	try:
+		for node in ast.walk(tree):
+			if isinstance(node, ast.Call) and scanner.is_frappe_db_sql_call(node):
+				if scanner.extract_sql_from_call(node):
+					sql_nodes.append(node)
+	except Exception as e:
+		print(f"Error scanning {file_path}: {e}")
+		return []
+
+	sql_nodes.sort(key=lambda n: (n.lineno, n.col_offset))
+
+	# Track (function_context, sql_key) → next occurrence index as fallback.
+	occurrence_counter: dict[tuple[str, str], int] = {}
+	results = []
+	try:
+		for node in sql_nodes:
+			sql_query = scanner.extract_sql_from_call(node)
+			function_context = scanner.get_function_context(tree, node)
+			occ_key = (function_context, sql_query[:100])
+			occ = occurrence_counter.get(occ_key, 0)
+			occurrence_counter[occ_key] = occ + 1
+
+			# Compute the stable XPath structural address via lxml.
+			ast_path: str | None = None
+			if lxml_et is not None:
+				xml_elem = ast_id_to_xml.get(id(node))
+				if xml_elem is not None:
+					try:
+						ast_path = lxml_et.getpath(xml_elem)
+					except Exception:
+						pass
+
+			results.append(
+				{
+					"file_path": file_path_str,
+					"line_num": node.lineno,
+					"sql_query": sql_query,
+					"sql_params": scanner.extract_params_from_call(node),
+					"sql_kwargs": scanner.extract_kwargs_from_call(node),
+					"variable_name": scanner.extract_variable_name(tree, node),
+					"function_context": function_context,
+					"occurrence": occ,
+					"ast_path": ast_path,
+				}
+			)
+	except Exception as e:
+		print(f"Error scanning {file_path}: {e}")
+	return results
+
+
+# ---------------------------------------------------------------------------
+# Regex fallback used when a file does not compile (--force scan)
+# ---------------------------------------------------------------------------
+
+_FRAPPE_DB_SQL_RE = re.compile(r"frappe\.db\.sql\s*\(")
+
+
+def _regex_extract_sql_from_content(content: str, file_path_str: str) -> list[dict]:
+	"""Best-effort, line-number-only scan for frappe.db.sql calls.
+
+	Used as a fallback when ast.parse fails.  The sql_query field is left
+	empty because we cannot reliably extract it without a valid AST.
+	"""
+	results = []
+	for lineno, line in enumerate(content.splitlines(), start=1):
+		if _FRAPPE_DB_SQL_RE.search(line):
+			results.append(
+				{
+					"file_path": file_path_str,
+					"line_num": lineno,
+					"sql_query": "",
+					"sql_params": None,
+					"sql_kwargs": None,
+					"variable_name": None,
+					"function_context": "(broken source — regex only)",
+				}
+			)
+	return results
 
 
 def _json_path(path: Path) -> Path:
@@ -119,11 +260,32 @@ class SQLRegistry:
 		if isinstance(metadata.get("last_scan"), datetime):
 			metadata["last_scan"] = metadata["last_scan"].isoformat()
 
+		path.parent.mkdir(parents=True, exist_ok=True)
 		with open(path, "w", encoding="utf-8") as f:
 			json.dump({"metadata": metadata, "calls": calls_serializable}, f, indent=2)
 
-	def generate_call_id(self, file_path: str, line_num: int, sql_query: str) -> str:
-		content = f"{file_path}:{line_num}:{sql_query[:100]}"
+	def generate_call_id(
+		self,
+		file_path: str,
+		function_context: str,
+		sql_query: str,
+		occurrence: int,
+		line_num: int | None = None,  # kept for signature compat; no longer used in hash
+		ast_path: str | None = None,
+	) -> str:
+		"""Stable identifier based on structural location, not line number.
+
+		When *ast_path* is provided (the lxml XPath address from scan time) it is
+		used as the primary key — it encodes the exact position of the Call node in
+		the AST tree and is unique within a file even for duplicate SQL strings.
+
+		Falls back to (file, function, sql_prefix, occurrence) for registries that
+		pre-date ast_path storage.
+		"""
+		if ast_path:
+			content = f"{file_path}:{ast_path}"
+		else:
+			content = f"{file_path}:{function_context}:{sql_query[:100]}:{occurrence}"
 		return hashlib.md5(content.encode()).hexdigest()[:12]
 
 	def replace_sql_patterns(self, sql: str) -> tuple[str, list[tuple[str, str]]]:
@@ -228,8 +390,12 @@ class SQLRegistry:
 		sql_params: dict = None,
 		sql_kwargs: dict = None,
 		variable_name: str = None,
+		occurrence: int = 0,
+		ast_path: str | None = None,
 	) -> str:
-		call_id = self.generate_call_id(file_path, line_num, sql_query)
+		call_id = self.generate_call_id(
+			file_path, function_context, sql_query, occurrence, ast_path=ast_path
+		)
 
 		if call_id in self.data["calls"]:
 			existing = self.data["calls"][call_id]
@@ -266,6 +432,8 @@ class SQLRegistry:
 				conversion_eligible=False,
 				conversion_validated=False,
 				ineligibility_reason=ineligibility_reason,
+				occurrence_in_function=occurrence,
+				ast_path=ast_path,
 			)
 			self.data["calls"][call_id] = sql_call
 			return call_id
@@ -308,15 +476,21 @@ class SQLRegistry:
 			conversion_eligible=True,
 			conversion_validated=conversion_validated,
 			ineligibility_reason=None,
+			occurrence_in_function=occurrence,
+			ast_path=ast_path,
 		)
 
 		self.data["calls"][call_id] = sql_call
 		return call_id
 
 	def scan_directory(
-		self, directory: Path, pattern: str = "**/*.py", include_patches: bool = False
+		self,
+		directory: Path,
+		pattern: str = "**/*.py",
+		include_patches: bool = False,
+		force: bool = False,
 	) -> int:
-		count = 0
+		files = []
 		for file_path in directory.glob(pattern):
 			if not file_path.is_file():
 				continue
@@ -326,46 +500,104 @@ class SQLRegistry:
 				except ValueError:
 					pass
 				else:
-					parts = rel.parts
-					if "patches" in parts or "patch" in parts:
+					if "patches" in rel.parts or "patch" in rel.parts:
 						continue
-			count += self.scan_file(file_path)
-		return count
+			files.append(file_path)
 
-	def scan_file(self, file_path: Path) -> int:
+		# All files that were passed to the scanner.  We only purge stale entries
+		# for files that were *successfully* processed (result != None).  Files
+		# skipped due to compile errors keep their existing entries so that a
+		# temporarily-broken file does not lose its registry data.
+		candidate_file_strs = {str(f) for f in files}
+
+		workers = min(os.cpu_count() or 1, len(files)) if files else 1
+		all_raw: list[dict] = []
+		skipped_file_strs: set[str] = set()
+		with ProcessPoolExecutor(max_workers=workers) as pool:
+			futures = {pool.submit(_extract_sql_from_file, str(f), force): f for f in files}
+			for future in as_completed(futures):
+				result = future.result()
+				if result is None:
+					skipped_file_strs.add(str(futures[future]))
+				else:
+					all_raw.extend(result)
+
+		# Only purge entries for files we actually processed.
+		purgeable_file_strs = candidate_file_strs - skipped_file_strs
+
+		found_call_ids: set[str] = set()
 		count = 0
-		registered_sql_hashes = set()
-		try:
-			content = file_path.read_text(encoding="utf-8")
-			tree = ast.parse(content)
+		for raw in all_raw:
+			if not raw.get("sql_query"):
+				# Regex-fallback entries have no SQL — skip registration but
+				# don't purge the file's existing entries either.
+				skipped_file_strs.add(raw["file_path"])
+				purgeable_file_strs.discard(raw["file_path"])
+				continue
+			call_id = self.register_sql_call(
+				raw["file_path"],
+				raw["line_num"],
+				raw["sql_query"],
+				raw["function_context"],
+				raw["sql_params"],
+				raw["sql_kwargs"],
+				raw["variable_name"],
+				occurrence=raw.get("occurrence", 0),
+				ast_path=raw.get("ast_path"),
+			)
+			found_call_ids.add(call_id)
+			count += 1
 
-			for node in ast.walk(tree):
-				if isinstance(node, ast.Call):
-					if scanner.is_frappe_db_sql_call(node):
-						sql_query = scanner.extract_sql_from_call(node)
-						if sql_query:
-							sql_params = scanner.extract_params_from_call(node)
-							sql_kwargs = scanner.extract_kwargs_from_call(node)
-							variable_name = scanner.extract_variable_name(tree, node)
-							function_context = scanner.get_function_context(tree, node)
-
-							self.register_sql_call(
-								str(file_path),
-								node.lineno,
-								sql_query,
-								function_context,
-								sql_params,
-								sql_kwargs,
-								variable_name,
-							)
-							count += 1
-							sql_hash = hashlib.md5(sql_query.encode()).hexdigest()
-							registered_sql_hashes.add(sql_hash)
-
-		except Exception as e:
-			print(f"Error scanning {file_path}: {e}")
+		# Purge stale entries: any call from a fully-processed file whose
+		# call_id was not produced by the current scan has a shifted line number
+		# and is no longer valid.
+		stale = [
+			cid
+			for cid, call in self.data["calls"].items()
+			if call.file_path in purgeable_file_strs and cid not in found_call_ids
+		]
+		for cid in stale:
+			del self.data["calls"][cid]
 
 		return count
+
+	def scan_file(self, file_path: Path, force: bool = False) -> int:
+		"""Scan a single file and register its SQL calls."""
+		file_path_str = str(file_path)
+		raw_calls = _extract_sql_from_file(file_path_str, force=force)
+
+		# File was skipped (compile error and not forced) — preserve existing entries.
+		if raw_calls is None:
+			return 0
+
+		found_call_ids: set[str] = set()
+		for raw in raw_calls:
+			if not raw.get("sql_query"):
+				# Regex-fallback entry — skip registration, preserve existing entries.
+				continue
+			call_id = self.register_sql_call(
+				raw["file_path"],
+				raw["line_num"],
+				raw["sql_query"],
+				raw["function_context"],
+				raw["sql_params"],
+				raw["sql_kwargs"],
+				raw["variable_name"],
+				occurrence=raw.get("occurrence", 0),
+				ast_path=raw.get("ast_path"),
+			)
+			found_call_ids.add(call_id)
+
+		# Purge stale entries only if the file compiled successfully.
+		stale = [
+			cid
+			for cid, call in self.data["calls"].items()
+			if call.file_path == file_path_str and cid not in found_call_ids
+		]
+		for cid in stale:
+			del self.data["calls"][cid]
+
+		return len(found_call_ids)
 
 	def generate_report(self) -> str:
 		metadata = self.data["metadata"]
@@ -437,6 +669,7 @@ class SQLRegistry:
 
 		sorted_files = sorted(by_file.items(), key=lambda x: len(x[1]), reverse=True)
 
+		# fmt: off
 		for file_path, file_calls in sorted_files:
 			total_file = len(file_calls)
 			file_name = Path(file_path).name
@@ -454,18 +687,18 @@ class SQLRegistry:
 			report += "| Call ID | Status | Line | Function | SQL Preview |\n"
 			report += "|---------|--------|------|----------|-------------|\n"
 
-		for call in sorted_calls:
-			status = "✅"
-			if call.query_builder_equivalent:
-				if (
-					"# MANUAL:" in call.query_builder_equivalent
-					or "# Error" in call.query_builder_equivalent
-				):
-					status = "🔧"
-				elif "frappe.get_all(" in call.query_builder_equivalent:
-					status = "💡"
-				elif "# TODO" in call.query_builder_equivalent:
-					status = "⚠️"
+			for call in sorted_calls:
+				status = "✅"
+				if call.query_builder_equivalent:
+					if (
+						"# MANUAL:" in call.query_builder_equivalent
+						or "# Error" in call.query_builder_equivalent
+					):
+						status = "🔧"
+					elif "frappe.get_all(" in call.query_builder_equivalent:
+						status = "💡"
+					elif "# TODO" in call.query_builder_equivalent:
+						status = "⚠️"
 
 			sql_preview = call.sql_query.replace("\n", " ").strip()[:50]
 			if len(call.sql_query) > 50:
@@ -475,6 +708,7 @@ class SQLRegistry:
 			report += f"| `{call.call_id[:8]}` | {status} | {call.line_number} | {func_name} | {sql_preview} |\n"
 
 			report += "\n"
+		# fmt: on
 
 		report += f"""
 ## Summary
