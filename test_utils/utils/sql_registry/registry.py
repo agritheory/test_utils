@@ -351,6 +351,10 @@ class SQLRegistry:
 			parsed = sqlglot.parse(sql_cleaned, dialect="mysql")
 			if parsed and parsed[0]:
 				ast_obj = parsed[0]
+				if ast_obj.find(exp.Having):
+					return False, "HAVING clause"
+				if ast_obj.find(exp.Union):
+					return False, "UNION clause"
 				from_clause = ast_obj.find(exp.From)
 				if from_clause:
 					table_str = str(from_clause.this) if from_clause.this else ""
