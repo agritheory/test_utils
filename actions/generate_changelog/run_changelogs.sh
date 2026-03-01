@@ -52,10 +52,11 @@ for ENTRY in "${APPS[@]}"; do
 	echo "  Checking out version-15 in $LOCAL_PATH..."
 	git -C "$LOCAL_PATH" checkout version-15
 
-	python "$SCRIPT_DIR/retrospective.py" "$REPO" \
+  python "$SCRIPT_DIR/retrospective.py" "$REPO" \
 		--github-token "$GITHUB_TOKEN" \
 		--use-ollama \
 		--ollama-model "mistral:7b-instruct-q4_K_M" \
+		--branches version-15 \
 		--output "$OUTPUT_FILE"
 
 	DONE=$((DONE + 1))
