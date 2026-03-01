@@ -102,6 +102,22 @@ class PathResolver:
 					mod = app_path / (module_parts[0] + ".py")
 				if mod.exists():
 					return mod, i
+				# When the app package name matches the first path component (e.g.
+				# agriculture.agriculture.doctype.* where app_path IS the `agriculture`
+				# package), strip the redundant leading component and retry from app_path.
+				# This handles the common case where the app name and module name are the
+				# same (all Frappe apps outside frappe/erpnext).
+				if module_parts[0] == app_path.name and len(module_parts) > 1:
+					inner = module_parts[1:]
+					pkg2 = app_path.joinpath(*inner) / "__init__.py"
+					if pkg2.exists():
+						return pkg2, i
+					if len(inner) > 1:
+						mod2 = app_path.joinpath(*inner[:-1]) / (inner[-1] + ".py")
+					else:
+						mod2 = app_path / (inner[0] + ".py")
+					if mod2.exists():
+						return mod2, i
 		return None, 0
 
 	def has_whitelist_decorator(

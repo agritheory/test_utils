@@ -55,7 +55,7 @@ for ENTRY in "${APPS[@]}"; do
   python "$SCRIPT_DIR/retrospective.py" "$REPO" \
 		--github-token "$GITHUB_TOKEN" \
 		--use-ollama \
-		--ollama-model "mistral:7b-instruct-q4_K_M" \
+		--ollama-model "qwen2.5-coder:7b" \
 		--branches version-15 \
 		--output "$OUTPUT_FILE"
 
