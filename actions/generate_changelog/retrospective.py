@@ -284,7 +284,10 @@ class RetrospectiveChangelogGenerator:
 		print(f"\nFetching direct commits for branch: {branch}")
 		start_time = time.time()
 
-		commits = self.repo.get_commits(sha=branch, since=since_date, until=until_date)
+		from datetime import timezone as _tz
+
+		effective_until = until_date or datetime.now(_tz.utc)
+		commits = self.repo.get_commits(sha=branch, since=since_date, until=effective_until)
 
 		direct_commits = []
 		commit_count = 0

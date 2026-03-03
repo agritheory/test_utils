@@ -44,6 +44,8 @@ sqlglot = "^25.33.0"
 asttokens = ">=2.4.0"
 astpath = {extras = ["xpath"], version = "^0.9.1"}
 vulture = ">=2.0"
+anthropic = "^0.84.0"
+pygithub = "^2.8.1"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.13.4"
