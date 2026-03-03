@@ -21,6 +21,7 @@ DEFAULT_IGNORE_PATTERNS = [
 	"get_list",
 	"get_count",
 	"get_form_dict",
+	"method",
 ]
 
 
