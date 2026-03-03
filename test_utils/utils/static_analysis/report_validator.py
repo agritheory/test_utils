@@ -12,10 +12,6 @@ import ast
 from dataclasses import dataclass, field
 from pathlib import Path
 
-FRAPPE_REPORT_ENTRY_POINTS = frozenset(
-	{"execute", "get_data", "get_columns", "get_filters", "get_chart_data", "get_summary"}
-)
-
 
 @dataclass
 class ReportIssue:
@@ -67,21 +63,33 @@ def has_whitelist_decorator(node: ast.FunctionDef | ast.AsyncFunctionDef) -> boo
 	return False
 
 
-def functions_called_by_execute(tree: ast.Module) -> set[str]:
-	"""Return names called directly inside any ``execute`` function (single-level)."""
-	called: set[str] = set()
+def reachable_from_execute(tree: ast.Module) -> set[str]:
+	"""Return all function names transitively reachable from ``execute``."""
+	call_map: dict[str, set[str]] = {}
 	for node in ast.walk(tree):
 		if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
 			continue
-		if node.name != "execute":
-			continue
+		calls: set[str] = set()
 		for child in ast.walk(node):
 			if isinstance(child, ast.Call):
 				if isinstance(child.func, ast.Name):
-					called.add(child.func.id)
+					calls.add(child.func.id)
 				elif isinstance(child.func, ast.Attribute):
-					called.add(child.func.attr)
-	return called
+					calls.add(child.func.attr)
+		call_map[node.name] = calls
+
+	reachable: set[str] = set()
+	queue = ["execute"]
+	while queue:
+		fn = queue.pop()
+		if fn in reachable:
+			continue
+		reachable.add(fn)
+		for callee in call_map.get(fn, set()):
+			if callee not in reachable:
+				queue.append(callee)
+
+	return reachable
 
 
 def check_report_file(filepath: Path) -> list[ReportIssue]:
@@ -97,22 +105,20 @@ def check_report_file(filepath: Path) -> list[ReportIssue]:
 		)
 		return issues
 
-	called = functions_called_by_execute(tree)
+	reachable = reachable_from_execute(tree)
 
 	for node in tree.body:
 		if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
 			continue
 		name = node.name
-		if (
-			name in FRAPPE_REPORT_ENTRY_POINTS or has_whitelist_decorator(node) or name in called
-		):
+		if has_whitelist_decorator(node) or name in reachable:
 			continue
 		issues.append(
 			ReportIssue(
 				file=str(filepath),
 				line=node.lineno,
 				function=name,
-				message="not a report entry point, not @frappe.whitelist(), and not called by execute() — unreachable from Frappe",
+				message="not reachable from execute() and not @frappe.whitelist() — unreachable from Frappe",
 			)
 		)
 	return issues
