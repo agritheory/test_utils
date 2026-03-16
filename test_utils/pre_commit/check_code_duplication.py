@@ -88,7 +88,9 @@ def main() -> int:
 			with open(json_report) as f:
 				data = json.load(f)
 			clones = data.get("statistics", {}).get("total", {}).get("clones", 0)
-			percentage = data.get("statistics", {}).get("total", {}).get("percentage", 0) * 100
+			percentage = float(
+				data.get("statistics", {}).get("total", {}).get("percentage") or 0
+			)
 		except (json.JSONDecodeError, KeyError):
 			return 0
 
