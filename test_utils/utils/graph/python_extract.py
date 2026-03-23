@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..static_analysis.path_resolver import PathResolver
 from .constants import SKIP_DIR_PARTS
+from .path_excludes import is_excluded_relative_path
 
 
 def module_dotted_path(py_file: Path, app_root: Path) -> str | None:
@@ -24,10 +25,14 @@ def module_dotted_path(py_file: Path, app_root: Path) -> str | None:
 	return ".".join(parts)
 
 
-def iter_python_files(app_root: Path):
-	"""Yield ``*.py`` files under *app_root*, skipping caches and virtualenvs."""
+def iter_python_files(app_root: Path, exclude_globs: list[str] | None = None):
+	"""Yield ``*.py`` files under *app_root*, skipping caches, virtualenvs, and *exclude_globs*."""
+	globs = exclude_globs or []
 	for p in app_root.rglob("*.py"):
 		if p.parts and any(part in SKIP_DIR_PARTS for part in p.parts):
+			continue
+		relp = p.relative_to(app_root).as_posix()
+		if is_excluded_relative_path(relp, globs):
 			continue
 		yield p
 
@@ -149,12 +154,79 @@ class _FunctionCollector(ast.NodeVisitor):
 		self.function_stack.pop()
 
 
+@dataclass(slots=True)
+class PythonClassRow:
+	"""One row per ``class`` at module or class scope (not inside a function)."""
+
+	dotted_path: str
+	file_path: str
+	line: int
+	class_name: str
+
+
+class _ClassCollector(ast.NodeVisitor):
+	"""Collect class qualnames; skip bodies of functions (nested classes inside defs ignored)."""
+
+	def __init__(self, module: str, file_relpath: str) -> None:
+		self.module = module
+		self.file_relpath = file_relpath
+		self.class_stack: list[str] = []
+		self.rows: list[PythonClassRow] = []
+
+	def visit_FunctionDef(self, _node: ast.FunctionDef) -> None:
+		return
+
+	def visit_AsyncFunctionDef(self, _node: ast.AsyncFunctionDef) -> None:
+		return
+
+	def visit_ClassDef(self, node: ast.ClassDef) -> None:
+		parts = [self.module, *self.class_stack, node.name]
+		dotted = ".".join(parts)
+		self.rows.append(
+			PythonClassRow(
+				dotted_path=dotted,
+				file_path=self.file_relpath,
+				line=node.lineno,
+				class_name=node.name,
+			)
+		)
+		self.class_stack.append(node.name)
+		self.generic_visit(node)
+		self.class_stack.pop()
+
+
+def extract_python_classes(
+	app_root: Path,
+	*,
+	exclude_globs: list[str] | None = None,
+) -> list[PythonClassRow]:
+	"""Collect one row per module- or class-scoped ``class`` under *app_root*."""
+	all_rows: list[PythonClassRow] = []
+	for py_file in iter_python_files(app_root, exclude_globs=exclude_globs):
+		mod = module_dotted_path(py_file, app_root)
+		if not mod:
+			continue
+		try:
+			src = py_file.read_text(encoding="utf-8", errors="replace")
+			tree = ast.parse(src, filename=str(py_file))
+		except (OSError, SyntaxError):
+			continue
+		relpath = py_file.relative_to(app_root).as_posix()
+		collector = _ClassCollector(mod, relpath)
+		collector.visit(tree)
+		all_rows.extend(collector.rows)
+	return all_rows
+
+
 def extract_python_functions(
-	app_root: Path, resolver: PathResolver
+	app_root: Path,
+	resolver: PathResolver,
+	*,
+	exclude_globs: list[str] | None = None,
 ) -> list[PythonFunctionRow]:
 	"""Collect one row per function/async def under *app_root*."""
 	all_rows: list[PythonFunctionRow] = []
-	for py_file in iter_python_files(app_root):
+	for py_file in iter_python_files(app_root, exclude_globs=exclude_globs):
 		mod = module_dotted_path(py_file, app_root)
 		if not mod:
 			continue

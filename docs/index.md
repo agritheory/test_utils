@@ -28,7 +28,7 @@ Test Utils is a collection of development tools for [Frappe](https://frappeframe
 | `validate_frappe_project` | Validate `pyproject.toml` structure for Frappe apps |
 | `check_code_duplication` | Detect copy-paste duplication in Python and JS/TS |
 | `static_analysis` | Full static analysis suite (see above) |
-| `frappe_graph` | Build/query/plot per-app code graph; `--with graph` (+ `--with dev` for `plot`) |
+| `code_graph` | Build/query/plot per-app code graph; `--with graph` (+ `--with dev` for `plot`) |
 
 ---
 
@@ -65,7 +65,7 @@ Test Utils is a collection of development tools for [Frappe](https://frappeframe
 
 ### Code graph
 
-The `frappe_graph` CLI and `test_utils.utils.graph` package build a DuckDB artifact per app: Python functions (cyclomatic complexity, nesting depth, `@frappe.whitelist()`), `hooks.py` path registrations, and JS/TS/Vue `frappe.call` / `xcall` sites with tree-sitter loop detection. Install optional deps with `poetry install --with graph` (adds `duckdb` and `networkx`). Subcommand `frappe_graph plot` writes PNG histograms and bar charts (needs `--with dev` for `matplotlib`). Orchestration, OAuth2 MCP-style endpoints, and weekly leaderboard reports are expected to live in ATERP.
+The `code_graph` CLI (console script from the `test_utils` package, not a Frappe bench app) and `test_utils.utils.graph` build a DuckDB artifact per app: Python functions (cyclomatic complexity, nesting depth, `@frappe.whitelist()`), `hooks.py` path registrations, and JS/TS/Vue `frappe.call` / `xcall` sites with tree-sitter loop detection. Install optional deps with `poetry install --with graph` (adds `duckdb` and `networkx`). Subcommand `code_graph plot` writes PNG histograms and bar charts (needs `--with dev` for `matplotlib`). Subcommand `code_graph export-view` writes a standalone HTML file with an interactive force-directed graph (vis-network, similar in spirit to Obsidian’s graph view: pan, zoom, physics, hover tooltips). Orchestration, OAuth2 MCP-style endpoints, and weekly leaderboard reports are expected to live in ATERP.
 
 ---
 

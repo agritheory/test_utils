@@ -26,7 +26,7 @@ validate_patches = "test_utils.pre_commit.validate_patches:main"
 validate_frappe_project = "test_utils.pre_commit.validate_frappe_project:main"
 check_code_duplication = "test_utils.pre_commit.check_code_duplication:main"
 static_analysis = "test_utils.pre_commit.static_analysis:main"
-frappe_graph = "test_utils.utils.graph.cli:main"
+code_graph = "test_utils.utils.graph.cli:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -62,6 +62,7 @@ networkx = ">=3.2,<3.6"
 
 [tool.codespell]
 skip = "CHANGELOG.md, poetry.lock"
+ignore-words-list = "nd"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:tool.poetry.version"]

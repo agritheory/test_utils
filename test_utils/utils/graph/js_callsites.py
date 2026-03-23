@@ -12,6 +12,8 @@ import tree_sitter_typescript as _tsts
 
 from ..static_analysis.path_resolver import is_dynamic_path, is_potential_dotted_path
 
+from .path_excludes import is_excluded_relative_path
+
 # Array / collection iteration methods that imply per-item work when the body contains a call.
 _LOOP_MEMBER_METHODS: frozenset[str] = frozenset(
 	{
@@ -255,18 +257,24 @@ def extract_callsites_for_file(app_root: Path, file_path: Path) -> list[JsCallSi
 	return extract_callsites_from_source(relpath, raw)
 
 
-def iter_js_callsites_in_app(app_root: Path) -> list[JsCallSite]:
+def iter_js_callsites_in_app(
+	app_root: Path, exclude_globs: list[str] | None = None
+) -> list[JsCallSite]:
 	"""Scan *app_root* for frontend extensions and yield all call sites."""
 	from ..static_analysis.frontend_validator import FRONTEND_EXTENSIONS
 
 	from .constants import SKIP_DIR_PARTS
 
+	globs = exclude_globs or []
 	found: list[JsCallSite] = []
 	for ext in FRONTEND_EXTENSIONS:
 		for fp in app_root.rglob(f"*{ext}"):
 			if fp.parts and any(part in SKIP_DIR_PARTS for part in fp.parts):
 				continue
 			if not fp.is_file():
+				continue
+			relp = fp.relative_to(app_root).as_posix()
+			if is_excluded_relative_path(relp, globs):
 				continue
 			found.extend(extract_callsites_for_file(app_root, fp))
 	return found
