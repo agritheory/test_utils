@@ -2,7 +2,6 @@ import argparse
 import json
 import pathlib
 import sys
-import shutil
 from collections.abc import Sequence
 
 try:
@@ -77,6 +76,17 @@ def _resolve_app_dir(app_name: str | None) -> pathlib.Path:
 	return cwd
 
 
+def customization_file_is_in_app(
+	customize_file: pathlib.Path, app_dir: pathlib.Path
+) -> bool:
+	"""True if ``customize_file`` is under this app's directory (``apps/<app>/``).
+
+	Using ``app_dir in path`` as a string would match ``upro_erp`` inside
+	``upro_erp_integ``; comparing resolved paths avoids that false positive.
+	"""
+	return customize_file.resolve().is_relative_to(app_dir.resolve())
+
+
 def get_customized_doctypes(app_dir: pathlib.Path):
 	apps_dir = app_dir.parent
 	apps_order = app_dir.parent.parent / "sites" / "apps.txt"
@@ -134,7 +144,7 @@ def validate_module(customized_doctypes, app_dir: pathlib.Path):
 		modules = (app_dir / this_app / "modules.txt").read_text().split("\n")
 	for doctype, customize_files in customized_doctypes.items():
 		for customize_file in customize_files:
-			if not this_app in str(customize_file):
+			if not customization_file_is_in_app(customize_file, app_dir):
 				continue
 			file_contents = json.loads(customize_file.read_text())
 			if file_contents.get("custom_fields"):
@@ -170,7 +180,7 @@ def validate_no_custom_perms(customized_doctypes, app_dir: pathlib.Path):
 	this_app = app_dir.name
 	for doctype, customize_files in customized_doctypes.items():
 		for customize_file in customize_files:
-			if not this_app in str(customize_file):
+			if not customization_file_is_in_app(customize_file, app_dir):
 				continue
 			file_contents = json.loads(customize_file.read_text())
 			if file_contents.get("custom_perms"):
@@ -272,7 +282,7 @@ def validate_system_generated(customized_doctypes, app_dir: pathlib.Path):
 			# checking if customize_file is a dict, as for hrms it returns a dict of custom_fields
 			if isinstance(customize_file, dict):
 				continue
-			if not this_app in str(customize_file):
+			if not customization_file_is_in_app(customize_file, app_dir):
 				continue
 			file_contents = json.loads(customize_file.read_text())
 			if file_contents.get("custom_fields"):
@@ -317,7 +327,7 @@ def validate_customizations_on_own_doctypes(customized_doctypes, app_dir: pathli
 			# checking if customize_file is a dict, as for hrms it returns a dict of custom_fields
 			if isinstance(customize_file, dict):
 				continue
-			if not this_app in str(customize_file):
+			if not customization_file_is_in_app(customize_file, app_dir):
 				continue
 			file_contents = json.loads(customize_file.read_text())
 			if file_contents.get("doctype") in own_doctypes.keys():
@@ -331,6 +341,10 @@ def validate_email_literals(customized_doctypes, app_dir: pathlib.Path):
 	this_app = app_dir.name
 	for doctype, customize_files in customized_doctypes.items():
 		for customize_file in customize_files:
+			if isinstance(customize_file, dict):
+				continue
+			if not customization_file_is_in_app(customize_file, app_dir):
+				continue
 			file_contents = json.loads(customize_file.read_text())
 			modified = False
 
