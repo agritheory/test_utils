@@ -26,6 +26,7 @@ validate_patches = "test_utils.pre_commit.validate_patches:main"
 validate_frappe_project = "test_utils.pre_commit.validate_frappe_project:main"
 check_code_duplication = "test_utils.pre_commit.check_code_duplication:main"
 static_analysis = "test_utils.pre_commit.static_analysis:main"
+code_graph = "test_utils.utils.graph.cli:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -44,12 +45,24 @@ sqlglot = "^25.33.0"
 asttokens = ">=2.4.0"
 astpath = {extras = ["xpath"], version = "^0.9.1"}
 vulture = ">=2.0"
+tree-sitter = "^0.25.2"
+tree-sitter-javascript = "^0.25.0"
+tree-sitter-typescript = "^0.23.2"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.13.4"
+matplotlib = "^3.10.8"
+
+[tool.poetry.group.graph]
+optional = true
+
+[tool.poetry.group.graph.dependencies]
+duckdb = "^1.5.1"
+networkx = ">=3.2,<3.6"
 
 [tool.codespell]
 skip = "CHANGELOG.md, poetry.lock"
+ignore-words-list = "nd"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:tool.poetry.version"]
