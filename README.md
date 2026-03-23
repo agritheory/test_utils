@@ -81,6 +81,37 @@ resolved = resolver.resolve("my_app.api.create_order")
 print(resolved.exists, resolved.kind, resolved.is_whitelisted)
 ```
 
+### Code graph (DuckDB)
+
+Build a structural graph for one Frappe app (functions, ``hooks.py`` registrations, JS
+``frappe.call`` / ``xcall`` sites with loop context via tree-sitter). Requires optional
+dependencies:
+
+```bash
+poetry install --with graph
+```
+
+```python
+from pathlib import Path
+from test_utils.utils.graph import build_graph, complexity_leaderboard
+
+build_graph(Path("/bench/apps/myapp"), Path("myapp_graph.duckdb"))
+rows = complexity_leaderboard("myapp_graph.duckdb", limit=50)
+```
+
+CLI:
+
+```bash
+frappe_graph build /path/to/app -o /tmp/app.duckdb
+frappe_graph leaderboard /tmp/app.duckdb --limit 20
+frappe_graph js-loops /tmp/app.duckdb
+# PNG charts (needs `poetry install --with dev --with graph` for matplotlib + duckdb)
+frappe_graph plot /tmp/app.duckdb -o /tmp/graph_plots
+```
+
+Weekly reports and authenticated MCP-style HTTP endpoints are intended to live in
+ATERP; this package supplies the builder and query helpers only.
+
 ### CLI
 
 ```bash
