@@ -6,11 +6,14 @@ Frappe report controllers follow a specific convention:
   - ``@frappe.whitelist()`` — functions callable from the frontend
 
 Any other top-level function is unreachable and flagged as a warning.
+Functions annotated with ``# frappe-vulture:ignore`` are excluded.
 """
 
 import ast
 from dataclasses import dataclass, field
 from pathlib import Path
+
+IGNORE_MARKER = "frappe-vulture:ignore"
 
 
 @dataclass
@@ -92,6 +95,13 @@ def reachable_from_execute(tree: ast.Module) -> set[str]:
 	return reachable
 
 
+def has_ignore_comment(source: str, lineno: int) -> bool:
+	lines = source.splitlines()
+	if 1 <= lineno <= len(lines):
+		return IGNORE_MARKER in lines[lineno - 1]
+	return False
+
+
 def check_report_file(filepath: Path) -> list[ReportIssue]:
 	issues: list[ReportIssue] = []
 	try:
@@ -112,6 +122,8 @@ def check_report_file(filepath: Path) -> list[ReportIssue]:
 			continue
 		name = node.name
 		if has_whitelist_decorator(node) or name in reachable:
+			continue
+		if has_ignore_comment(source, node.lineno):
 			continue
 		issues.append(
 			ReportIssue(

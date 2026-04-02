@@ -29,9 +29,23 @@ def extract_sql_from_call(node: ast.Call) -> str | None:
 			first_arg = node.args[0]
 			if isinstance(first_arg, ast.Constant) and isinstance(first_arg.value, str):
 				return first_arg.value
+			if isinstance(first_arg, ast.JoinedStr):
+				return _reconstruct_fstring(first_arg)
 	except Exception:
 		pass
 	return None
+
+
+def _reconstruct_fstring(node: ast.JoinedStr) -> str:
+	"""Reconstruct an f-string as a plain string with {expr} placeholders."""
+	parts = []
+	for value in node.values:
+		if isinstance(value, ast.Constant):
+			parts.append(str(value.value))
+		elif isinstance(value, ast.FormattedValue):
+			expr_str = ast.unparse(value.value) if hasattr(ast, "unparse") else str(value.value)
+			parts.append("{" + expr_str + "}")
+	return "".join(parts)
 
 
 def _ast_node_to_param_value(node: ast.expr):
