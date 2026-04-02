@@ -7,6 +7,8 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+IGNORE_MARKER = "frappe-vulture:ignore"
+
 VULTURE_LINE_RE = re.compile(
 	r"^(?P<file>.+):(?P<line>\d+):\s+unused\s+(?P<kind>\S+)\s+'(?P<name>[^']+)'\s+\((?P<confidence>\d+)%\s+confidence\)$"
 )
@@ -74,6 +76,16 @@ def build_whitelist_source(entry_points: list[str]) -> str:
 	return "\n".join(lines) + "\n"
 
 
+def has_ignore_comment(file_path: str, lineno: int) -> bool:
+	try:
+		lines = Path(file_path).read_text(encoding="utf-8", errors="replace").splitlines()
+		if 1 <= lineno <= len(lines):
+			return IGNORE_MARKER in lines[lineno - 1]
+	except OSError:
+		pass
+	return False
+
+
 def parse_vulture_output(output: str) -> list[OrphanItem]:
 	items: list[OrphanItem] = []
 	for line in output.splitlines():
@@ -139,7 +151,11 @@ class OrphanDetector:
 			proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
 			# exit 0: clean, 1: dead code found, 3: dead code found + syntax errors
-			result.unreachable = parse_vulture_output(proc.stdout)
+			result.unreachable = [
+				item
+				for item in parse_vulture_output(proc.stdout)
+				if not has_ignore_comment(item.file, item.line)
+			]
 			if proc.returncode not in (0, 1, 3):
 				result.error = f"vulture exited with code {proc.returncode}: {proc.stderr.strip()}"
 			elif proc.returncode == 3 and proc.stderr.strip():
