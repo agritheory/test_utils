@@ -1,53 +1,57 @@
-# .github/workflows/database-stability-tracking.yml
-
 name: SQL Registry
+description: Scan for SQL operations, track stability, and report on database call patterns.
+author: AgriTheory
 
-on:
-  pull_request:
-    types: [opened, synchronize]
-    paths:
-      - '**/*.py'
-  push:
-    branches: [main, develop]
+inputs:
+  directory:
+    description: 'Directory to scan for SQL operations'
+    required: false
+    default: '.'
+  registry:
+    description: 'Path to the registry file'
+    required: false
+    default: '.sql_registry.json'
 
-jobs:
-  track-database-operations:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    
-    steps:
+branding:
+  icon: database
+  color: blue
+
+runs:
+  using: composite
+  steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Full history for comparison
-    
+        fetch-depth: 0
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-    
+
     - name: Install dependencies
+      shell: bash
       run: |
         pip install sqlglot>=25.0.0
-        # Install your test_utils package
-        pip install -e .
-    
+        pip install ${{ github.action_path }}/../..
+
     - name: Load previous registry (if exists)
       id: load-registry
+      shell: bash
       run: |
-        if [ -f .sql_registry.json ]; then
-          echo "registry_exists=true" >> $GITHUB_OUTPUT
+        if [ -f "${{ inputs.registry }}" ]; then
+          echo "registry_exists=true" >> "$GITHUB_OUTPUT"
         else
-          echo "registry_exists=false" >> $GITHUB_OUTPUT
+          echo "registry_exists=false" >> "$GITHUB_OUTPUT"
         fi
-    
+
     - name: Scan for SQL calls
+      shell: bash
       run: |
-        python -m sql_registry scan --directory . --registry .sql_registry.json
+        sql_registry scan --directory "${{ inputs.directory }}" --registry "${{ inputs.registry }}"
         echo "SQL Registry scan completed"
-    
+
     - name: Generate stability report
+      shell: bash
       run: |
-        python -m sql_registry report --registry .sql_registry.json --output sql_registry_report.md
+        sql_registry report --registry "${{ inputs.registry }}"
