@@ -5,6 +5,8 @@ from pathlib import Path
 
 from .path_resolver import PathResolver, is_potential_dotted_path
 
+IGNORE_MARKER = "frappe-vulture:ignore"
+
 
 @dataclass
 class PatchesValidationResult:
@@ -26,6 +28,8 @@ def parse_patches_txt(patches_txt: Path) -> list[tuple[str, int]]:
 	for lineno, raw in enumerate(patches_txt.read_text(encoding="utf-8").splitlines(), 1):
 		line = raw.strip()
 		if not line or line.startswith("#"):
+			continue
+		if IGNORE_MARKER in raw:
 			continue
 		line = line.split("#")[0].strip()
 		if line.startswith("execute:"):

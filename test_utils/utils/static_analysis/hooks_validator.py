@@ -6,6 +6,8 @@ from pathlib import Path
 
 from .path_resolver import PathResolver, is_potential_dotted_path
 
+IGNORE_MARKER = "frappe-vulture:ignore"
+
 NON_PATH_KEYS: frozenset[str] = frozenset(
 	{
 		"app_include_js",
@@ -136,7 +138,10 @@ class HooksValidator:
 		extractor = PathExtractor()
 		extractor.visit(tree)
 
+		source_lines = source.splitlines()
 		for path, lineno, context in extractor.found:
+			if 1 <= lineno <= len(source_lines) and IGNORE_MARKER in source_lines[lineno - 1]:
+				continue
 			resolved = self.resolver.resolve(path)
 			result.paths_checked += 1
 			loc = f"{hooks_file}:{lineno}"
