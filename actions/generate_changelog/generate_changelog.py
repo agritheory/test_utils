@@ -2,7 +2,7 @@
 import os
 import sys
 import json
-from github import Github
+from github import Github, Auth
 from anthropic import Anthropic
 
 
@@ -37,7 +37,7 @@ def get_env_vars():
 def get_pr_data(env_vars):
 	"""Fetch PR data including commits, description, and comments using PyGithub."""
 	try:
-		g = Github(env_vars["github_token"])
+		g = Github(auth=Auth.Token(env_vars["github_token"]))
 		repo = g.get_repo(env_vars["repo_full_name"])
 		pr = repo.get_pull(int(env_vars["pr_number"]))
 
