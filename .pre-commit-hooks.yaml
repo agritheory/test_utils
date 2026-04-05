@@ -148,3 +148,12 @@
   always_run: true
   require_serial: true
   additional_dependencies: [vulture>=2.0]
+
+- id: semgrep_fmt
+  name: semgrep_fmt
+  description: "Run Semgrep with compact, grouped, colorized output — one block per rule, one file:line per finding"
+  entry: semgrep_fmt
+  language: python
+  pass_filenames: false
+  require_serial: true
+  additional_dependencies: [semgrep]
