@@ -334,7 +334,7 @@ flowchart TD
         W9["Write file\nremove .bak + __pycache__"]
         W1 --> W2 --> W3 --> W4 --> W5 --> W6 --> W7 --> W8
         W8 -->|Pass| W9
-        W8 -->|Fail| ABORT("Abort — file untouched\n(or write with --force)"]
+        W8 -->|Fail| ABORT("Abort — file untouched\n(or write with --force)")
     end
 
     WORKER --> DONE("✓ Registry updated\nfor all written files")
