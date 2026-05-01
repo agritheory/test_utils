@@ -12,7 +12,7 @@ except ImportError:
 	import tomli as tomllib  # type: ignore[no-redef]
 
 
-def _get_default_site_apps(bench_root: pathlib.Path) -> list[str]:
+def get_default_site_apps(bench_root: pathlib.Path) -> list[str]:
 	"""Return apps installed on the bench's default site via ``bench list-apps``.
 
 	Reads ``default_site`` from ``sites/common_site_config.json`` and shells out
@@ -147,9 +147,14 @@ def get_customized_doctypes(app_dir: pathlib.Path, current_site_apps: bool = Fal
 	if current_site_apps:
 		# Scope to apps installed on the bench's default site so duplicate-
 		# customization checks ignore apps that aren't actually wired together.
-		apps_order = _get_default_site_apps(bench_root)
+		apps_order = get_default_site_apps(bench_root)
 	else:
-		apps_order = (bench_root / "sites" / "apps.txt").read_text().split("\n")
+		# `sites/apps.json` is the modern app manifest (Frappe v15+). Sort by
+		# `idx` to preserve install order, the same ordering `apps.txt` had.
+		apps_data = json.loads((bench_root / "sites" / "apps.json").read_text())
+		apps_order = [
+			app for app, _ in sorted(apps_data.items(), key=lambda kv: kv[1].get("idx", 0))
+		]
 	customized_doctypes = {}
 	for _app_dir in apps_order:
 		app_dir = (apps_dir / _app_dir).resolve()
@@ -457,7 +462,7 @@ def main(argv: Sequence[str] = None):
 		help=(
 			"Restrict the apps walked when collecting customizations to those installed "
 			"on the bench's default site (per common_site_config.json). "
-			"Default: walk every app listed in sites/apps.txt."
+			"Default: walk every app listed in sites/apps.json."
 		),
 	)
 	args = parser.parse_args(argv)
