@@ -1,6 +1,8 @@
 import argparse
 import json
 import pathlib
+import shutil
+import subprocess
 import sys
 from collections.abc import Sequence
 
@@ -8,6 +10,58 @@ try:
 	import tomllib
 except ImportError:
 	import tomli as tomllib  # type: ignore[no-redef]
+
+
+def get_default_site_apps(bench_root: pathlib.Path) -> list[str]:
+	"""Return apps installed on the bench's default site via ``bench list-apps``.
+
+	Reads ``default_site`` from ``sites/common_site_config.json`` and shells out
+	to ``bench --site <default_site> list-apps``. Exits with a clear message if
+	no default site is set, since ``bench list-apps`` silently emits nothing in
+	that case and an empty app list would skip every customization check.
+
+	Also exits if ``bench`` is missing from PATH or returns non-zero, since the
+	caller has explicitly opted into this lookup.
+	"""
+	common_config = bench_root / "sites" / "common_site_config.json"
+	if not common_config.exists():
+		sys.exit(
+			"validate_customizations: --current-site-apps requires "
+			"sites/common_site_config.json"
+		)
+	try:
+		default_site = json.loads(common_config.read_text()).get("default_site")
+	except (ValueError, OSError) as e:
+		sys.exit(
+			f"validate_customizations: could not read sites/common_site_config.json: {e}"
+		)
+	if not default_site:
+		sys.exit(
+			"validate_customizations: --current-site-apps requires `default_site` "
+			"to be set in sites/common_site_config.json"
+		)
+	bench_bin = shutil.which("bench")
+	if not bench_bin:
+		sys.exit("validate_customizations: --current-site-apps requires `bench` on PATH")
+	result = subprocess.run(
+		[bench_bin, "--site", default_site, "list-apps"],
+		cwd=str(bench_root),
+		capture_output=True,
+		text=True,
+		timeout=30,
+	)
+	if result.returncode != 0:
+		sys.exit(
+			"validate_customizations: `bench --site "
+			f"{default_site} list-apps` failed:\n" + result.stderr
+		)
+	apps = []
+	for line in result.stdout.split("\n"):
+		# `bench list-apps` emits "<app> <version> <branch>" rows; take the app name.
+		first = line.split(maxsplit=1)
+		if first:
+			apps.append(first[0])
+	return apps
 
 
 def is_frappe_bench_environment():
@@ -87,10 +141,20 @@ def customization_file_is_in_app(
 	return customize_file.resolve().is_relative_to(app_dir.resolve())
 
 
-def get_customized_doctypes(app_dir: pathlib.Path):
+def get_customized_doctypes(app_dir: pathlib.Path, current_site_apps: bool = False):
 	apps_dir = app_dir.parent
-	apps_order = app_dir.parent.parent / "sites" / "apps.txt"
-	apps_order = apps_order.read_text().split("\n")
+	bench_root = app_dir.parent.parent
+	if current_site_apps:
+		# Scope to apps installed on the bench's default site so duplicate-
+		# customization checks ignore apps that aren't actually wired together.
+		apps_order = get_default_site_apps(bench_root)
+	else:
+		# `sites/apps.json` is the modern app manifest (Frappe v15+). Sort by
+		# `idx` to preserve install order, the same ordering `apps.txt` had.
+		apps_data = json.loads((bench_root / "sites" / "apps.json").read_text())
+		apps_order = [
+			app for app, _ in sorted(apps_data.items(), key=lambda kv: kv[1].get("idx", 0))
+		]
 	customized_doctypes = {}
 	for _app_dir in apps_order:
 		app_dir = (apps_dir / _app_dir).resolve()
@@ -373,8 +437,10 @@ def validate_email_literals(customized_doctypes, app_dir: pathlib.Path):
 				print(f"Updated owner/modified_by fields in {customize_file} to 'Administrator'")
 
 
-def validate_customizations(app_dir: pathlib.Path):
-	customized_doctypes = get_customized_doctypes(app_dir)
+def validate_customizations(app_dir: pathlib.Path, current_site_apps: bool = False):
+	customized_doctypes = get_customized_doctypes(
+		app_dir, current_site_apps=current_site_apps
+	)
 	exceptions = validate_no_custom_perms(customized_doctypes, app_dir)
 	exceptions += validate_module(customized_doctypes, app_dir)
 	exceptions += validate_system_generated(customized_doctypes, app_dir)
@@ -390,11 +456,22 @@ def main(argv: Sequence[str] = None):
 	parser.add_argument(
 		"--app", help="App name (e.g. cad); used to locate app dir and pyproject.toml"
 	)
+	parser.add_argument(
+		"--current-site-apps",
+		action="store_true",
+		help=(
+			"Restrict the apps walked when collecting customizations to those installed "
+			"on the bench's default site (per common_site_config.json). "
+			"Default: walk every app listed in sites/apps.json."
+		),
+	)
 	args = parser.parse_args(argv)
 
 	if is_frappe_bench_environment():
 		app_dir = _resolve_app_dir(args.app)
-		exceptions = validate_customizations(app_dir)
+		exceptions = validate_customizations(
+			app_dir, current_site_apps=args.current_site_apps
+		)
 		if exceptions:
 			for exception in list(set(exceptions)):
 				print(exception)
