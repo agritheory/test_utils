@@ -20,7 +20,7 @@ This GitHub Action automatically generates a changelog entry as a PR comment by 
 - An API key or credentials for one of the supported LLM providers:
   - **Anthropic** (default): Anthropic API key
   - **OpenAI**: OpenAI API key
-  - **Amazon Bedrock**: either a Bedrock API key (bearer token) or an AWS IAM access key pair with Bedrock permissions
+  - **Amazon Bedrock**: either a Bedrock API key (bearer token), an AWS IAM access key pair, or an OIDC role — with `bedrock:InvokeModel` permissions and model access enabled in your AWS account
 
 ## Setup
 
@@ -114,7 +114,7 @@ jobs:
           aws-bearer-token-bedrock: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
           # Optional: override region (us-east-1) and model (us.amazon.nova-lite-v1:0)
           # aws-region: us-west-2
-          # bedrock-model: amazon.nova-pro-v1:0
+          # bedrock-model: us.amazon.nova-pro-v1:0
 ```
 
 **Using Amazon Bedrock with IAM credentials:**
@@ -130,6 +130,31 @@ jobs:
           # Optional: override region (us-east-1) and model (us.amazon.nova-lite-v1:0)
           # aws-region: us-west-2
           # bedrock-model: us.anthropic.claude-3-haiku-20240307-v1:0
+```
+
+**Using Amazon Bedrock with GitHub Actions OIDC (no stored credentials):**
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+steps:
+  - uses: actions/checkout@v4
+
+  - name: Configure AWS credentials
+    uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: arn:aws:iam::123456789012:role/my-bedrock-role
+      aws-region: us-east-1
+
+  - name: Generate Changelog
+    uses: agritheory/test_utils/actions/generate_changelog@main
+    with:
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+      llm-provider: bedrock
+      # aws-region is picked up automatically from the configure-aws-credentials step
 ```
 
 That's it! The action automatically handles different event types and determines when to run.
@@ -169,8 +194,8 @@ The action accepts the following inputs:
 | `aws-bearer-token-bedrock` | Amazon Bedrock API key. Takes precedence over IAM credentials when `llm-provider` is `bedrock`. | No | N/A |
 | `aws-access-key-id` | AWS IAM access key ID. Used when `llm-provider` is `bedrock` and no bearer token is provided. | No | N/A |
 | `aws-secret-access-key` | AWS IAM secret access key. Used when `llm-provider` is `bedrock` and no bearer token is provided. | No | N/A |
-| `aws-region` | AWS region for Amazon Bedrock | No | `us-east-1` |
-| `bedrock-model` | Amazon Bedrock model ID to use | No | `us.amazon.nova-lite-v1:0` |
+| `aws-region` | AWS region for Amazon Bedrock. Picked up automatically from `aws-actions/configure-aws-credentials` if not set. | No | `us-east-1` |
+| `bedrock-model` | Amazon Bedrock model ID or inference profile ID. Most on-demand models require a cross-region inference profile prefix: `us.`, `eu.`, or `ap.` (e.g. `us.amazon.nova-lite-v1:0`). | No | `us.amazon.nova-lite-v1:0` |
 | `prompt-template` | Path to a custom prompt template file | No | `.github/changelog-prompt.txt` |
 | `comment-header` | Header text for the comment that will contain the changelog | No | `## Draft Changelog Entry` |
 | `max_tokens` | Maximum number of tokens to generate in the response | No | `1500` |
