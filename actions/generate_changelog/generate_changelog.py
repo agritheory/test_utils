@@ -29,11 +29,10 @@ def get_env_vars():
 		"openai_api_key": os.environ.get("OPENAI_API_KEY"),
 		"openai_base_url": os.environ.get("OPENAI_BASE_URL") or None,
 		"openai_model": os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
-		# Amazon Bedrock
-		"aws_access_key_id": os.environ.get("AWS_ACCESS_KEY_ID"),
-		"aws_secret_access_key": os.environ.get("AWS_SECRET_ACCESS_KEY"),
+		# Amazon Bedrock — boto3 resolves credentials from its chain at runtime
+		# (AWS_BEARER_TOKEN_BEDROCK, AWS_ACCESS_KEY_ID/SECRET, instance profile, etc.)
 		"aws_region": os.environ.get("AWS_REGION", "us-east-1"),
-		"bedrock_model": os.environ.get("BEDROCK_MODEL", "amazon.nova-lite-v1:0"),
+		"bedrock_model": os.environ.get("BEDROCK_MODEL", "us.amazon.nova-lite-v1:0"),
 		# Shared
 		"prompt_template_path": os.environ.get("PROMPT_TEMPLATE_PATH"),
 		"comment_header": os.environ.get("COMMENT_HEADER", "## Draft Changelog Entry"),
@@ -58,11 +57,8 @@ def get_env_vars():
 		missing_vars.append("ANTHROPIC_API_KEY")
 	elif provider == PROVIDER_OPENAI and not env_vars["openai_api_key"]:
 		missing_vars.append("OPENAI_API_KEY")
-	elif provider == PROVIDER_BEDROCK:
-		if not env_vars["aws_access_key_id"]:
-			missing_vars.append("AWS_ACCESS_KEY_ID")
-		if not env_vars["aws_secret_access_key"]:
-			missing_vars.append("AWS_SECRET_ACCESS_KEY")
+	# Bedrock credentials are resolved by boto3's credential chain at runtime
+	# (bearer token, IAM key pair, instance profile, ECS/Lambda role, OIDC, etc.)
 
 	if missing_vars:
 		print(f"Error: Missing required environment variables: {', '.join(missing_vars)}")
@@ -293,11 +289,12 @@ def generate_changelog_with_bedrock(pr_data, env_vars):
 	prompt = prompt_template.format(pr_data=formatted_pr_data)
 
 	try:
+		# boto3 resolves credentials from its full chain: AWS_BEARER_TOKEN_BEDROCK,
+		# AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY env vars, instance profiles,
+		# ECS/Lambda roles, OIDC assume-role, ~/.aws/credentials, etc.
 		client = boto3.client(
 			service_name="bedrock-runtime",
 			region_name=env_vars["aws_region"],
-			aws_access_key_id=env_vars["aws_access_key_id"],
-			aws_secret_access_key=env_vars["aws_secret_access_key"],
 		)
 
 		response = client.converse(

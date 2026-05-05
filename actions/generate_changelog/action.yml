@@ -29,21 +29,23 @@ inputs:
     description: 'Model to use when llm-provider is openai'
     required: false
     default: 'gpt-4o-mini'
-  # Amazon Bedrock inputs
+  # Amazon Bedrock inputs — authenticate with either a Bedrock API key or an IAM access key pair
+  aws-bearer-token-bedrock:
+    description: 'Amazon Bedrock API key (bearer token). Takes precedence over IAM credentials when llm-provider is bedrock.'
+    required: false
   aws-access-key-id:
-    description: 'AWS access key ID (required when llm-provider is bedrock)'
+    description: 'AWS IAM access key ID. Used when llm-provider is bedrock and no bearer token is provided.'
     required: false
   aws-secret-access-key:
-    description: 'AWS secret access key (required when llm-provider is bedrock)'
+    description: 'AWS IAM secret access key. Used when llm-provider is bedrock and no bearer token is provided.'
     required: false
   aws-region:
-    description: 'AWS region for Amazon Bedrock'
+    description: 'AWS region for Amazon Bedrock. Defaults to AWS_REGION env var if set, otherwise us-east-1.'
     required: false
-    default: 'us-east-1'
   bedrock-model:
     description: 'Amazon Bedrock model ID to use for generating the changelog'
     required: false
-    default: 'amazon.nova-lite-v1:0'
+    default: 'us.amazon.nova-lite-v1:0'
   # Shared inputs
   prompt-template:
     description: 'Path to a custom prompt template file for the LLM'
@@ -112,9 +114,10 @@ runs:
         ANTHROPIC_MODEL: ${{ inputs.anthropic-model }}
         OPENAI_API_KEY: ${{ inputs.openai-api-key }}
         OPENAI_MODEL: ${{ inputs.openai-model }}
+        AWS_BEARER_TOKEN_BEDROCK: ${{ inputs.aws-bearer-token-bedrock }}
         AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
-        AWS_REGION: ${{ inputs.aws-region }}
+        AWS_REGION: ${{ inputs.aws-region || env.AWS_REGION || 'us-east-1' }}
         BEDROCK_MODEL: ${{ inputs.bedrock-model }}
         PROMPT_TEMPLATE_PATH: ${{ inputs.prompt-template }}
         COMMENT_HEADER: ${{ inputs.comment-header }}

@@ -20,7 +20,7 @@ This GitHub Action automatically generates a changelog entry as a PR comment by 
 - An API key or credentials for one of the supported LLM providers:
   - **Anthropic** (default): Anthropic API key
   - **OpenAI**: OpenAI API key
-  - **Amazon Bedrock**: AWS access key ID and secret access key with Bedrock permissions
+  - **Amazon Bedrock**: either a Bedrock API key (bearer token) or an AWS IAM access key pair with Bedrock permissions
 
 ## Setup
 
@@ -35,6 +35,11 @@ Add the secrets for your chosen provider:
 - `OPENAI_API_KEY`: Your OpenAI API key
 
 **Amazon Bedrock**
+
+Option A — Bedrock API key (simpler):
+- `AWS_BEARER_TOKEN_BEDROCK`: Your Amazon Bedrock API key
+
+Option B — IAM credentials:
 - `AWS_ACCESS_KEY_ID`: Your AWS access key ID
 - `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key
 
@@ -85,7 +90,34 @@ jobs:
           # openai-model: gpt-4o
 ```
 
-**Using Amazon Bedrock:**
+**Using an OpenAI-compatible endpoint (e.g. OpenRouter):**
+
+```yaml
+      - name: Generate Changelog
+        uses: agritheory/test_utils/actions/generate_changelog@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          llm-provider: openai
+          openai-api-key: ${{ secrets.OPENROUTER_API_KEY }}
+          openai-base-url: https://openrouter.ai/api/v1
+          openai-model: anthropic/claude-3-haiku
+```
+
+**Using Amazon Bedrock with a Bedrock API key:**
+
+```yaml
+      - name: Generate Changelog
+        uses: agritheory/test_utils/actions/generate_changelog@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          llm-provider: bedrock
+          aws-bearer-token-bedrock: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          # Optional: override region (us-east-1) and model (us.amazon.nova-lite-v1:0)
+          # aws-region: us-west-2
+          # bedrock-model: amazon.nova-pro-v1:0
+```
+
+**Using Amazon Bedrock with IAM credentials:**
 
 ```yaml
       - name: Generate Changelog
@@ -95,7 +127,7 @@ jobs:
           llm-provider: bedrock
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          # Optional: override region (us-east-1) and model (amazon.nova-lite-v1:0)
+          # Optional: override region (us-east-1) and model (us.amazon.nova-lite-v1:0)
           # aws-region: us-west-2
           # bedrock-model: us.anthropic.claude-3-haiku-20240307-v1:0
 ```
@@ -131,12 +163,14 @@ The action accepts the following inputs:
 | `llm-provider` | LLM provider to use: `anthropic`, `openai`, or `bedrock` | No | `anthropic` |
 | `anthropic-api-key` | API key for Anthropic (required when `llm-provider` is `anthropic`) | No | N/A |
 | `anthropic-model` | Anthropic model to use | No | `claude-haiku-4-5` |
-| `openai-api-key` | API key for OpenAI (required when `llm-provider` is `openai`) | No | N/A |
-| `openai-model` | OpenAI model to use | No | `gpt-4o-mini` |
-| `aws-access-key-id` | AWS access key ID (required when `llm-provider` is `bedrock`) | No | N/A |
-| `aws-secret-access-key` | AWS secret access key (required when `llm-provider` is `bedrock`) | No | N/A |
+| `openai-api-key` | API key for OpenAI or a compatible provider (required when `llm-provider` is `openai`) | No | N/A |
+| `openai-base-url` | Base URL for an OpenAI-compatible API endpoint. Defaults to the official OpenAI API. | No | N/A |
+| `openai-model` | Model to use when `llm-provider` is `openai` | No | `gpt-4o-mini` |
+| `aws-bearer-token-bedrock` | Amazon Bedrock API key. Takes precedence over IAM credentials when `llm-provider` is `bedrock`. | No | N/A |
+| `aws-access-key-id` | AWS IAM access key ID. Used when `llm-provider` is `bedrock` and no bearer token is provided. | No | N/A |
+| `aws-secret-access-key` | AWS IAM secret access key. Used when `llm-provider` is `bedrock` and no bearer token is provided. | No | N/A |
 | `aws-region` | AWS region for Amazon Bedrock | No | `us-east-1` |
-| `bedrock-model` | Amazon Bedrock model ID to use | No | `amazon.nova-lite-v1:0` |
+| `bedrock-model` | Amazon Bedrock model ID to use | No | `us.amazon.nova-lite-v1:0` |
 | `prompt-template` | Path to a custom prompt template file | No | `.github/changelog-prompt.txt` |
 | `comment-header` | Header text for the comment that will contain the changelog | No | `## Draft Changelog Entry` |
 | `max_tokens` | Maximum number of tokens to generate in the response | No | `1500` |
