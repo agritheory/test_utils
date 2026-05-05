@@ -6,13 +6,42 @@ inputs:
   github-token:
     description: 'GitHub token with permissions to read PRs and create comments'
     required: true
+  llm-provider:
+    description: 'LLM provider to use. One of: anthropic, openai, bedrock'
+    required: false
+    default: 'anthropic'
+  # Anthropic inputs
   anthropic-api-key:
-    description: 'API key for Anthropic'
-    required: true
+    description: 'API key for Anthropic (required when llm-provider is anthropic)'
+    required: false
   anthropic-model:
     description: 'Anthropic model to use for generating the changelog'
     required: false
     default: 'claude-haiku-4-5'
+  # OpenAI inputs
+  openai-api-key:
+    description: 'API key for OpenAI (required when llm-provider is openai)'
+    required: false
+  openai-model:
+    description: 'OpenAI model to use for generating the changelog'
+    required: false
+    default: 'gpt-4o-mini'
+  # Amazon Bedrock inputs
+  aws-access-key-id:
+    description: 'AWS access key ID (required when llm-provider is bedrock)'
+    required: false
+  aws-secret-access-key:
+    description: 'AWS secret access key (required when llm-provider is bedrock)'
+    required: false
+  aws-region:
+    description: 'AWS region for Amazon Bedrock'
+    required: false
+    default: 'us-east-1'
+  bedrock-model:
+    description: 'Amazon Bedrock model ID to use for generating the changelog'
+    required: false
+    default: 'amazon.nova-lite-v1:0'
+  # Shared inputs
   prompt-template:
     description: 'Path to a custom prompt template file for the LLM'
     required: false
@@ -20,7 +49,7 @@ inputs:
   comment-header:
     description: 'Header text for the comment that will contain the changelog'
     required: false
-    default: '## 📝 Draft Changelog Entry'
+    default: '## Draft Changelog Entry'
   max_tokens:
     description: 'Maximum number of tokens to generate in the response'
     required: false
@@ -67,7 +96,7 @@ runs:
       shell: bash
       run: |
         python -m pip install --upgrade pip
-        pip install anthropic requests PyGithub
+        pip install anthropic openai boto3 requests PyGithub
 
     - name: Generate changelog
       if: ${{ steps.should-run.outputs.should_run == 'true' }}
@@ -75,8 +104,15 @@ runs:
       run: python ${{ github.action_path }}/generate_changelog.py
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        LLM_PROVIDER: ${{ inputs.llm-provider }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
         ANTHROPIC_MODEL: ${{ inputs.anthropic-model }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        OPENAI_MODEL: ${{ inputs.openai-model }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws-access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws-secret-access-key }}
+        AWS_REGION: ${{ inputs.aws-region }}
+        BEDROCK_MODEL: ${{ inputs.bedrock-model }}
         PROMPT_TEMPLATE_PATH: ${{ inputs.prompt-template }}
         COMMENT_HEADER: ${{ inputs.comment-header }}
         PR_NUMBER: ${{ steps.should-run.outputs.pr_number }}
