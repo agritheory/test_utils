@@ -52,6 +52,7 @@ tree-sitter-typescript = "^0.23.2"
 anthropic = "^0.99.0"
 openai = "^2.34.0"
 boto3 = "^1.43.4"
+pygithub = "^2.9.1"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.13.4"
