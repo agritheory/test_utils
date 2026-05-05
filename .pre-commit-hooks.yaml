@@ -157,3 +157,12 @@
   pass_filenames: false
   require_serial: true
   additional_dependencies: [semgrep]
+
+- id: validate_mermaid
+  name: validate_mermaid
+  description: "Validate Mermaid fenced blocks in Markdown (npx + @mermaid-js/mermaid-cli; needs Node)"
+  entry: validate_mermaid
+  language: python
+  types: [markdown]
+  additional_dependencies: ["."]
+  args: ["--require-node"]

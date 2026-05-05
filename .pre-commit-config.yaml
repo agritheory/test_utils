@@ -51,6 +51,14 @@ repos:
         
   - repo: local
     hooks:
+      - id: validate_mermaid
+        name: Validate Mermaid in Markdown
+        entry: python -m test_utils.pre_commit.validate_mermaid
+        language: python
+        additional_dependencies: ["."]
+        args: ["--require-node"]
+        types: [markdown]
+
       - id: check_code_duplication
         name: Check for code duplication
         entry: python -m test_utils.pre_commit.check_code_duplication --max-clones 60 --max-percentage 5.0

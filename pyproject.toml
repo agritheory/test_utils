@@ -27,6 +27,8 @@ validate_frappe_project = "test_utils.pre_commit.validate_frappe_project:main"
 check_code_duplication = "test_utils.pre_commit.check_code_duplication:main"
 static_analysis = "test_utils.pre_commit.static_analysis:main"
 semgrep_fmt = "test_utils.pre_commit.semgrep_fmt:main"
+validate_mermaid = "test_utils.pre_commit.validate_mermaid:main"
+lint_markdown = "test_utils.pre_commit.lint_markdown:main"
 code_graph = "test_utils.utils.graph.cli:main"
 
 [build-system]

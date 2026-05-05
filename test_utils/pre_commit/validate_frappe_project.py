@@ -16,6 +16,7 @@ class BuildBackend(Enum):
 
 	FLIT = "flit_core.buildapi"
 	POETRY = "poetry.core.masonry.api"
+	HATCHLING = "hatchling.build"
 	UNKNOWN = "unknown"
 
 
@@ -44,6 +45,8 @@ def detect_build_backend(data: dict) -> BuildBackend:
 		return BuildBackend.FLIT
 	elif "poetry" in build_backend:
 		return BuildBackend.POETRY
+	elif "hatchling" in build_backend:
+		return BuildBackend.HATCHLING
 	else:
 		return BuildBackend.UNKNOWN
 
@@ -205,10 +208,33 @@ def validate_build_system(
 				f"For flit projects, use flit_core build backend."
 			)
 
+	elif backend == BuildBackend.HATCHLING:
+		if build_backend != "hatchling.build":
+			errors.append(
+				f'{app_name}: build-backend is "{build_backend}" but expected "hatchling.build" '
+				f"for hatchling-based projects"
+			)
+
+		has_hatchling = any("hatchling" in str(req).lower() for req in requires)
+		if not has_hatchling:
+			errors.append(
+				f'{app_name}: build-system.requires must include "hatchling" for hatchling-based projects. '
+				f'Example: requires = ["hatchling"]'
+			)
+
+		if "tool" in data and "poetry" in data["tool"]:
+			poetry = data["tool"]["poetry"]
+			if poetry.get("dependencies") or poetry.get("group"):
+				errors.append(
+					f"{app_name}: Invalid hybrid configuration detected. "
+					f"Using hatchling build backend but [tool.poetry] declares dependencies or groups. "
+					f"Use [project] / [project.optional-dependencies] for hatchling projects."
+				)
+
 	elif backend == BuildBackend.UNKNOWN:
 		errors.append(
 			f'{app_name}: Unknown or unsupported build backend "{build_backend}". '
-			f'Expected "flit_core.buildapi" or "poetry.core.masonry.api"'
+			f'Expected "flit_core.buildapi", "poetry.core.masonry.api", or "hatchling.build"'
 		)
 
 	return errors
@@ -334,7 +360,7 @@ def validate_frappe_project(pyproject_path: pathlib.Path) -> list[str]:
 	Validates:
 	- TOML syntax
 	- Required sections ([project], [build-system])
-	- Build backend consistency (flit vs poetry)
+	- Build backend consistency (flit vs poetry vs hatchling)
 	- Rejects hybrid configurations
 	- Version consistency (for poetry)
 	- Project metadata
