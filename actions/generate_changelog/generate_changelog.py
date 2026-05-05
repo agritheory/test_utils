@@ -25,8 +25,9 @@ def get_env_vars():
 		# Anthropic
 		"anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY"),
 		"anthropic_model": os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5"),
-		# OpenAI
+		# OpenAI (also supports any OpenAI-compatible endpoint via openai_base_url)
 		"openai_api_key": os.environ.get("OPENAI_API_KEY"),
+		"openai_base_url": os.environ.get("OPENAI_BASE_URL") or None,
 		"openai_model": os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
 		# Amazon Bedrock
 		"aws_access_key_id": os.environ.get("AWS_ACCESS_KEY_ID"),
@@ -230,8 +231,11 @@ def generate_changelog_with_anthropic(pr_data, env_vars):
 
 
 def generate_changelog_with_openai(pr_data, env_vars):
-	"""Generate a changelog entry using OpenAI's API."""
-	client = OpenAI(api_key=env_vars["openai_api_key"])
+	"""Generate a changelog entry using OpenAI's API or any OpenAI-compatible endpoint."""
+	client = OpenAI(
+		api_key=env_vars["openai_api_key"],
+		base_url=env_vars["openai_base_url"],
+	)
 
 	prompt_template = get_custom_prompt_template(env_vars)
 	formatted_pr_data = format_pr_data_for_prompt(pr_data)

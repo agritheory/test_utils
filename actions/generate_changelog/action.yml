@@ -18,12 +18,15 @@ inputs:
     description: 'Anthropic model to use for generating the changelog'
     required: false
     default: 'claude-haiku-4-5'
-  # OpenAI inputs
+  # OpenAI inputs (also supports any OpenAI-compatible endpoint)
   openai-api-key:
-    description: 'API key for OpenAI (required when llm-provider is openai)'
+    description: 'API key for OpenAI or an OpenAI-compatible provider (required when llm-provider is openai)'
+    required: false
+  openai-base-url:
+    description: 'Base URL for an OpenAI-compatible API endpoint. Defaults to the official OpenAI API.'
     required: false
   openai-model:
-    description: 'OpenAI model to use for generating the changelog'
+    description: 'Model to use when llm-provider is openai'
     required: false
     default: 'gpt-4o-mini'
   # Amazon Bedrock inputs
