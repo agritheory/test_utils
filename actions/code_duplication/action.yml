@@ -116,7 +116,7 @@ runs:
         [ -z "$MAX_CLONES" ] && MAX_CLONES=60
         [ -z "$MAX_PERCENTAGE" ] && MAX_PERCENTAGE=5.0
         CLONES=$(jq -r '.statistics.total.clones // 0' "$JSON_REPORT")
-        PERCENTAGE=$(jq -r '.statistics.total.percentage // 0 | . * 100' "$JSON_REPORT")
+        PERCENTAGE=$(jq -r '.statistics.total.percentage // 0 | . * 100 | floor / 100' "$JSON_REPORT")
         echo "Found $CLONES clones ($PERCENTAGE% duplication)"
         echo "Thresholds: $MAX_CLONES clones, $MAX_PERCENTAGE% duplication"
         FAILED=0
@@ -152,18 +152,20 @@ runs:
           const report = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
           const clones = report.statistics?.total?.clones || 0;
           if (clones === 0) return;
-          const percentage = ((report.statistics?.total?.percentage || 0) * 100).toFixed(2);
+          const rawPct = Number(report.statistics?.total?.percentage ?? 0);
+          const pct = Math.floor(rawPct * 100) / 100;
+          const pctDisplay = pct.toFixed(2);
           const duplicatedLines = report.statistics?.total?.duplicatedLines || 0;
           let emoji = '✅', status = 'Good';
-          if (clones > 60 || percentage > 5) { emoji = '❌'; status = 'Needs attention'; }
-          else if (clones > 30 || percentage > 3) { emoji = '⚠️'; status = 'Warning'; }
+          if (clones > 60 || pct > 5) { emoji = '❌'; status = 'Needs attention'; }
+          else if (clones > 30 || pct > 3) { emoji = '⚠️'; status = 'Warning'; }
           const comment = `## ${emoji} Code Duplication Report - ${status}
 
           | Metric | Value |
           |--------|-------|
           | Total Clones | ${clones} |
           | Duplicated Lines | ${duplicatedLines} |
-          | Duplication % | ${percentage}% |
+          | Duplication % | ${pctDisplay}% |
 
           [View detailed report in artifacts](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
