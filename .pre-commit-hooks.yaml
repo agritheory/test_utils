@@ -130,6 +130,15 @@
   pass_filenames: false
   require_serial: true
 
+- id: validate_doctype_python_types
+  name: validate_doctype_python_types
+  description: "Require Frappe auto-generated controller type blocks when export_python_type_annotations is enabled (or use --force)"
+  entry: validate_doctype_python_types
+  language: python
+  always_run: true
+  pass_filenames: false
+  require_serial: true
+
 - id: check_code_duplication
   name: check_code_duplication
   description: "Check for copy-paste duplication in Python, JavaScript, TypeScript (requires npx)"

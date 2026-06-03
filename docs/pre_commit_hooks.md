@@ -83,3 +83,17 @@ Run mypy on the codebase using a preset configuration
     hooks:
       - id: mypy
 ```
+
+### DocType Python types - `validate_doctype_python_types`
+
+Ensures DocType controllers include Frappe’s auto-generated `TYPE_CHECKING` block or a documented opt-out comment when `export_python_type_annotations` is enabled. Full reference: [`validate_doctype_python_types.md`](validate_doctype_python_types.md).
+
+```
+  - repo: https://github.com/agritheory/test_utils/
+    rev: {rev}
+    hooks:
+      - id: validate_doctype_python_types
+        args: ["--app", "."]
+```
+
+Add `"--interactive"` to `args` locally if you want prompts to run `export_types_to_controller` or insert the skip comment; use `"--force"` to enforce before enabling the hooks flag.
