@@ -38,7 +38,8 @@
 				},
 				"Loans and Advances (Assets)": {
 					"Employee Advances": {
-						"account_number": "1610"
+						"account_number": "1610",
+						"account_type": "Payable"
 					},
 					"account_number": "1600"
 				},
@@ -118,7 +119,7 @@
 						"account_type": "Expenses Included In Valuation",
 						"account_number": "5118"
 					},
-					"Inventory Adjustment": {
+					"Inventory Write Off": {
 						"account_type": "Stock Adjustment",
 						"account_number": "5119"
 					},
