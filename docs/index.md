@@ -26,6 +26,7 @@ Test Utils is a collection of development tools for [Frappe](https://frappeframe
 | `bylines` | Add git-history-derived bylines to Markdown files |
 | `validate_patches` | Validate `patches.txt` ordering and file presence |
 | `validate_frappe_project` | Validate `pyproject.toml` structure for Frappe apps |
+| `validate_doctype_python_types` | Require Frappe auto-generated DocType controller types (or an opt-out comment) when hooks export is enabled ([details](validate_doctype_python_types.md)) |
 | `check_code_duplication` | Detect copy-paste duplication in Python and JS/TS |
 | `static_analysis` | Full static analysis suite (see above) |
 | `code_graph` | Build/query/plot per-app code graph; `--with graph` (+ `--with dev` for `plot`) |
@@ -35,6 +36,10 @@ Test Utils is a collection of development tools for [Frappe](https://frappeframe
 ### Customization Validation
 
 [`validate_customizations.md`](validate_customizations.md) covers the `validate_customizations` hook in depth, including why to avoid fixtures, how to organize customization files, and all validation checks (custom permissions, module attribution, system-generated fields, duplicate detection).
+
+### DocType Python types
+
+[`validate_doctype_python_types.md`](validate_doctype_python_types.md) covers Frappe’s exported controller types, opt-out comments, pre-commit and CLI usage, and how to test the hook against an existing app repo or bench checkout.
 
 ---
 
