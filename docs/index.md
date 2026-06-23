@@ -74,6 +74,12 @@ The `code_graph` CLI (console script from the `test_utils` package, not a Frappe
 
 ---
 
+### Printer mocks
+
+[`printers.md`](printers.md) documents the IPP codec, raw/IPP mock servers, sync wrappers for pytest, and the `mock-printer` CLI for manual CUPS testing.
+
+---
+
 ## Test Fixtures
 
 Test Utils ships reference fixture data for bootstrapping Frappe/ERPNext test environments:

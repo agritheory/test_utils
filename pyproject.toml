@@ -29,6 +29,7 @@ check_code_duplication = "test_utils.pre_commit.check_code_duplication:main"
 static_analysis = "test_utils.pre_commit.static_analysis:main"
 semgrep_fmt = "test_utils.pre_commit.semgrep_fmt:main"
 code_graph = "test_utils.utils.graph.cli:main"
+mock-printer = "test_utils.printers.cli:main"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -58,6 +59,9 @@ pygithub = "^2.9.1"
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.13.4"
 matplotlib = "^3.10.8"
+pytest = "^8.3.3"
+pytest-asyncio = "^0.24.0"
+httpx = "^0.27.2"
 
 [tool.poetry.group.graph]
 optional = true
