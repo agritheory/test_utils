@@ -1,0 +1,38 @@
+name: Publish to Frappe Cloud Marketplace
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: GitHub repo slug (owner/repo). Defaults to this repo.
+        required: false
+        type: string
+      branch:
+        description: FC App Source branch
+        required: false
+        default: version-15
+        type: string
+      dry_run:
+        description: Resolve FC config only; do not submit approval
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    concurrency: fc-publish-${{ inputs.repository || github.repository }}
+    steps:
+      - uses: agritheory/test_utils/actions/frappe_cloud_publish@c44a3e254d3e3d2247c7e6c2443be6884a9e37f2
+        with:
+          fc-api-key: ${{ secrets.FC_API_KEY }}
+          fc-api-secret: ${{ secrets.FC_API_SECRET }}
+          repository: ${{ inputs.repository }}
+          branch: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || 'main' }}
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
