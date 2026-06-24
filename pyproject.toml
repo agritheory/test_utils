@@ -40,7 +40,7 @@ version = "1.28.0"
 packages = [{include = "test_utils"}]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.15"
+python = ">=3.10,<4"
 mypy = "^1.15.0"
 toml = "^0.10.2"
 requests = "^2.32.3"
