@@ -98,3 +98,4 @@ Reusable GitHub Action workflows are in the `actions/` directory:
 - Python semantic release
 - Synchronization report with this library
 - Translated documentation pull requests
+- [Frappe Cloud Marketplace publish](frappe_cloud_publish.md) — register and submit marketplace app releases
