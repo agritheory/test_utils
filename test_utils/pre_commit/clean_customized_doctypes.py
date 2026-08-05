@@ -94,18 +94,24 @@ def strip_default_fields(doc: dict, doc_export: bool = False):
 	PRESERVE_KEYS = {"property_setters", "custom_fields", "value", "default"}
 	DEFAULT_KEYS = DEFAULT_FIELDS | EXTRA_DEFAULT_KEYS
 
-	def clean(obj, is_child=False):
+	# Rows in these top-level lists are matched back to their owning doctype by
+	# "parent" during sync_customizations_for_doctype, so it must not be stripped.
+	PRESERVE_PARENT_FOR_KEYS = {"links", "custom_perms"}
+
+	def clean(obj, is_child=False, preserve_parent=False):
 		if isinstance(obj, dict):
 			new_obj = {}
 
 			for key, val in obj.items():
-				if key in DEFAULT_KEYS:
+				if key in DEFAULT_KEYS and not (key == "parent" and preserve_parent):
 					continue
 				if key not in PRESERVE_KEYS and val in (None, "", [], {}):
 					continue
 
 				if isinstance(val, (dict, list)):
-					new_obj[key] = clean(val, is_child=is_child)
+					new_obj[key] = clean(
+						val, is_child=is_child, preserve_parent=key in PRESERVE_PARENT_FOR_KEYS
+					)
 				else:
 					new_obj[key] = val
 
@@ -118,14 +124,18 @@ def strip_default_fields(doc: dict, doc_export: bool = False):
 						for child in new_obj.get(child_table_name, []):
 							clean(child, is_child=True)
 
-			if is_child:
+			if is_child and not preserve_parent:
 				for field in CHILD_TABLE_FIELDS:
 					new_obj.pop(field, None)
 
 			return new_obj
 
 		elif isinstance(obj, list):
-			return [clean(v, is_child=is_child) for v in obj if v not in (None, "", [], {})]
+			return [
+				clean(v, is_child=is_child, preserve_parent=preserve_parent)
+				for v in obj
+				if v not in (None, "", [], {})
+			]
 
 		else:
 			return obj
