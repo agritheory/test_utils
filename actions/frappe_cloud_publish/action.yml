@@ -1,0 +1,76 @@
+name: Frappe Cloud Marketplace Publish
+description: Register and submit a Frappe Cloud Marketplace app release (update-only, no bench deploy)
+author: AgriTheory
+
+inputs:
+  repository:
+    description: GitHub repository slug (owner/repo). Defaults to the workflow repository.
+    required: false
+    default: ''
+  branch:
+    description: Publish branch; must match App Source.branch on Frappe Cloud
+    required: false
+    default: version-15
+  app-name:
+    description: Frappe app name override when multiple App Sources match or repo basename differs
+    required: false
+    default: ''
+  fc-base-url:
+    description: Frappe Cloud base URL
+    required: false
+    default: https://cloud.frappe.io
+  fc-api-key:
+    description: Frappe Cloud API key (org secret FC_API_KEY)
+    required: true
+  fc-api-secret:
+    description: Frappe Cloud API secret (org secret FC_API_SECRET)
+    required: true
+  fc-team:
+    description: Frappe Cloud team name (optional org secret FC_TEAM; resolved via account.me)
+    required: false
+    default: ''
+  commit-hash:
+    description: Optional git commit hash to pin the App Release
+    required: false
+    default: ''
+  dry-run:
+    description: Resolve FC config only; do not create release or submit approval
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      shell: bash
+      run: python -m pip install --upgrade pip requests
+
+    - name: Publish to Frappe Cloud Marketplace
+      shell: bash
+      env:
+        FC_API_KEY: ${{ inputs.fc-api-key }}
+        FC_API_SECRET: ${{ inputs.fc-api-secret }}
+        FC_TEAM: ${{ inputs.fc-team }}
+      run: |
+        REPO="${{ inputs.repository }}"
+        if [ -z "$REPO" ]; then
+          REPO="${{ github.repository }}"
+        fi
+
+        DRY_RUN_FLAG=""
+        if [ "${{ inputs.dry-run }}" = "true" ]; then
+          DRY_RUN_FLAG="--dry-run"
+        fi
+
+        python "${{ github.action_path }}/publish_marketplace_release.py" \
+          --repository "$REPO" \
+          --branch "${{ inputs.branch }}" \
+          --app-name "${{ inputs.app-name }}" \
+          --fc-base-url "${{ inputs.fc-base-url }}" \
+          --commit-hash "${{ inputs.commit-hash }}" \
+          $DRY_RUN_FLAG
