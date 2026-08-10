@@ -48,10 +48,12 @@ def get_last_commit_hash_for_file_in_branch(repo_url, file_path, base_branch):
 	return commits[0]["sha"] if commits else None
 
 
-def print_diff(diff_text):
+def print_diff(diff_text, color=True):
 	diff_lines = diff_text.splitlines()
 	for line in diff_lines:
-		if line.startswith("+++") or line.startswith("---"):
+		if not color:
+			print(line)
+		elif line.startswith("+++") or line.startswith("---"):
 			print("\033[32m" + line)
 		elif line.startswith("@@"):
 			print("\033[36m" + line)
@@ -124,6 +126,10 @@ def main(argv: Sequence[str] = None):
 	parser.add_argument(
 		"--base-branch", action="append", help="Base branch to compare against"
 	)
+	parser.add_argument(
+		"--no-color",
+		action="store_true",
+	)
 	args = parser.parse_args(argv)
 
 	if not args.base_branch:
@@ -153,7 +159,7 @@ def main(argv: Sequence[str] = None):
 			)
 			for change in changed_methods:
 				print(change["title"])
-				print_diff(change["diff"])
+				print_diff(change["diff"], color=not args.no_color)
 				print("")
 			sys.exit(1)
 	sys.exit(0)
