@@ -41,13 +41,11 @@ runs:
           if [[ -n "${{ github.base_ref }}" ]]; then
             base_branch="${{ github.base_ref }}"
           fi
-          changed_methods=$(track_overrides --directory ${{ github.workspace }} --app ${{ inputs.app }} --base-branch "$base_branch" 2>&1)
+          changed_methods=$(track_overrides --directory ${{ github.workspace }} --app ${{ inputs.app }} --base-branch "$base_branch" --no-color 2>&1)
           exitcode=$?
           set -e
 
-          # Sanitize the diff content before storing it (escape special characters)
-          sanitized_methods=$(echo "$changed_methods" | sed 's/\r//g' | sed 's/\n/\\n/g' | sed 's/\"/\\\"/g')
-          echo "$sanitized_methods" > diff_output.txt
+          printf '%s\n' "$changed_methods" > diff_output.txt
 
           if [[ $exitcode -ne 0 ]] && [[ -n "$changed_methods" ]]; then
             echo "Override methods have changed in the upstream repository."
@@ -66,8 +64,8 @@ runs:
           const diffFilePath = './diff_output.txt';
 
           if (fs.existsSync(diffFilePath)) {
-            const diffContent = fs.readFileSync(diffFilePath, 'utf8');
-            const commentBody = `The following override methods have changed in the upstream repository:\n\n${diffContent}\n`;
+            const diffContent = fs.readFileSync(diffFilePath, 'utf8').trimEnd();
+            const commentBody = `The following override methods have changed in the upstream repository:\n\n\`\`\`diff\n${diffContent}\n\`\`\`\n`;
             github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
