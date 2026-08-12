@@ -41,7 +41,7 @@ runs:
         APP_NAME="${{ steps.detect_app.outputs.app_name }}"
         REPORT_DIR="./${APP_NAME}/tests/jscpd"
         mkdir -p "$REPORT_DIR"
-        npx jscpd@4 . \
+        npx jscpd@4.2.4 . \
           --format "python,javascript,typescript" \
           --ignore "**/node_modules/**,**/.venv/**,**/venv/**,**/__pycache__/**,**/dist/**,**/build/**,**/*.bundle.js,**/tests/**,**/test_*.py,**/*_test.py,**/*.test.js,**/*.spec.js,**/fixtures/**,**/*fixtures.py,**/*.min.js,**/*.min.css,**/migrations/**,**/.git/**,**/.github/**" \
           --min-lines 20 \

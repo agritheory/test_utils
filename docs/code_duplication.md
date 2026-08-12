@@ -34,7 +34,7 @@ repos:
     hooks:
       - id: jscpd
         name: Check for code duplication
-        entry: bash -c 'npx jscpd@4 . --format "python,javascript,typescript" --ignore "**/node_modules/**,**/.venv/**,**/venv/**,**/__pycache__/**,**/dist/**,**/build/**,**/*.bundle.js,**/tests/**,**/test_*.py,**/*_test.py,**/*.test.js,**/*.spec.js,**/fixtures/**,**/*fixtures.py" --min-lines 20 --min-tokens 150 --threshold 6 --exitCode 1 --reporters "console" --silent'
+        entry: bash -c 'npx jscpd@4.2.4 . --format "python,javascript,typescript" --ignore "**/node_modules/**,**/.venv/**,**/venv/**,**/__pycache__/**,**/dist/**,**/build/**,**/*.bundle.js,**/tests/**,**/test_*.py,**/*_test.py,**/*.test.js,**/*.spec.js,**/fixtures/**,**/*fixtures.py" --min-lines 20 --min-tokens 150 --threshold 6 --exitCode 1 --reporters "console" --silent'
         language: system
         pass_filenames: false
         files: \.(py|js|ts)$
@@ -226,7 +226,7 @@ columns = [...]
 npm install -g jscpd
 
 # Run with verbose output
-npx jscpd@4 . --reporters console
+npx jscpd@4.2.4 . --reporters console
 ```
 
 ### Workflow Fails on Threshold
