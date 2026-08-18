@@ -37,10 +37,11 @@ Two MariaDB roles, same pattern as `bench new-site`:
 
 During `enable()`, the superuser grants the site database user `SELECT` on the Performance Schema tables used by `snapshot()` and `status()`. Without that grant, Frappe site users cannot read `events_statements_summary_by_digest` and similar tables.
 
-`enable()` resolves the superuser the same way `bench new-site` does:
+`enable()` uses Frappe’s `get_root_connection()`:
 
-1. `root_login` / `root_password` (or `mariadb_root_*`) from `common_site_config.json` if set
-2. Otherwise interactive prompts: `Enter mysql super user [root]:` and `MySQL root password:`
+1. `root_login` / `root_password` kwargs, or `mariadb_root_*` / `root_*` from `common_site_config.json`
+2. Username defaults to `root` if unset
+3. Password is prompted (`MySQL root password:`) if unset — same as `bench new-site`
 
 If your bench already has root credentials for bubble backup, no prompt appears:
 
@@ -62,7 +63,9 @@ Prompted passwords are not written back to site config.
 
 ```python
 # bench --site your_site console
-from test_utils.utils.mariadb_analytics import enable, status, snapshot, top_statements, top_waits
+from test_utils.utils.mariadb_analytics import (
+    enable, status, snapshot, top_statements, top_waits, top_table_io
+)
 
 enable()                    # default: EVENT every 15 min, retain 7 days
 enable(schedule_minutes=0)  # skip MariaDB EVENT; use manual snapshot or hooks
@@ -79,12 +82,13 @@ bench --site your_site execute test_utils.utils.mariadb_analytics.enable
 
 ```python
 snapshot()           # collect now (also runs on EVENT schedule if enabled)
-top_statements(20)   # delta between last two snapshots
+top_statements(20)   # delta between last two snapshots (includes first-seen SQL)
 top_waits(20)
+top_table_io(20)
 status()
 ```
 
-Timer columns from Performance Schema are picoseconds; `top_*` reports seconds (`/ 1e12`). If counters reset between snapshots, the newer absolute value is used for that interval.
+`top_*` uses a left join from the newer snapshot, so statements/waits that first appear in the interval are included. Timer columns are picoseconds; reports are seconds (`/ 1e12`). `top_statements` also shows `rows_examined`, `select_scan`, and `no_index_used` deltas. Ranked by wait time. If counters reset, the newer absolute value is used for that interval.
 
 ## Snapshot tables
 
@@ -115,11 +119,11 @@ Consumers enabled (not everything):
 - `global_instrumentation`, `thread_instrumentation`, `statements_digest`
 - `events_statements_current`, `events_statements_history`, `events_waits_current`
 
-Instruments: `wait/%` and `statement/%` only.
+Instruments: `wait/%` and `statement/%` only (`ENABLED` and `TIMED`).
 
 ## Digest table full
 
-When `events_statements_summary_by_digest` fills, Performance Schema adds a row with `DIGEST IS NULL`. `status()` reports this. `snapshot()` captures the overflow row, then attempts `TRUNCATE` on the digest table as the site user (best-effort; may need superuser or a restart if denied).
+When `events_statements_summary_by_digest` fills, Performance Schema adds a row with `DIGEST IS NULL`. `status()` reports this (or says SELECT was denied). `snapshot()` and the MariaDB `EVENT` capture the overflow row first, then `TRUNCATE` the digest table. The Python path is best-effort as the site user; the EVENT runs as the superuser DEFINER.
 
 ## Out of scope
 
