@@ -695,15 +695,39 @@ def get_last_two_snapshots():
 	)
 
 
+def resolve_superuser_credentials(root_login=None, root_password=None):
+	import sys
+	from getpass import getpass
+
+	if not root_login:
+		root_login = (
+			frappe.conf.get("mariadb_root_login")
+			or frappe.conf.get("root_login")
+			or (sys.__stdin__.isatty() and input("Enter mysql super user [root]: "))
+			or "root"
+		)
+
+	if not root_password:
+		root_password = (
+			frappe.conf.get("mariadb_root_password")
+			or frappe.conf.get("root_password")
+			or getpass("MySQL root password: ")
+		)
+
+	return root_login, root_password
+
+
 def get_superuser_connection(root_login=None, root_password=None):
-	if root_login:
-		frappe.flags.root_login = root_login
-	if root_password:
-		frappe.flags.root_password = root_password
+	root_login, root_password = resolve_superuser_credentials(root_login, root_password)
 
 	from frappe.database.mariadb.setup_db import get_root_connection
 
-	return get_root_connection()
+	try:
+		return get_root_connection(root_login, root_password)
+	except TypeError:
+		frappe.flags.root_login = root_login
+		frappe.flags.root_password = root_password
+		return get_root_connection()
 
 
 def counter_delta(newer, older):
