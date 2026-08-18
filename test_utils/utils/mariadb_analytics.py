@@ -19,6 +19,13 @@ CONSUMERS = (
 
 EVENT_NAME = "ps_snapshot_event"
 
+PERFORMANCE_SCHEMA_READ_TABLES = (
+	"events_statements_summary_by_digest",
+	"events_waits_summary_global_by_event_name",
+	"table_io_waits_summary_by_table",
+	"setup_consumers",
+)
+
 
 def enable(
 	schedule_minutes=15,
@@ -374,6 +381,29 @@ def configure_instrumentation(root_conn):
 	except Exception as exc:
 		print(f"Could not SET GLOBAL event_scheduler=ON: {exc}")
 		print("Add event_scheduler=ON to my.cnf if you want the MariaDB EVENT to run.")
+
+	grant_performance_schema_read(root_conn)
+
+
+def grant_performance_schema_read(root_conn):
+	db_user = frappe.conf.get("db_user") or frappe.conf.db_name
+	accounts = root_conn.sql(
+		"SELECT Host FROM mysql.user WHERE User = %s",
+		(db_user,),
+		as_dict=True,
+	)
+	if not accounts:
+		accounts = [{"Host": "localhost"}, {"Host": "%"}]
+
+	for account in accounts:
+		host = account["Host"]
+		for table in PERFORMANCE_SCHEMA_READ_TABLES:
+			root_conn.sql(
+				f"GRANT SELECT ON performance_schema.`{table}` TO `{db_user}`@`{host}`"
+			)
+
+	root_conn.sql("FLUSH PRIVILEGES")
+	print(f"Granted site user {db_user!r} SELECT on Performance Schema summary tables.")
 
 
 def create_snapshot_event(root_conn, schedule_minutes, retain_days):

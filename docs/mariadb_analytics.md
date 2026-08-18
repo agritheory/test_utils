@@ -33,9 +33,9 @@ Two MariaDB roles, same pattern as `bench new-site`:
 | Role | Connection | Used for |
 |------|------------|----------|
 | Site user | `frappe.db` (`db_name` / `db_password` in site config) | Snapshot tables, summary reads, `snapshot()`, `top_*`, most of `status()` |
-| Superuser | Frappe `get_root_connection()` | `enable()` only — `UPDATE performance_schema.setup_*`, `CREATE EVENT` |
+| Superuser | Frappe `get_root_connection()` | `enable()` only — instrumentation, `CREATE EVENT`, and `GRANT SELECT` on Performance Schema summary tables for the site user |
 
-The site user typically **cannot** read `performance_schema.setup_consumers`; `status()` skips that section with a note. Instrumentation is configured during `enable()`.
+During `enable()`, the superuser grants the site database user `SELECT` on the Performance Schema tables used by `snapshot()` and `status()`. Without that grant, Frappe site users cannot read `events_statements_summary_by_digest` and similar tables.
 
 `enable()` resolves the superuser the same way `bench new-site` does:
 
