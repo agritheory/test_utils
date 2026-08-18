@@ -1,13 +1,12 @@
 import frappe
 
-MYCnfSnippet = """[mysqld]
+MYCnfSnippet = """Add to /etc/mysql/mariadb.conf.d/99-performance-schema.cnf:
+
+[mysqld]
 performance_schema=ON
-performance-schema-instrument='wait/%=ON'
-performance-schema-instrument='statement/%=ON'
-performance-schema-consumer-events-waits-current=ON
-performance-schema-consumer-events-statements-current=ON
-performance-schema-consumer-events-statements-history=ON
-performance-schema-consumer-statements-digest=ON"""
+event_scheduler=ON
+
+Restart MariaDB. enable() configures instruments and consumers at runtime."""
 
 CONSUMERS = (
 	"global_instrumentation",
@@ -37,22 +36,27 @@ def enable(
 		return
 
 	create_snapshot_tables()
-	configure_instrumentation(root_login=root_login, root_password=root_password)
-
-	if schedule_minutes:
-		create_snapshot_event(
-			schedule_minutes=schedule_minutes,
-			retain_days=retain_days,
-			root_login=root_login,
-			root_password=root_password,
-		)
+	root_conn = get_superuser_connection(root_login, root_password)
+	event_created = False
+	try:
+		configure_instrumentation(root_conn)
+		if schedule_minutes:
+			event_created = create_snapshot_event(
+				root_conn,
+				schedule_minutes=schedule_minutes,
+				retain_days=retain_days,
+			)
+	finally:
+		root_conn.close()
 
 	print("MariaDB performance analytics enabled.")
 	print(
 		"  Snapshot tables: ps_snapshot, ps_snapshot_digest, ps_snapshot_wait, ps_snapshot_table_io"
 	)
-	if schedule_minutes:
+	if schedule_minutes and event_created:
 		print(f"  Scheduled event: {EVENT_NAME} every {schedule_minutes} minute(s)")
+	elif schedule_minutes:
+		print("  MariaDB EVENT not created; call snapshot() manually or use hooks.py")
 	else:
 		print(
 			"  No MariaDB EVENT (schedule_minutes=0). Call snapshot() manually or use hooks.py."
@@ -72,19 +76,11 @@ def status():
 		print(MYCnfSnippet)
 		return {"performance_schema": False}
 
-	consumer_rows = frappe.db.sql(
-		"""
-		SELECT NAME, ENABLED
-		FROM performance_schema.setup_consumers
-		WHERE NAME IN %(consumers)s
-		ORDER BY NAME
-		""",
-		{"consumers": CONSUMERS},
-		as_dict=True,
-	)
-	print("\nConsumers:")
-	for row in consumer_rows:
-		print(f"  {row['NAME']}: {row['ENABLED']}")
+	consumer_rows = get_consumer_status()
+	if consumer_rows:
+		print("\nConsumers:")
+		for row in consumer_rows:
+			print(f"  {row['NAME']}: {row['ENABLED']}")
 
 	digest_full = digest_table_is_full()
 	print(f"\nDigest table full (DIGEST IS NULL row): {'yes' if digest_full else 'no'}")
@@ -357,45 +353,35 @@ def create_snapshot_tables():
 	frappe.db.commit()
 
 
-def configure_instrumentation(root_login=None, root_password=None):
-	root_conn = get_superuser_connection(root_login, root_password)
+def configure_instrumentation(root_conn):
+	consumer_names = ", ".join(f"'{name}'" for name in CONSUMERS)
+	root_conn.sql(
+		f"""
+		UPDATE performance_schema.setup_consumers
+		SET ENABLED = 'YES'
+		WHERE NAME IN ({consumer_names})
+		"""
+	)
+	root_conn.sql(
+		"""
+		UPDATE performance_schema.setup_instruments
+		SET ENABLED = 'YES'
+		WHERE NAME LIKE 'wait/%%' OR NAME LIKE 'statement/%%'
+		"""
+	)
 	try:
-		consumer_names = ", ".join(f"'{name}'" for name in CONSUMERS)
-		root_conn.sql(
-			f"""
-			UPDATE performance_schema.setup_consumers
-			SET ENABLED = 'YES'
-			WHERE NAME IN ({consumer_names})
-			"""
-		)
-		root_conn.sql(
-			"""
-			UPDATE performance_schema.setup_instruments
-			SET ENABLED = 'YES'
-			WHERE NAME LIKE 'wait/%%' OR NAME LIKE 'statement/%%'
-			"""
-		)
-		try:
-			root_conn.sql("SET GLOBAL event_scheduler = ON")
-		except Exception as exc:
-			print(f"Could not SET GLOBAL event_scheduler=ON: {exc}")
-			print("Add event_scheduler=ON to my.cnf if you want the MariaDB EVENT to run.")
-	finally:
-		root_conn.close()
+		root_conn.sql("SET GLOBAL event_scheduler = ON")
+	except Exception as exc:
+		print(f"Could not SET GLOBAL event_scheduler=ON: {exc}")
+		print("Add event_scheduler=ON to my.cnf if you want the MariaDB EVENT to run.")
 
 
-def create_snapshot_event(
-	schedule_minutes,
-	retain_days,
-	root_login=None,
-	root_password=None,
-):
+def create_snapshot_event(root_conn, schedule_minutes, retain_days):
 	db_name = frappe.conf.db_name
 	event_body = build_event_body_sql(retain_days)
-	root_conn = get_superuser_connection(root_login, root_password)
 	try:
-		root_conn.sql(f"DROP EVENT IF EXISTS `{db_name}`.`{EVENT_NAME}`")
-		root_conn.sql(
+		root_conn.sql_ddl(f"DROP EVENT IF EXISTS `{db_name}`.`{EVENT_NAME}`")
+		root_conn.sql_ddl(
 			f"""
 			CREATE EVENT `{db_name}`.`{EVENT_NAME}`
 			ON SCHEDULE EVERY {int(schedule_minutes)} MINUTE
@@ -407,6 +393,7 @@ def create_snapshot_event(
 			"""
 		)
 		print(f"Created event {EVENT_NAME} in {db_name}.")
+		return True
 	except Exception as exc:
 		print(f"Could not create MariaDB EVENT: {exc}")
 		print("Optional Frappe scheduler instead:")
@@ -415,8 +402,7 @@ def create_snapshot_event(
 			'    "cron": {"*/15 * * * *": ["test_utils.utils.mariadb_analytics.snapshot"]}\n'
 			"}"
 		)
-	finally:
-		root_conn.close()
+		return False
 
 
 def insert_snapshot_rows():
@@ -647,15 +633,42 @@ def prune_snapshots(retain_days):
 	frappe.db.commit()
 
 
+def get_consumer_status():
+	consumer_names = ", ".join(f"'{name}'" for name in CONSUMERS)
+	try:
+		return frappe.db.sql(
+			f"""
+			SELECT NAME, ENABLED
+			FROM performance_schema.setup_consumers
+			WHERE NAME IN ({consumer_names})
+			ORDER BY NAME
+			""",
+			as_dict=True,
+		)
+	except Exception as exc:
+		if getattr(exc, "args", (None,))[0] == 1142:
+			print(
+				"\nConsumers: site user cannot read performance_schema.setup_consumers "
+				"(expected after enable())."
+			)
+			return []
+		raise
+
+
 def digest_table_is_full():
-	row = frappe.db.sql(
-		"""
-		SELECT COUNT(*) AS cnt
-		FROM performance_schema.events_statements_summary_by_digest
-		WHERE DIGEST IS NULL
-		""",
-		as_dict=True,
-	)
+	try:
+		row = frappe.db.sql(
+			"""
+			SELECT COUNT(*) AS cnt
+			FROM performance_schema.events_statements_summary_by_digest
+			WHERE DIGEST IS NULL
+			""",
+			as_dict=True,
+		)
+	except Exception as exc:
+		if getattr(exc, "args", (None,))[0] == 1142:
+			return False
+		raise
 	return bool(row and row[0]["cnt"])
 
 

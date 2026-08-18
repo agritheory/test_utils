@@ -6,22 +6,25 @@ Runs under `bench --site … console` or `bench execute`. Not a Frappe app hook 
 
 ## Prerequisites
 
-MariaDB with Performance Schema enabled. If it is off, `enable()` prints a `my.cnf` snippet and exits without failing:
+MariaDB with Performance Schema enabled. If it is off, `enable()` prints guidance and exits without failing.
+
+On Debian/Ubuntu, put **server-only** settings in `mariadb.conf.d` under `[mysqld]` — not in shared sections of `mariadb.cnf` (the client will reject them):
+
+```bash
+sudo nano /etc/mysql/mariadb.conf.d/99-performance-schema.cnf
+```
 
 ```ini
 [mysqld]
 performance_schema=ON
-performance-schema-instrument='wait/%=ON'
-performance-schema-instrument='statement/%=ON'
-performance-schema-consumer-events-waits-current=ON
-performance-schema-consumer-events-statements-current=ON
-performance-schema-consumer-events-statements-history=ON
-performance-schema-consumer-statements-digest=ON
+event_scheduler=ON
 ```
 
 Restart MariaDB after editing `my.cnf`.
 
-For the optional MariaDB `EVENT` scheduler, `event_scheduler=ON` is also required (in `my.cnf` or set globally). `enable()` tries `SET GLOBAL event_scheduler=ON` using the superuser connection.
+Instruments and consumers are turned on at runtime by `enable()` (superuser). You do not need the MySQL-style `performance-schema-instrument` / `performance-schema-consumer-*` lines in `my.cnf` on MariaDB.
+
+For the optional MariaDB `EVENT` scheduler, `event_scheduler=ON` in `[mysqld]` is required if `SET GLOBAL event_scheduler=ON` is blocked. `enable()` tries the global SET using the superuser connection.
 
 ## Credentials
 
@@ -29,8 +32,10 @@ Two MariaDB roles, same pattern as `bench new-site`:
 
 | Role | Connection | Used for |
 |------|------------|----------|
-| Site user | `frappe.db` (`db_name` / `db_password` in site config) | Snapshot tables, reads from Performance Schema, `status()`, `snapshot()`, `top_*` |
+| Site user | `frappe.db` (`db_name` / `db_password` in site config) | Snapshot tables, summary reads, `snapshot()`, `top_*`, most of `status()` |
 | Superuser | Frappe `get_root_connection()` | `enable()` only — `UPDATE performance_schema.setup_*`, `CREATE EVENT` |
+
+The site user typically **cannot** read `performance_schema.setup_consumers`; `status()` skips that section with a note. Instrumentation is configured during `enable()`.
 
 `enable()` resolves the superuser the same way `bench new-site` does:
 
