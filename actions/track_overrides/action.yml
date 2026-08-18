@@ -47,12 +47,21 @@ runs:
 
           printf '%s\n' "$changed_methods" > diff_output.txt
 
-          if [[ $exitcode -ne 0 ]] && [[ -n "$changed_methods" ]]; then
+          # 1 means overrides really changed, 2 means upstream could not be reached.
+          # Anything else non-zero is an unexpected crash. Only 1 may post a diff comment.
+          if [[ $exitcode -eq 1 ]]; then
             echo "Override methods have changed in the upstream repository."
             echo "Changed methods: $changed_methods"
             echo "has_changes=true" >> $GITHUB_ENV
+            echo "unverified=false" >> $GITHUB_ENV
+          elif [[ $exitcode -ne 0 ]]; then
+            echo "::error::track_overrides could not check overrides against upstream (exit $exitcode)."
+            echo "$changed_methods"
+            echo "has_changes=false" >> $GITHUB_ENV
+            echo "unverified=true" >> $GITHUB_ENV
           else
             echo "has_changes=false" >> $GITHUB_ENV
+            echo "unverified=false" >> $GITHUB_ENV
           fi
 
     - name: Post comment on PR if overrides changed
@@ -85,6 +94,13 @@ runs:
       if: env.has_changes == 'true'
       run: |
         echo "Override methods have changed in the upstream repository."
+        exit 1
+
+    - name: Fail if overrides could not be checked
+      shell: bash
+      if: env.unverified == 'true'
+      run: |
+        echo "Could not check overrides against upstream. This is not a drift report."
         exit 1
 
     - name: Cleanup

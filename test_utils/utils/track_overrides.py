@@ -1,27 +1,49 @@
 """Shared utilities for tracking method overrides across repositories."""
 
 import difflib
+import os
 import re
 
 import requests
 
 
+class UpstreamFetchError(Exception):
+	"""GitHub could not be reached. Distinct from an override actually having changed."""
+
+
 def download_file_from_commit(repo_url, commit_hash, file_path):
 	repo_url_split = repo_url.strip("/").split("/")
 	username, repo_name = repo_url_split[-2], repo_url_split[-1]
-	raw_url = (
-		f"https://raw.githubusercontent.com/{username}/{repo_name}/{commit_hash}/{file_path}"
-	)
-	response = requests.get(raw_url)
+	token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+
+	if token:
+		# raw.githubusercontent.com rate limits per IP and ignores the token, which 429s on
+		# shared CI runners. The contents API honours it.
+		response = requests.get(
+			f"https://api.github.com/repos/{username}/{repo_name}/contents/{file_path}",
+			params={"ref": commit_hash},
+			headers={
+				"Authorization": f"token {token}",
+				"Accept": "application/vnd.github.raw",
+			},
+		)
+	else:
+		response = requests.get(
+			f"https://raw.githubusercontent.com/{username}/{repo_name}/{commit_hash}/{file_path}"
+		)
+
 	if response.status_code == 200:
 		return response.text
-	print(
-		f"Failed to fetch file {file_path} from commit {commit_hash}: {response.status_code} - {response.reason}"
+	raise UpstreamFetchError(
+		f"Failed to fetch file {file_path} from commit {commit_hash}: "
+		f"{response.status_code} - {response.reason}"
 	)
-	return None
 
 
 def extract_method(source_code, method_name):
+	if not source_code:
+		return None
+
 	method_pattern = re.compile(
 		rf"def\s+{re.escape(method_name)}\s*\(.*?\):.*?(?=^\s*def\s+|\Z)",
 		re.DOTALL | re.MULTILINE,
