@@ -8,6 +8,7 @@ from collections.abc import Sequence
 import requests
 
 from test_utils.utils.track_overrides import (
+	UpstreamFetchError,
 	compare_method_diff,
 	download_file_from_commit,
 	extract_method,
@@ -41,8 +42,9 @@ def get_last_commit_hash_for_file_in_branch(repo_url, file_path, base_branch):
 	response = requests.get(api_url, params=params, headers=headers or None)
 
 	if response.status_code != 200:
-		print(f"Failed to fetch commits: {response.status_code} - {response.reason}")
-		return None
+		raise UpstreamFetchError(
+			f"Failed to fetch commits for {file_path}: {response.status_code} - {response.reason}"
+		)
 
 	commits = response.json()
 	return commits[0]["sha"] if commits else None
@@ -67,6 +69,7 @@ def print_diff(diff_text, color=True):
 
 def check_tracked_methods(repo_directory, base_branch, apps_filter=None):
 	changed_methods = []
+	unverified = []
 	pattern = (
 		r"(?:APP:\s*([\w_-]+)\s+)?"
 		r"HASH:\s*(\w+)\s*REPO:\s*([\w\/:.]+)\s*PATH:\s*([\w\/.]+)\s*METHOD:\s*([\w]+)"
@@ -85,18 +88,23 @@ def check_tracked_methods(repo_directory, base_branch, apps_filter=None):
 			elif not app_name:
 				app_name = os.path.basename(repo_directory) if repo_directory else ""
 
-			latest_commit_hash = get_last_commit_hash_for_file_in_branch(
-				repo_url, original_file_path, base_branch
-			)
-			if not latest_commit_hash or latest_commit_hash == commit_hash:
-				continue
+			try:
+				latest_commit_hash = get_last_commit_hash_for_file_in_branch(
+					repo_url, original_file_path, base_branch
+				)
+				if not latest_commit_hash or latest_commit_hash == commit_hash:
+					continue
 
-			old_file_content = download_file_from_commit(
-				repo_url, commit_hash, original_file_path
-			)
-			new_file_content = download_file_from_commit(
-				repo_url, latest_commit_hash, original_file_path
-			)
+				old_file_content = download_file_from_commit(
+					repo_url, commit_hash, original_file_path
+				)
+				new_file_content = download_file_from_commit(
+					repo_url, latest_commit_hash, original_file_path
+				)
+			except UpstreamFetchError as e:
+				if apps_filter is None or app_name in apps_filter:
+					unverified.append(str(e))
+				continue
 
 			method_at_hash = extract_method(old_file_content, method_name)
 			latest_method = extract_method(new_file_content, method_name)
@@ -111,7 +119,7 @@ def check_tracked_methods(repo_directory, base_branch, apps_filter=None):
 						}
 					)
 
-	return changed_methods
+	return changed_methods, unverified
 
 
 def main(argv: Sequence[str] = None):
@@ -149,10 +157,14 @@ def main(argv: Sequence[str] = None):
 
 	if base_branch:
 		changed_methods = []
+		unverified = []
 		for repo_directory in directories:
-			changed_methods.extend(
-				check_tracked_methods(repo_directory, base_branch, apps_filter=apps_filter)
+			changed, could_not_check = check_tracked_methods(
+				repo_directory, base_branch, apps_filter=apps_filter
 			)
+			changed_methods.extend(changed)
+			unverified.extend(could_not_check)
+
 		if changed_methods:
 			print(
 				"\n[PRE-COMMIT HOOK] Method changes detected! Please review before committing."
@@ -161,5 +173,17 @@ def main(argv: Sequence[str] = None):
 				print(change["title"])
 				print_diff(change["diff"], color=not args.no_color)
 				print("")
+
+		if unverified:
+			print("\n[PRE-COMMIT HOOK] Could not check these overrides against upstream:")
+			for message in unverified:
+				print(f"  {message}")
+			print("")
+
+		# Exit 2 says nothing about drift, only that upstream could not be reached. Callers
+		# must not read it as a clean run.
+		if changed_methods:
 			sys.exit(1)
+		if unverified:
+			sys.exit(2)
 	sys.exit(0)
