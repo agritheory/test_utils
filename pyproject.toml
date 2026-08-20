@@ -36,7 +36,7 @@ requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-version = "1.29.0"
+version = "1.29.1"
 packages = [{include = "test_utils"}]
 
 [tool.poetry.dependencies]
