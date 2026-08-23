@@ -164,10 +164,11 @@ def generate_changelog_with_anthropic(pr_data, env_vars):
 	prompt = prompt_template.format(pr_data=formatted_pr_data)
 
 	try:
+		# Anthropic SDK 1.0 removed temperature/top_p/top_k from messages.create().
+		# Current Claude models do not use sampling parameters.
 		response = client.messages.create(
 			model=env_vars["anthropic_model"],
 			max_tokens=env_vars["max_tokens"],
-			temperature=env_vars["temperature"],
 			messages=[{"role": "user", "content": prompt}],
 		)
 

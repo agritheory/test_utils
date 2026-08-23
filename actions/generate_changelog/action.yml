@@ -60,7 +60,7 @@ inputs:
     required: false
     default: '1500'
   temperature:
-    description: 'Temperature for the model response (lower is more deterministic)'
+    description: 'Temperature for OpenAI and Bedrock responses (lower is more deterministic). Ignored for Anthropic; current Claude models do not accept sampling parameters.'
     required: false
     default: '0.2'
 
