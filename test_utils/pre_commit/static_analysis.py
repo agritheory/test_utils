@@ -41,6 +41,7 @@ def _run(args: argparse.Namespace) -> int:
 		validate_python_calls=not args.no_python_calls,
 		validate_jinja=not args.no_jinja,
 		validate_reports=not args.no_reports,
+		validate_nullable_filters=not args.no_nullable_filters,
 		detect_orphans=not args.no_orphans,
 		min_confidence=args.min_confidence,
 	)
@@ -124,6 +125,16 @@ def _run(args: argparse.Namespace) -> int:
 		else:
 			print(f"\n[reports] {label} — OK")
 
+	# Nullable filters
+	if result.nullable_filter_result is not None:
+		nfr = result.nullable_filter_result
+		label = f"Nullable filters ({nfr.calls_checked} calls checked)"
+		if nfr.warnings:
+			any_output = True
+			_print_section(f"[nullable_filters] {label}", nfr.warnings, prefix="  WARN:  ")
+		else:
+			print(f"\n[nullable_filters] {label} — OK")
+
 	# Orphans
 	if result.orphan_result is not None:
 		orph = result.orphan_result
@@ -206,6 +217,13 @@ def main(argv: Sequence[str] | None = None) -> None:
 		action="store_true",
 		default=False,
 		help="Skip report directory function validation",
+	)
+	parser.add_argument(
+		"--no-nullable-filters",
+		action="store_true",
+		default=False,
+		dest="no_nullable_filters",
+		help="Skip nullable Date/Datetime/Data range-filter validation",
 	)
 	parser.add_argument(
 		"--no-orphans",
