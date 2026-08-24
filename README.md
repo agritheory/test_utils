@@ -4,6 +4,8 @@ Development tools for [Frappe](https://frappeframework.com) apps: test fixtures,
 
 See [docs/index.md](docs/index.md) for a full overview of every tool.
 
+For Frappe Cloud Marketplace auto-publish from GitHub Actions, see [docs/frappe_cloud_publish.md](docs/frappe_cloud_publish.md).
+
 ---
 
 ## Installation
