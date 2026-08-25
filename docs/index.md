@@ -61,6 +61,12 @@ Test Utils is a collection of development tools for [Frappe](https://frappeframe
 
 ---
 
+### MariaDB performance analytics
+
+[`mariadb_analytics.md`](mariadb_analytics.md) documents Performance Schema snapshot tables, top-SQL / top-wait deltas, and one-shot enable for Frappe sites.
+
+---
+
 
 ### Static Analysis
 
