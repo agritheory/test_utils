@@ -73,7 +73,7 @@
   entry: sql_docstring_formatter
   language: python
   types: [python]
-  additional_dependencies: ['sqlglot>=25.0.0']
+  additional_dependencies: ['sqlglot>=30.12,<31']
   args: ['--dialect', 'mysql']
 
 - id: sql_registry
@@ -83,7 +83,7 @@
   language: python
   files: '\.py$'
   require_serial: true
-  additional_dependencies: ['sqlglot>=25.0.0']
+  additional_dependencies: ['sqlglot>=30.12,<31']
   args: ['scan']
 
 - id: sql_rewriter
@@ -94,7 +94,7 @@
   pass_filenames: false
   always_run: true
   require_serial: true
-  additional_dependencies: ['sqlglot>=25.0.0']
+  additional_dependencies: ['sqlglot>=30.12,<31']
   
 - id: bylines
   name: bylines

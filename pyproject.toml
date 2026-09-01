@@ -44,7 +44,7 @@ python = ">=3.10,<4"
 mypy = "^1.15.0"
 toml = "^0.10.2"
 requests = "^2.32.3"
-sqlglot = "^25.33.0"
+sqlglot = ">=30.12,<31"
 asttokens = ">=2.4.0"
 astpath = {extras = ["xpath"], version = "^0.9.1"}
 vulture = ">=2.0"

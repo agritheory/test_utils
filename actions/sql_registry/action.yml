@@ -32,7 +32,7 @@ runs:
     - name: Install dependencies
       shell: bash
       run: |
-        pip install sqlglot>=25.0.0
+        pip install 'sqlglot>=30.12,<31'
         pip install ${{ github.action_path }}/../..
 
     - name: Load previous registry (if exists)

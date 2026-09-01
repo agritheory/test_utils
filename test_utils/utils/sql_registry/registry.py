@@ -13,6 +13,7 @@ from pathlib import Path
 
 import sqlglot
 from sqlglot import exp
+from sqlglot.errors import ParseError
 
 from test_utils.utils.sql_registry.models import SQLCall
 from test_utils.utils.sql_registry.converter import SQLToQBConverter
@@ -314,7 +315,7 @@ class SQLRegistry:
 		for placeholder, original in replacements:
 			if original.startswith("{") and original.endswith("}"):
 				inner = original[1:-1]
-				if re.search(r"[\[\]()+=\-*/]", inner):
+				if re.search(r"[\[\]()+=\-*/.]", inner):
 					return False, f"Complex f-string expression: {original}"
 				if "(" in inner:
 					return False, f"F-string with function call: {original}"
@@ -348,7 +349,7 @@ class SQLRegistry:
 
 		try:
 			sql_cleaned, _ = self.replace_sql_patterns(sql_query)
-			parsed = sqlglot.parse(sql_cleaned, dialect="mysql")
+			parsed = self.parse_mysql(sql_cleaned)
 			if parsed and parsed[0]:
 				ast_obj = parsed[0]
 				from_clause = ast_obj.find(exp.From)
@@ -356,17 +357,30 @@ class SQLRegistry:
 					table_str = str(from_clause.this) if from_clause.this else ""
 					if "__PH" in table_str:
 						return False, "Dynamic table name"
+		except ParseError:
+			return False, "Could not parse SQL"
 		except Exception:
 			pass
 
 		return True, None
+
+	def parse_mysql(self, sql_cleaned: str):
+		"""Parse MySQL after placeholder substitution.
+
+		``KILL {pid}`` becomes ``KILL __PH0__``, which sqlglot 30 rejects because
+		``Kill.this`` is required. A dummy numeric target is enough to get an AST.
+		"""
+		sql_for_parse = sql_cleaned
+		if re.match(r"^\s*kill\b", sql_cleaned, re.I):
+			sql_for_parse = re.sub(r"__PH\d+__", "0", sql_cleaned)
+		return sqlglot.parse(sql_for_parse, dialect="mysql")
 
 	def analyze_sql(
 		self, sql_query: str, sql_params: dict = None, variable_name: str = None
 	) -> tuple[str, str, str]:
 		try:
 			sql_cleaned, replacements = self.replace_sql_patterns(sql_query)
-			parsed = sqlglot.parse(sql_cleaned, dialect="mysql")
+			parsed = self.parse_mysql(sql_cleaned)
 			if not parsed or not parsed[0]:
 				return "", "UNPARSABLE", "# Could not parse SQL"
 			ast_object = parsed[0]
@@ -375,6 +389,9 @@ class SQLRegistry:
 				ast_object, replacements, sql_params, variable_name
 			)
 			return str(ast_object), semantic_sig, qb_equivalent
+		except ParseError as e:
+			msg = re.sub(r"\x1b\[[0-9;]*m", "", str(e)).split("\n", 1)[0].strip()
+			return "", "UNPARSABLE", f"# MANUAL: Could not parse SQL: {msg}"
 		except Exception as e:
 			return "", f"ERROR: {str(e)}", f"# Error analyzing SQL: {str(e)}"
 
@@ -446,7 +463,7 @@ class SQLRegistry:
 		validation_notes = None
 		if not qb_equivalent.startswith("#"):
 			try:
-				parsed = sqlglot.parse(sql_cleaned, dialect="mysql")
+				parsed = self.parse_mysql(sql_cleaned)
 				if parsed and parsed[0]:
 					is_valid, validation_error = self.validate_conversion(parsed[0], qb_equivalent)
 					conversion_validated = is_valid
