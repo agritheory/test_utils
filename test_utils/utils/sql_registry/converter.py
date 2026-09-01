@@ -2,7 +2,6 @@
 
 import ast
 import re
-import sqlglot
 from sqlglot import exp
 
 from test_utils.utils.sql_registry.models import (
@@ -44,7 +43,7 @@ def _resolve_positional(placeholder: str, replacements: list, sql_params: dict):
 
 
 class SQLToQBConverter:
-	def generate_semantic_signature(self, ast_object: sqlglot.Expression) -> str:
+	def generate_semantic_signature(self, ast_object: exp.Expr) -> str:
 		try:
 			normalized = ast_object.copy()
 
@@ -60,7 +59,7 @@ class SQLToQBConverter:
 
 	def ast_to_query_builder(
 		self,
-		ast_object: sqlglot.Expression,
+		ast_object: exp.Expr,
 		replacements: list[tuple[str, str]],
 		sql_params: dict = None,
 		variable_name: str = None,
@@ -79,6 +78,8 @@ class SQLToQBConverter:
 				result = self.convert_update_to_qb(ast_object, replacements, sql_params)
 			elif isinstance(ast_object, exp.Delete):
 				result = self.convert_delete_to_qb(ast_object, replacements, sql_params)
+			elif isinstance(ast_object, exp.Kill):
+				return "# MANUAL: KILL is a session command — not convertible to Query Builder"
 			else:
 				return f"# Unsupported query type: {type(ast_object).__name__}"
 
@@ -694,6 +695,13 @@ class SQLToQBConverter:
 
 		return "\n".join(lines)
 
+	def distinct_inner_exprs(self, expr: exp.Distinct) -> list:
+		"""sqlglot 30 stores DISTINCT columns on ``expressions``, not ``this``."""
+		inners = list(expr.expressions or [])
+		if not inners and expr.this:
+			inners = [expr.this]
+		return inners
+
 	def format_select_field(
 		self,
 		expr,
@@ -752,6 +760,19 @@ class SQLToQBConverter:
 			return f'{inner}.as_("{alias_name}")'
 
 		# Handle aggregate functions - use pypika functions from Frappe QB
+		if isinstance(expr, exp.Distinct):
+			inners = self.distinct_inner_exprs(expr)
+			if len(inners) == 1:
+				inner = self.format_select_field(
+					inners[0], table_vars, main_var, replacements, sql_params
+				)
+				return f"{inner}.distinct()"
+			formatted = [
+				self.format_select_field(inner, table_vars, main_var, replacements, sql_params)
+				for inner in inners
+			]
+			return f"({', '.join(formatted)}).distinct()" if formatted else "'*'.distinct()"
+
 		if isinstance(expr, exp.Count):
 			if isinstance(expr.this, exp.Star):
 				return 'fn.Count("*")'
@@ -903,7 +924,7 @@ class SQLToQBConverter:
 				field_ref = f"{main_var}.{column_name}"
 		else:
 			# Get the actual field name from other expression types
-			if hasattr(expr, "this"):
+			if expr.this:
 				field_str = str(expr.this).strip("`\"'")
 			else:
 				field_str = expr_str.replace("DISTINCT", "").strip("`\"' ")
@@ -1292,6 +1313,15 @@ class SQLToQBConverter:
 			return f"fn.Coalesce({inner}, {fallback})"
 
 		# Handle aggregation functions
+		if isinstance(field, exp.Distinct):
+			inners = self.distinct_inner_exprs(field)
+			if not inners:
+				return "'*'.distinct()"
+			formatted = [self.format_field(inner, table_vars) for inner in inners]
+			if len(formatted) == 1:
+				return f"{formatted[0]}.distinct()"
+			return f"({', '.join(formatted)}).distinct()"
+
 		if isinstance(field, exp.Count):
 			if field.this and str(field.this) == "*":
 				return 'fn.Count("*")'

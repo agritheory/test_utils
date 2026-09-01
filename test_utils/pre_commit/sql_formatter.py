@@ -257,7 +257,7 @@ def format_sql_content(
 		sql_for_format, replacements = replace_sql_patterns(sql)
 		print(f"\nProcessing {file_path}:{line_num}")
 
-		parsed = parse(sql_for_format, read=dialect)[0]
+		parsed = parse(sql_for_format, dialect=dialect)[0]
 		resolved = resolve_columns(parsed)
 		qualified = qualify_outputs(parsed)
 		quoted = ensure_quoting(qualified)
