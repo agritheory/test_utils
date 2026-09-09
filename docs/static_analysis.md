@@ -47,6 +47,38 @@ Scans every Python file inside any `report/` directory in the app (including nes
 - Not decorated with `@frappe.whitelist()`
 - Not called directly by `execute()`
 
+### nullable_filters
+
+Scans `frappe.get_all` / `get_list` / `get_count` / `frappe.db.exists` calls for a list-form filter clause that compares a nullable `Date`, `Datetime`, `Time`, or `Data` field with a range operator (`<`, `>`, `<=`, `>=`) — cross-referenced against the DocType JSON to confirm the field is not `reqd` and has no `default`.
+
+Frappe's query builder wraps filters on nullable columns in `ifnull(col, '')`. For a comparison operator this makes `''` a valid operand — `'' < '2026-01-01'` is string-true on both MariaDB and Postgres — so a filter like `["due_date", "<", nowdate()]` silently matches rows where `due_date` is `NULL`, not just rows before the date.
+
+Warns unless the same field also has an `["field", "is", "set"]` (or `"not set"`) clause in the same filter list — Frappe's list-form filters allow two conditions on one fieldname, which is the fix:
+
+```python
+# Warns: a NULL grace_period_deadline reads as '' and '' < now is string-true,
+# so not-yet-due rows are swept up as already expired.
+frappe.get_all(
+    "Remote Cloud Bench Purchase",
+    filters=[
+        ["purchase_status", "=", "Past Due"],
+        ["grace_period_deadline", "<", now],
+    ],
+)
+
+# Clean: the "is set" guard excludes NULL rows before the comparison runs.
+frappe.get_all(
+    "Remote Cloud Bench Purchase",
+    filters=[
+        ["purchase_status", "=", "Past Due"],
+        ["grace_period_deadline", "is", "set"],
+        ["grace_period_deadline", "<", now],
+    ],
+)
+```
+
+This is always a warning, never a hard error — a caller may have already excluded NULLs earlier in the same request (e.g. via a preceding non-range filter that's mutually exclusive with NULL), and the check doesn't attempt to prove that.
+
 ### orphans
 
 Runs [Vulture](https://github.com/jendrikseipp/vulture) against the app to detect unused imports, variables, and functions. Before running, the analyzer seeds a Vulture whitelist with all discovered entry points (whitelisted functions, hooks paths, doctype controllers) so they are not incorrectly flagged.

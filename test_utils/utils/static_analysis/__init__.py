@@ -21,6 +21,7 @@ import toml
 from .frontend_validator import FrontendValidationResult, FrontendValidator
 from .hooks_validator import HooksValidationResult, HooksValidator
 from .jinja_validator import JinjaValidationResult, JinjaValidator
+from .nullable_filter_validator import NullableFilterValidationResult, NullableFilterValidator
 from .orphan_detector import OrphanDetector, OrphanResult
 from .patches_validator import PatchesValidationResult, PatchesValidator
 from .path_resolver import PathResolver
@@ -43,6 +44,7 @@ class StaticAnalysisConfig:
 	validate_python_calls: bool = True
 	validate_jinja: bool = True
 	validate_reports: bool = True
+	validate_nullable_filters: bool = True
 	detect_orphans: bool = True
 	min_confidence: int = 80
 	ignore_patterns: list[str] = field(default_factory=list)
@@ -58,6 +60,7 @@ class StaticAnalysisResult:
 	python_call_result: PythonCallValidationResult | None = None
 	jinja_result: JinjaValidationResult | None = None
 	report_result: ReportValidationResult | None = None
+	nullable_filter_result: NullableFilterValidationResult | None = None
 	orphan_result: OrphanResult | None = None
 
 	@property
@@ -104,6 +107,7 @@ class StaticAnalysisResult:
 			self.python_call_result,
 			self.jinja_result,
 			self.report_result,
+			self.nullable_filter_result,
 		):
 			if r is not None:
 				msgs.extend(r.warnings)
@@ -122,6 +126,7 @@ class StaticAnalysisResult:
 			"python_calls": r(self.python_call_result),
 			"jinja": r(self.jinja_result),
 			"reports": r(self.report_result),
+			"nullable_filters": r(self.nullable_filter_result),
 			"orphans": r(self.orphan_result),
 		}
 
@@ -300,6 +305,9 @@ class StaticAnalyzer:
 
 		if self.config.validate_reports:
 			result.report_result = ReportValidator(self.app_path).validate()
+
+		if self.config.validate_nullable_filters:
+			result.nullable_filter_result = NullableFilterValidator().validate(self.app_path)
 
 		if self.config.detect_orphans:
 			from .hooks_validator import PathExtractor
