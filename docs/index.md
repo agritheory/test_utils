@@ -103,4 +103,4 @@ Test Utils ships reference fixture data for bootstrapping Frappe/ERPNext test en
 - [Translate Docs](actions/translate_docs.md) translates changed English documentation and opens a pull request for each target language.
 - [Track Overrides](actions/track_overrides.md) compares annotated method overrides with upstream and comments when that upstream method has moved.
 - [Print Format Diff](actions/diff_print_format.md) comments the diff of print format JSON on the pull request.
-- [Publish Docs](actions/publish_docs.md) is for AgriTheory apps only. After a release that changes markdown, it rebuilds the AgriTheory website so documentation is refetched and search is reindexed.
+- [Publish Docs](actions/publish_docs.md) is for AgriTheory apps only. When a push to the default branch changes markdown, it rebuilds the AgriTheory website so documentation is refetched and search is reindexed.

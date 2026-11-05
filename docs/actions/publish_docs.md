@@ -1,20 +1,21 @@
 # Publish Docs
 
-This action is for AgriTheory apps only. After a release that changes markdown, it starts a rebuild of the AgriTheory website so the site can refetch that app's documentation and reindex search.
+This action is for AgriTheory apps only. When a push to the default branch changes markdown, it starts a rebuild of the AgriTheory website so the site can refetch that app's documentation and reindex search.
+
+A `docs:` commit does not publish a version. The action compares the push itself, not the semantic-release tag.
 
 Other projects that use test_utils should leave this action unused. It is not a general documentation publisher.
 
 ## Usage
 
-Add this step to an AgriTheory app's release workflow, after semantic-release publishes a version:
+Run it on every push to the default branch:
 
 ```yaml
 - name: Publish docs
-  if: steps.release.outputs.released == 'true'
   uses: agritheory/test_utils/actions/publish_docs@main
   with:
-    tag: ${{ steps.release.outputs.tag }}
-    previous_version: ${{ steps.release.outputs.previous_version }}
+    before: ${{ github.event.before }}
+    sha: ${{ github.sha }}
     token: ${{ secrets.ATSITE_WORKFLOW_TOKEN }}
 ```
 

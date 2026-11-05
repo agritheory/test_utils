@@ -27,9 +27,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish docs
-        if: steps.release.outputs.released == 'true'
         uses: ./actions/publish_docs
         with:
-          tag: ${{ steps.release.outputs.tag }}
-          previous_version: ${{ steps.release.outputs.previous_version }}
+          before: ${{ github.event.before }}
+          sha: ${{ github.sha }}
           token: ${{ secrets.ATSITE_WORKFLOW_TOKEN }}
