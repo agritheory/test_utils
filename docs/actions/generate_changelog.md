@@ -66,7 +66,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Generate Changelog
         uses: agritheory/test_utils/actions/generate_changelog@main
@@ -141,7 +141,7 @@ permissions:
   pull-requests: write
 
 steps:
-  - uses: actions/checkout@v4
+  - uses: actions/checkout@v7
 
   - name: Configure AWS credentials
     uses: aws-actions/configure-aws-credentials@v4
