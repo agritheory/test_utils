@@ -1,5 +1,5 @@
 name: Publish Docs
-description: Rebuild the AgriTheory site when a release includes markdown changes
+description: Rebuild the AgriTheory website after a release that changes markdown. For AgriTheory apps only.
 author: AgriTheory
 
 inputs:
