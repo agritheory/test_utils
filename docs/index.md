@@ -96,13 +96,11 @@ Test Utils ships reference fixture data for bootstrapping Frappe/ERPNext test en
 
 ---
 
-## GitHub Action Templates
+## GitHub Actions
 
-Reusable GitHub Action workflows are in the `actions/` directory:
-
-- Lint
-- Python semantic release
-- Synchronization report with this library
-- Translated documentation pull requests
-
-[`actions/publish_docs`](actions/publish_docs.md) is not one of those templates. It rebuilds the AgriTheory website after a release that changes markdown, and it is only meant to be installed on AgriTheory apps.
+- [Code Duplication](actions/code-duplication.md) reports copy-paste in Python, JavaScript, and TypeScript on pull requests, and fails when clone or percentage thresholds are exceeded.
+- [Changelog Generator](actions/generate_changelog.md) writes a draft changelog comment from the pull request. [Release integration](actions/generate_changelog-release-integration.md) covers using that comment as the release notes.
+- [Translate Docs](actions/translate_docs.md) translates changed English documentation and opens a pull request for each target language.
+- [Track Overrides](actions/track_overrides.md) compares annotated method overrides with upstream and comments when that upstream method has moved.
+- [Print Format Diff](actions/diff_print_format.md) comments the diff of print format JSON on the pull request.
+- [Publish Docs](actions/publish_docs.md) is for AgriTheory apps only. After a release that changes markdown, it rebuilds the AgriTheory website so documentation is refetched and search is reindexed.
