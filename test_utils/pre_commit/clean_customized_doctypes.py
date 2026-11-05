@@ -6,6 +6,48 @@ import tempfile
 import shutil
 from collections.abc import Sequence
 
+from test_utils.pre_commit.validate_customizations import _resolve_app_dir
+
+CUSTOM_FIELD_DEFAULTS = {
+	"allow_in_quick_entry": 0,
+	"allow_on_submit": 0,
+	"bold": 0,
+	"collapsible": 0,
+	"columns": 0,
+	"fetch_if_empty": 0,
+	"hidden": 0,
+	"hide_border": 0,
+	"hide_days": 0,
+	"hide_seconds": 0,
+	"ignore_user_permissions": 0,
+	"ignore_xss_filter": 0,
+	"in_global_search": 0,
+	"in_list_view": 0,
+	"in_preview": 0,
+	"in_standard_filter": 0,
+	"is_system_generated": 0,
+	"is_virtual": 0,
+	"length": 0,
+	"no_copy": 0,
+	"non_negative": 0,
+	"permlevel": 0,
+	"print_hide": 0,
+	"print_hide_if_no_value": 0,
+	"read_only": 0,
+	"report_hide": 0,
+	"reqd": 0,
+	"search_index": 0,
+	"show_dashboard": 0,
+	"sort_options": 0,
+	"translatable": 0,
+	"unique": 0,
+}
+
+PROPERTY_SETTER_DEFAULTS = {
+	"idx": 0,
+	"is_system_generated": 0,
+}
+
 
 def is_frappe_bench_environment():
 	current_dir = pathlib.Path.cwd()
@@ -91,26 +133,50 @@ def strip_default_fields(doc: dict, doc_export: bool = False):
 
 	EXTRA_DEFAULT_KEYS = {"_assign", "_comments", "_liked_by", "_user_tags", "_seen"}
 
-	PRESERVE_KEYS = {"property_setters", "custom_fields", "value", "default"}
+	PRESERVE_KEYS = {"property_setters", "custom_fields", "value"}
 	DEFAULT_KEYS = DEFAULT_FIELDS | EXTRA_DEFAULT_KEYS
 
 	# Rows in these top-level lists are matched back to their owning doctype by
 	# "parent" during sync_customizations_for_doctype, so it must not be stripped.
 	PRESERVE_PARENT_FOR_KEYS = {"links", "custom_perms"}
 
-	def clean(obj, is_child=False, preserve_parent=False):
+	def strip_customization_value(key, val, record_type):
+		if key == "default" and val is None:
+			return True
+		if record_type == "custom_field" and key in CUSTOM_FIELD_DEFAULTS:
+			return val == CUSTOM_FIELD_DEFAULTS[key]
+		if record_type == "property_setter" and key in PROPERTY_SETTER_DEFAULTS:
+			return val == PROPERTY_SETTER_DEFAULTS[key]
+		return False
+
+	def clean(obj, is_child=False, preserve_parent=False, record_type=None):
 		if isinstance(obj, dict):
 			new_obj = {}
 
 			for key, val in obj.items():
 				if key in DEFAULT_KEYS and not (key == "parent" and preserve_parent):
 					continue
+				if record_type and strip_customization_value(key, val, record_type):
+					continue
 				if key not in PRESERVE_KEYS and val in (None, "", [], {}):
 					continue
 
-				if isinstance(val, (dict, list)):
+				if key == "custom_fields" and isinstance(val, list):
+					new_obj[key] = [
+						clean(v, record_type="custom_field") for v in val if v not in (None, "", [], {})
+					]
+				elif key == "property_setters" and isinstance(val, list):
+					new_obj[key] = [
+						clean(v, record_type="property_setter")
+						for v in val
+						if v not in (None, "", [], {})
+					]
+				elif isinstance(val, (dict, list)):
 					new_obj[key] = clean(
-						val, is_child=is_child, preserve_parent=key in PRESERVE_PARENT_FOR_KEYS
+						val,
+						is_child=is_child,
+						preserve_parent=key in PRESERVE_PARENT_FOR_KEYS,
+						record_type=record_type,
 					)
 				else:
 					new_obj[key] = val
@@ -132,7 +198,12 @@ def strip_default_fields(doc: dict, doc_export: bool = False):
 
 		elif isinstance(obj, list):
 			return [
-				clean(v, is_child=is_child, preserve_parent=preserve_parent)
+				clean(
+					v,
+					is_child=is_child,
+					preserve_parent=preserve_parent,
+					record_type=record_type,
+				)
 				for v in obj
 				if v not in (None, "", [], {})
 			]
@@ -143,10 +214,13 @@ def strip_default_fields(doc: dict, doc_export: bool = False):
 	return clean(doc)
 
 
-def get_customized_doctypes():
+def get_customized_doctypes(app_dir: pathlib.Path | None = None):
 	customized_doctypes = {}
-	this_app = pathlib.Path().resolve()
-	modules = (this_app / this_app.stem / "modules.txt").read_text().split("\n")
+	this_app = (app_dir or pathlib.Path().resolve()).resolve()
+	modules_file = this_app / this_app.stem / "modules.txt"
+	if not modules_file.exists():
+		return customized_doctypes
+	modules = modules_file.read_text().split("\n")
 	for module in modules:
 		if not (this_app / this_app.stem / scrub(module) / "custom").exists():
 			continue
@@ -171,8 +245,8 @@ def unscrub(txt: str) -> str:
 	return txt.replace("_", " ").replace("-", " ").title()
 
 
-def clean_customizations():
-	customized_doctypes = get_customized_doctypes()
+def clean_customizations(app_dir: pathlib.Path):
+	customized_doctypes = get_customized_doctypes(app_dir)
 	exceptions = validate_and_clean_customized_doctypes(customized_doctypes)
 	return exceptions
 
@@ -183,13 +257,17 @@ def main(argv: Sequence[str] = None):
 	parser.add_argument("--app", action="append", help="Target app to clean")
 	args = parser.parse_args(argv)
 
-	if is_frappe_bench_environment():
-		exceptions = clean_customizations()
-		if exceptions:
-			for exception in list(set(exceptions)):
-				print(exception)
+	if not is_frappe_bench_environment():
+		sys.exit(0)
 
-		sys.exit(1) if exceptions else sys.exit(0)
+	app_name = args.app[0] if args.app else None
+	app_dir = _resolve_app_dir(app_name)
+	exceptions = clean_customizations(app_dir)
+	if exceptions:
+		for exception in list(set(exceptions)):
+			print(exception)
+
+	sys.exit(1) if exceptions else sys.exit(0)
 
 
 if __name__ == "__main__":

@@ -16,11 +16,20 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Python Semantic Release
+        id: release
         uses: python-semantic-release/python-semantic-release@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish docs
+        if: steps.release.outputs.released == 'true'
+        uses: ./actions/publish_docs
+        with:
+          tag: ${{ steps.release.outputs.tag }}
+          previous_version: ${{ steps.release.outputs.previous_version }}
+          token: ${{ secrets.ATSITE_WORKFLOW_TOKEN }}

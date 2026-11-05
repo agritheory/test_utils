@@ -1,0 +1,45 @@
+name: Publish Docs
+description: Rebuild the AgriTheory website after a release that changes markdown. For AgriTheory apps only.
+author: AgriTheory
+
+inputs:
+  tag:
+    description: Git tag of the release that just published
+    required: true
+  previous_version:
+    description: Semantic version before this release, without the v prefix
+    required: true
+  token:
+    description: Token that can start agritheory/atsite workflows
+    required: true
+
+branding:
+  icon: book-open
+  color: green
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    - name: Docs changed in this release
+      id: docs
+      shell: bash
+      env:
+        TAG: ${{ inputs.tag }}
+        PREVIOUS: v${{ inputs.previous_version }}
+      run: |
+        if git diff --name-only "$PREVIOUS" "$TAG" -- ':(glob)**/*.md' | grep -q .; then
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Dispatch atsite generate
+      if: steps.docs.outputs.changed == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: gh workflow run ci.yml --repo agritheory/atsite --ref main

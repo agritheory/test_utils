@@ -104,3 +104,5 @@ Reusable GitHub Action workflows are in the `actions/` directory:
 - Python semantic release
 - Synchronization report with this library
 - Translated documentation pull requests
+
+[`actions/publish_docs`](actions/publish_docs.md) is not one of those templates. It rebuilds the AgriTheory website after a release that changes markdown, and it is only meant to be installed on AgriTheory apps.

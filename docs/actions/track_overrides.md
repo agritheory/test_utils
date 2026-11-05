@@ -82,7 +82,7 @@ jobs:
     name: Track Overrides
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Track Overrides
         uses: agritheory/test_utils/actions/track_overrides@main
